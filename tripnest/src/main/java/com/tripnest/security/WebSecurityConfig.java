@@ -60,6 +60,7 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/api/destinations/**").permitAll()
                     .anyRequest().authenticated());
 
     http.authenticationProvider(authenticationProvider());
