@@ -10,11 +10,14 @@ const Sidebar = () => {
     navigate("/login");
   };
 
-  const navItems = [
+const navItems = [
     { path: "/dashboard", icon: "⊞", label: "Dashboard" },
     { path: "/trips", icon: "✈️", label: "My Trips" },
     { path: "/itineraries", icon: "📅", label: "Itineraries" },
+    { path: "/budget", icon: "💰", label: "Budget" },
     { path: "/destinations", icon: "🌍", label: "Destinations" },
+    { path: "/notifications", icon: "🔔", label: "Notifications" },
+    { path: "/groups", icon: "👥", label: "Groups" },
     { path: "/profile", icon: "👤", label: "Profile" },
   ];
 
