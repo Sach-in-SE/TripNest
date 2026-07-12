@@ -19,6 +19,7 @@ const navItems = [
     { path: "/notifications", icon: "🔔", label: "Notifications" },
     { path: "/groups", icon: "👥", label: "Groups" },
     { path: "/profile", icon: "👤", label: "Profile" },
+    { path: "/documents", icon: "📁", label: "Documents" },
   ];
 
   return (
