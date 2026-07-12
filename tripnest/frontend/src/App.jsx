@@ -11,6 +11,7 @@ import Budget from "./pages/Budget";
 import Notifications from "./pages/Notifications";
 import Groups from "./pages/Groups";
 import Documents from "./pages/Documents";
+import OAuth2Redirect from "./pages/OAuth2Redirect";
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem("token");
@@ -36,6 +37,7 @@ function App() {
           <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
           <Route path="/itineraries" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
+          <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

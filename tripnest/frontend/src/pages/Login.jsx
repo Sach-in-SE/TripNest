@@ -27,6 +27,10 @@ const Login = () => {
     }
   };
 
+  const handleGoogleLogin = () => {
+    window.location.href = "http://localhost:8080/oauth2/authorization/google";
+  };
+
   return (
     <div style={styles.container}>
       {/* Left Panel */}
@@ -85,7 +89,8 @@ const Login = () => {
                 onChange={handleChange}
               />
             </div>
-            <button
+         
+         <button
               className="btn-aurora"
               onClick={handleSubmit}
               disabled={loading}
@@ -93,10 +98,30 @@ const Login = () => {
             >
               {loading ? "Signing in..." : "Sign In →"}
             </button>
+
+            <div style={styles.divider}>
+              <span style={styles.dividerLine} />
+              <span style={styles.dividerText}>OR</span>
+              <span style={styles.dividerLine} />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              style={styles.googleBtn}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/>
+                <path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29A11.96 11.96 0 000 12c0 1.93.46 3.76 1.29 5.38l3.98-3.09z"/>
+                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/>
+              </svg>
+              Sign in with Google
+            </button>
           </div>
 
           <p style={styles.switchText}>
-            Don't have an account?{" "}
+          Don't have an account?{" "}
             <Link to="/signup" style={styles.link}>Create one</Link>
           </p>
         </div>
@@ -196,14 +221,37 @@ const styles = {
     marginBottom: "20px",
   },
   form: { display: "flex", flexDirection: "column", gap: "20px" },
-  inputGroup: { display: "flex", flexDirection: "column", gap: "8px" },
-  label: { color: "#94a3b8", fontSize: "13px", fontWeight: "500" },
-  submitBtn: {
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    margin: "4px 0",
+  },
+  dividerLine: {
+    flex: 1,
+    height: "1px",
+    background: "rgba(255,255,255,0.1)",
+  },
+  dividerText: {
+    color: "#64748b",
+    fontSize: "12px",
+    fontWeight: "500",
+  },
+  googleBtn: {
     width: "100%",
-    padding: "14px",
-    fontSize: "15px",
-    fontWeight: "600",
-    marginTop: "8px",
+    padding: "12px",
+    fontSize: "14px",
+    fontWeight: "500",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "10px",
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    borderRadius: "10px",
+    color: "#f1f5f9",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
   },
   switchText: {
     textAlign: "center",

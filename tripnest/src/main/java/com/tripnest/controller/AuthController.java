@@ -24,6 +24,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.tripnest.dto.ForgotPasswordRequest;
+import com.tripnest.dto.ResetPasswordRequest;
+import com.tripnest.service.PasswordResetService;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -44,6 +47,9 @@ public class AuthController {
 
     @Autowired
     JwtUtils jwtUtils;
+
+    @Autowired
+    private PasswordResetService passwordResetService;
 
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
@@ -119,5 +125,26 @@ public class AuthController {
         userRepository.save(user);
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        try {
+            passwordResetService.createResetToken(request.getEmail());
+            return ResponseEntity.ok(new MessageResponse("If this email exists, a reset token has been generated. Check server logs for now."));
+        } catch (RuntimeException e) {
+            // Security best practice: same generic message chahe email exist kare ya na kare
+            return ResponseEntity.ok(new MessageResponse("If this email exists, a reset token has been generated. Check server logs for now."));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        try {
+            passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+            return ResponseEntity.ok(new MessageResponse("Password reset successfully!"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
     }
 }
