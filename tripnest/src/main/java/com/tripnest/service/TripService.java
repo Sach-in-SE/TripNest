@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
 @Service
 public class TripService {
 
@@ -20,6 +21,9 @@ public class TripService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private TripShareService tripShareService;
 
     public TripResponse createTrip(TripRequest request, Long userId) {
         User user = userRepository.findById(userId)
@@ -53,7 +57,9 @@ public class TripService {
     public TripResponse getTripById(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasSharedAccess = tripShareService.hasAccess(tripId, userId);
+        if (!isOwner && !hasSharedAccess) {
             throw new RuntimeException("Unauthorized");
         }
         return mapToResponse(trip);
@@ -62,7 +68,9 @@ public class TripService {
     public TripResponse updateTrip(Long tripId, TripRequest request, Long userId) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(tripId, userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -81,7 +89,7 @@ public class TripService {
         Trip updated = tripRepository.save(trip);
         return mapToResponse(updated);
     }
-
+    
     public void deleteTrip(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));

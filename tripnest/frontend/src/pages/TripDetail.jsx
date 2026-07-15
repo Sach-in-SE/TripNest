@@ -2,10 +2,14 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TripService from "../services/tripService";
+import ShareTripModal from "../components/ShareTripModal";
+import { useAuth } from "../context/AuthContext";
 
 const TripDetail = () => {
+  const [showShareModal, setShowShareModal] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [trip, setTrip] = useState(null);
   const [itineraries, setItineraries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -99,9 +103,15 @@ const TripDetail = () => {
             </div>
           </div>
           <div style={styles.tripHeaderRight}>
-            <span className={`badge badge-${trip?.status?.toLowerCase()}`} style={{ fontSize: "13px", padding: "6px 14px" }}>
-              {trip?.status}
-            </span>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <span className={`badge badge-${trip?.status?.toLowerCase()}`} style={{ fontSize: "13px", padding: "6px 14px" }}>
+                {trip?.status}
+              </span>
+              <button className="btn-aurora" onClick={() => setShowShareModal(true)}
+                style={{ fontSize: "13px", padding: "6px 14px" }}>
+                🤝 Share Trip
+              </button>
+            </div>
             <div style={styles.tripMetaGrid}>
               {trip?.startDate && <div style={styles.metaBox}><p style={styles.metaLabel}>Start</p><p style={styles.metaValue}>{trip.startDate}</p></div>}
               {trip?.endDate && <div style={styles.metaBox}><p style={styles.metaLabel}>End</p><p style={styles.metaValue}>{trip.endDate}</p></div>}
@@ -269,6 +279,15 @@ const TripDetail = () => {
             </div>
           )}
         </div>
+
+        {/* Share Trip Modal */}
+        {showShareModal && trip && (
+          <ShareTripModal
+            tripId={trip.id}
+            canManageShares={Boolean(user && trip.userId === user.id)}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
       </main>
     </div>
   );

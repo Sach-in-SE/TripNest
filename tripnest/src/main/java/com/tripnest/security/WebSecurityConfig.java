@@ -14,6 +14,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import com.tripnest.security.oauth2.CustomOAuth2UserService;
 import com.tripnest.security.oauth2.OAuth2AuthenticationSuccessHandler;
+import org.springframework.security.config.annotation.web.configurers.ExceptionHandlingConfigurer;
 
 @Configuration
 @EnableMethodSecurity
@@ -27,6 +28,9 @@ public class WebSecurityConfig {
 
     @Autowired
     private CustomOAuth2UserService customOAuth2UserService;
+
+    @Autowired
+    private AuthEntryPointJwt unauthorizedHandler;
 
     @Autowired
     private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
@@ -64,6 +68,7 @@ public class WebSecurityConfig {
                 }))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/destinations/**").permitAll()
