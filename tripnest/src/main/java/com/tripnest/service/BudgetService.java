@@ -22,11 +22,16 @@ public class BudgetService {
     @Autowired
     private ExpenseRepository expenseRepository;
 
+    @Autowired
+    private TripShareService tripShareService;
+
     public BudgetResponse createOrUpdateBudget(BudgetRequest request, Long userId) {
         Trip trip = tripRepository.findById(request.getTripId())
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(request.getTripId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -49,7 +54,9 @@ public class BudgetService {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasAccess = tripShareService.hasAccess(tripId, userId);
+        if (!isOwner && !hasAccess) {
             throw new RuntimeException("Unauthorized");
         }
 

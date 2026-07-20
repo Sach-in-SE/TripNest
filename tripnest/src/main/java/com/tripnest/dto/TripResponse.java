@@ -17,6 +17,7 @@ public class TripResponse {
     private String status;
     private Long userId;
     private String username;
+    private String permission;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

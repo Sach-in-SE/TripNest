@@ -104,13 +104,20 @@ const TripDetail = () => {
           </div>
           <div style={styles.tripHeaderRight}>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              {trip?.permission && trip?.permission !== "OWNER" && (
+                <span className="badge" style={{ fontSize: "13px", padding: "6px 14px", background: "rgba(167, 139, 250, 0.15)", color: "#a78bfa" }}>
+                  🤝 Shared ({trip?.permission})
+                </span>
+              )}
               <span className={`badge badge-${trip?.status?.toLowerCase()}`} style={{ fontSize: "13px", padding: "6px 14px" }}>
                 {trip?.status}
               </span>
-              <button className="btn-aurora" onClick={() => setShowShareModal(true)}
-                style={{ fontSize: "13px", padding: "6px 14px" }}>
-                🤝 Share Trip
-              </button>
+              {(!trip?.permission || trip?.permission === "OWNER") && (
+                <button className="btn-aurora" onClick={() => setShowShareModal(true)}
+                  style={{ fontSize: "13px", padding: "6px 14px" }}>
+                  🤝 Share Trip
+                </button>
+              )}
             </div>
             <div style={styles.tripMetaGrid}>
               {trip?.startDate && <div style={styles.metaBox}><p style={styles.metaLabel}>Start</p><p style={styles.metaValue}>{trip.startDate}</p></div>}
@@ -125,10 +132,12 @@ const TripDetail = () => {
         <div style={styles.section}>
           <div style={styles.sectionHeader}>
             <h2 style={styles.sectionTitle}>📅 Day-wise Itinerary</h2>
-            <button className="btn-aurora" onClick={() => setShowItineraryForm(true)}
-              style={{ fontSize: "13px", padding: "8px 16px" }}>
-              + Add Day
-            </button>
+            {(!trip?.permission || trip?.permission !== "VIEW") && (
+              <button className="btn-aurora" onClick={() => setShowItineraryForm(true)}
+                style={{ fontSize: "13px", padding: "8px 16px" }}>
+                + Add Day
+              </button>
+            )}
           </div>
 
           {/* Itinerary Form */}
@@ -139,6 +148,7 @@ const TripDetail = () => {
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Date</label>
                   <input className="aurora-input" type="date" value={itineraryForm.date}
+                    min={trip?.startDate} max={trip?.endDate}
                     onChange={(e) => setItineraryForm({ ...itineraryForm, date: e.target.value })} />
                 </div>
                 <div style={{ ...styles.inputGroup, flex: 2 }}>
@@ -229,16 +239,18 @@ const TripDetail = () => {
                       <h3 style={styles.itineraryDate}>📅 {itin.date}</h3>
                       {itin.notes && <p style={styles.itineraryNotes}>{itin.notes}</p>}
                     </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button className="btn-aurora" onClick={() => {
-                        setSelectedItineraryId(itin.id);
-                        setShowActivityForm(true);
-                      }} style={{ fontSize: "12px", padding: "6px 12px" }}>
-                        + Activity
-                      </button>
-                      <button onClick={() => handleDeleteItinerary(itin.id)}
-                        style={styles.deleteBtn}>🗑️</button>
-                    </div>
+                    {(!trip?.permission || trip?.permission !== "VIEW") && (
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button className="btn-aurora" onClick={() => {
+                          setSelectedItineraryId(itin.id);
+                          setShowActivityForm(true);
+                        }} style={{ fontSize: "12px", padding: "6px 12px" }}>
+                          + Activity
+                        </button>
+                        <button onClick={() => handleDeleteItinerary(itin.id)}
+                          style={styles.deleteBtn}>🗑️</button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Activities */}
@@ -267,8 +279,10 @@ const TripDetail = () => {
                               </span>
                             )}
                             {activity.cost && <span style={styles.activityCost}>₹{activity.cost}</span>}
-                            <button onClick={() => handleDeleteActivity(activity.id)}
-                              style={{ ...styles.deleteBtn, padding: "4px 8px", fontSize: "12px" }}>🗑️</button>
+                            {(!trip?.permission || trip?.permission !== "VIEW") && (
+                              <button onClick={() => handleDeleteActivity(activity.id)}
+                                style={{ ...styles.deleteBtn, padding: "4px 8px", fontSize: "12px" }}>🗑️</button>
+                            )}
                           </div>
                         </div>
                       ))}

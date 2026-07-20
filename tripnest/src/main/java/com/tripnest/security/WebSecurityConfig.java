@@ -74,6 +74,8 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/destinations/**").permitAll()
                         .requestMatchers("/api/documents/download/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                        .requestMatchers("/api/trip-shares", "/api/trip-shares/**").authenticated()
+                        .requestMatchers("/api/notifications", "/api/notifications/**").authenticated()
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))

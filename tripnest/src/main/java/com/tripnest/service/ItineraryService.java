@@ -26,12 +26,21 @@ public class ItineraryService {
     @Autowired
     private ActivityRepository activityRepository;
 
+    @Autowired
+    private TripShareService tripShareService;
+
     public ItineraryResponse createItinerary(ItineraryRequest request, Long userId) {
         Trip trip = tripRepository.findById(request.getTripId())
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(request.getTripId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
+        }
+
+        if (request.getDate().isBefore(trip.getStartDate()) || request.getDate().isAfter(trip.getEndDate())) {
+            throw new IllegalArgumentException("Itinerary date must fall within the trip duration.");
         }
 
         Itinerary itinerary = new Itinerary();
@@ -47,7 +56,9 @@ public class ItineraryService {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasAccess = tripShareService.hasAccess(tripId, userId);
+        if (!isOwner && !hasAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -61,8 +72,15 @@ public class ItineraryService {
         Itinerary itinerary = itineraryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
 
-        if (!itinerary.getTrip().getUser().getId().equals(userId)) {
+        Trip trip = itinerary.getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
+        }
+
+        if (request.getDate().isBefore(trip.getStartDate()) || request.getDate().isAfter(trip.getEndDate())) {
+            throw new IllegalArgumentException("Itinerary date must fall within the trip duration.");
         }
 
         itinerary.setDate(request.getDate());
@@ -76,7 +94,10 @@ public class ItineraryService {
         Itinerary itinerary = itineraryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
 
-        if (!itinerary.getTrip().getUser().getId().equals(userId)) {
+        Trip trip = itinerary.getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 

@@ -6,5 +6,7 @@ public enum NotificationType {
     BUDGET_ALERT,
     GROUP_INVITATION,
     TRAVEL_UPDATE,
-    SYSTEM
+    SYSTEM,
+    TRIP_INVITATION,
+    TRIP_INVITATION_RESPONSE
 }

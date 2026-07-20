@@ -32,3 +32,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local project notes
+structure.txt

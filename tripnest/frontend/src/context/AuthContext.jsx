@@ -15,6 +15,20 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
+    // Listen for localStorage changes from other tabs
+    useEffect(() => {
+        const handleStorageChange = (e) => {
+            if (e.key === 'token' || e.key === 'user') {
+                // Token or user changed in another tab
+                const currentUser = AuthService.getCurrentUser();
+                setUser(currentUser);
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
     const login = async (credentials) => {
         const data = await AuthService.signin(credentials);
         setUser(data);

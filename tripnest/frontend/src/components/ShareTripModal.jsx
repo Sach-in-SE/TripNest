@@ -24,7 +24,7 @@ const ShareTripModal = ({ tripId, canManageShares = false, onClose }) => {
     setError("");
     setSubmitting(true);
     try {
-      await api.post("/trip-shares", { tripId, email, permission });
+      await api.post("/trip-shares/invite", { tripId, email, permission });
       setEmail("");
       setPermission("VIEW");
       fetchShares();
@@ -77,7 +77,7 @@ const ShareTripModal = ({ tripId, canManageShares = false, onClose }) => {
           </div>
           {error && <p style={styles.errorText}>{error}</p>}
           <button className="btn-aurora" onClick={handleShare} disabled={submitting} style={{ marginTop: "10px" }}>
-            {submitting ? "Sharing..." : "+ Share Trip"}
+            {submitting ? "Inviting..." : "✉️ Send Invite"}
           </button>
         </div>
 
@@ -99,9 +99,14 @@ const ShareTripModal = ({ tripId, canManageShares = false, onClose }) => {
                   <p style={styles.shareName}>{share.sharedWithUsername}</p>
                   <p style={styles.shareEmail}>{share.sharedWithEmail}</p>
                 </div>
-                <span className="badge badge-upcoming" style={{ fontSize: "11px" }}>
-                  {share.permission}
-                </span>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+                  <span className="badge badge-upcoming" style={{ fontSize: "11px" }}>
+                    {share.permission}
+                  </span>
+                  <span style={statusBadgeStyle(share.status)}>
+                    {share.status === "ACCEPTED" ? "✓ Accepted" : share.status === "DECLINED" ? "✗ Declined" : "⏳ Pending"}
+                  </span>
+                </div>
                 {canManageShares && (
                   <button onClick={() => handleRemove(share.sharedWithUserId)} style={styles.removeBtn}>
                     🗑️
@@ -135,5 +140,18 @@ const styles = {
   shareEmail: { color: "#64748b", fontSize: "11px" },
   removeBtn: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", borderRadius: "6px", cursor: "pointer", padding: "6px 8px", fontSize: "12px" },
 };
+
+const statusBadgeStyle = (status) => ({
+  fontSize: "10px",
+  fontWeight: "600",
+  padding: "2px 8px",
+  borderRadius: "999px",
+  letterSpacing: "0.04em",
+  ...(status === "ACCEPTED"
+    ? { background: "rgba(16,185,129,0.15)", color: "#6ee7b7", border: "1px solid rgba(16,185,129,0.3)" }
+    : status === "DECLINED"
+    ? { background: "rgba(239,68,68,0.12)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.3)" }
+    : { background: "rgba(245,158,11,0.12)", color: "#fcd34d", border: "1px solid rgba(245,158,11,0.3)" }),
+});
 
 export default ShareTripModal;

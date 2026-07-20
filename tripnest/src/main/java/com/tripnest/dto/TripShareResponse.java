@@ -14,5 +14,6 @@ public class TripShareResponse {
     private Long sharedByUserId;
     private String sharedByUsername;
     private String permission;
+    private String status;
     private LocalDateTime createdAt;
 }

@@ -34,6 +34,9 @@ public class DocumentService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private TripShareService tripShareService;
+
     @Value("${tripnest.upload.dir:uploads}")
     private String uploadDir;
 
@@ -41,7 +44,9 @@ public class DocumentService {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(tripId, userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -81,7 +86,9 @@ public class DocumentService {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasAccess = tripShareService.hasAccess(tripId, userId);
+        if (!isOwner && !hasAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -95,7 +102,10 @@ public class DocumentService {
         TravelDocument document = documentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document not found"));
 
-        if (!document.getUser().getId().equals(userId)) {
+        Trip trip = document.getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 

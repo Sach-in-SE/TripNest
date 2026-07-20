@@ -5,6 +5,7 @@ import com.tripnest.dto.ActivityResponse;
 import com.tripnest.entity.Activity;
 import com.tripnest.entity.ActivityType;
 import com.tripnest.entity.Itinerary;
+import com.tripnest.entity.Trip;
 import com.tripnest.repository.ActivityRepository;
 import com.tripnest.repository.ItineraryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,11 +22,17 @@ public class ActivityService {
     @Autowired
     private ItineraryRepository itineraryRepository;
 
+    @Autowired
+    private TripShareService tripShareService;
+
     public ActivityResponse createActivity(ActivityRequest request, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(request.getItineraryId())
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
 
-        if (!itinerary.getTrip().getUser().getId().equals(userId)) {
+        Trip trip = itinerary.getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -50,7 +57,10 @@ public class ActivityService {
         Itinerary itinerary = itineraryRepository.findById(itineraryId)
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
 
-        if (!itinerary.getTrip().getUser().getId().equals(userId)) {
+        Trip trip = itinerary.getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasAccess = tripShareService.hasAccess(trip.getId(), userId);
+        if (!isOwner && !hasAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -64,7 +74,10 @@ public class ActivityService {
         Activity activity = activityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Activity not found"));
 
-        if (!activity.getItinerary().getTrip().getUser().getId().equals(userId)) {
+        Trip trip = activity.getItinerary().getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -87,7 +100,10 @@ public class ActivityService {
         Activity activity = activityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Activity not found"));
 
-        if (!activity.getItinerary().getTrip().getUser().getId().equals(userId)) {
+        Trip trip = activity.getItinerary().getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 

@@ -26,11 +26,16 @@ public class ExpenseService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private TripShareService tripShareService;
+
     public ExpenseResponse createExpense(ExpenseRequest request, Long userId) {
         Trip trip = tripRepository.findById(request.getTripId())
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(request.getTripId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -57,7 +62,9 @@ public class ExpenseService {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
 
-        if (!trip.getUser().getId().equals(userId)) {
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasAccess = tripShareService.hasAccess(tripId, userId);
+        if (!isOwner && !hasAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -71,7 +78,10 @@ public class ExpenseService {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Expense not found"));
 
-        if (!expense.getUser().getId().equals(userId)) {
+        Trip trip = expense.getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -92,7 +102,10 @@ public class ExpenseService {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Expense not found"));
 
-        if (!expense.getUser().getId().equals(userId)) {
+        Trip trip = expense.getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
         }
 

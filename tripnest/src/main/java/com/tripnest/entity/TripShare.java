@@ -30,6 +30,9 @@ public class TripShare {
     @Enumerated(EnumType.STRING)
     private SharePermission permission = SharePermission.VIEW;
 
+    @Enumerated(EnumType.STRING)
+    private ShareStatus status = ShareStatus.PENDING;
+
     private LocalDateTime createdAt;
 
     @PrePersist

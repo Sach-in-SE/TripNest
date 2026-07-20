@@ -163,7 +163,14 @@ const Trips = () => {
               <div key={trip.id} style={styles.tripCard} className="glass-card">
                 <div style={styles.tripCardHeader}>
                   <span style={{ fontSize: "28px" }}>🌍</span>
-                  <span className={`badge badge-${trip.status.toLowerCase()}`}>{trip.status}</span>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    {trip.permission && trip.permission !== "OWNER" && (
+                      <span className="badge" style={{ background: "rgba(167, 139, 250, 0.15)", color: "#a78bfa" }}>
+                        🤝 Shared ({trip.permission})
+                      </span>
+                    )}
+                    <span className={`badge badge-${trip.status.toLowerCase()}`}>{trip.status}</span>
+                  </div>
                 </div>
                 <h3 style={styles.tripTitle}>{trip.title}</h3>
                 <p style={styles.tripDest}>📍 {trip.destination}</p>
@@ -178,14 +185,18 @@ const Trips = () => {
                     style={{ flex: 1, fontSize: "13px", padding: "8px" }}>
                     View
                   </button>
-                  <button className="btn-ghost" onClick={() => handleEdit(trip)}
-                    style={{ flex: 1, fontSize: "13px", padding: "8px" }}>
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(trip.id)}
-                    style={{ ...styles.deleteBtn, flex: 1 }}>
-                    Delete
-                  </button>
+                  {(!trip.permission || trip.permission === "OWNER" || trip.permission === "EDIT") && (
+                    <button className="btn-ghost" onClick={() => handleEdit(trip)}
+                      style={{ flex: 1, fontSize: "13px", padding: "8px" }}>
+                      Edit
+                    </button>
+                  )}
+                  {(!trip.permission || trip.permission === "OWNER") && (
+                    <button onClick={() => handleDelete(trip.id)}
+                      style={{ ...styles.deleteBtn, flex: 1 }}>
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
