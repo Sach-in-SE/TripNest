@@ -7,8 +7,9 @@ const Destinations = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [showPopular, setShowPopular] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState(new Set());
 
-  useEffect(() => { fetchDestinations(); }, []);
+  useEffect(() => { fetchDestinations(); fetchFavorites(); }, []);
 
   const fetchDestinations = async () => {
     try {
@@ -35,6 +36,30 @@ const Destinations = () => {
       const res = await api.get("/destinations/popular");
       setDestinations(res.data);
       setShowPopular(true);
+    } catch (err) { console.error(err); }
+  };
+
+  const fetchFavorites = async () => {
+    try {
+      const res = await api.get("/favorites");
+      const ids = new Set(res.data.map(fav => fav.destinationId));
+      setFavoriteIds(ids);
+    } catch (err) { console.error(err); }
+  };
+
+  const toggleFavorite = async (destinationId) => {
+    try {
+      if (favoriteIds.has(destinationId)) {
+        await api.delete(`/favorites/${destinationId}`);
+        setFavoriteIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(destinationId);
+          return newSet;
+        });
+      } else {
+        await api.post("/favorites", { destinationId });
+        setFavoriteIds(prev => new Set(prev).add(destinationId));
+      }
     } catch (err) { console.error(err); }
   };
 
@@ -75,7 +100,12 @@ const Destinations = () => {
               <div key={dest.id} style={styles.card} className="glass-card">
                 <div style={styles.cardHeader}>
                   <span style={{ fontSize: "32px" }}>🏖️</span>
-                  {dest.popular && <span className="badge badge-upcoming">🔥 Popular</span>}
+                  <button
+                    onClick={() => toggleFavorite(dest.id)}
+                    style={styles.favoriteButton}
+                  >
+                    {favoriteIds.has(dest.id) ? "❤️" : "🤍"}
+                  </button>
                 </div>
                 <h3 style={styles.destName}>{dest.name}</h3>
                 <p style={styles.destLocation}>📍 {dest.city}, {dest.country}</p>
@@ -110,6 +140,7 @@ const styles = {
   destMeta: { display: "flex", flexWrap: "wrap", gap: "8px" },
   metaItem: { color: "#a78bfa", fontSize: "12px", background: "rgba(124,58,237,0.1)", padding: "4px 8px", borderRadius: "6px" },
   emptyState: { padding: "48px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" },
+  favoriteButton: { background: "none", border: "none", fontSize: "24px", cursor: "pointer", padding: "0" },
 };
 
 export default Destinations;

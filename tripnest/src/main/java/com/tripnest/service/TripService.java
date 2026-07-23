@@ -2,6 +2,7 @@ package com.tripnest.service;
 
 import com.tripnest.dto.TripRequest;
 import com.tripnest.dto.TripResponse;
+import com.tripnest.dto.TravelHistoryResponse;
 import com.tripnest.entity.*;
 import com.tripnest.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,8 @@ import java.util.stream.Collectors;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.Set;
 
 
 @Service
@@ -192,6 +195,30 @@ public class TripService {
 
         // 8. Delete the trip itself
         tripRepository.delete(trip);
+    }
+
+    public TravelHistoryResponse getTravelHistory(Long userId) {
+        List<Trip> completedTrips = tripRepository.findByUserIdAndStatus(userId, TripStatus.COMPLETED);
+
+        Set<String> destinationsVisited = new HashSet<>();
+        Double totalAmountSpent = 0.0;
+
+        for (Trip trip : completedTrips) {
+            destinationsVisited.add(trip.getDestination());
+            if (trip.getBudget() != null) {
+                totalAmountSpent += trip.getBudget();
+            }
+        }
+
+        TravelHistoryResponse response = new TravelHistoryResponse();
+        response.setTotalCompletedTrips(completedTrips.size());
+        response.setTotalAmountSpent(totalAmountSpent);
+        response.setDestinationsVisited(destinationsVisited.stream().sorted().collect(Collectors.toList()));
+        response.setCompletedTrips(completedTrips.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList()));
+
+        return response;
     }
 
     private TripResponse mapToResponse(Trip trip) {

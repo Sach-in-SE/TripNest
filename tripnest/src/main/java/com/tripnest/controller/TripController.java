@@ -3,6 +3,7 @@ package com.tripnest.controller;
 import com.tripnest.dto.MessageResponse;
 import com.tripnest.dto.TripRequest;
 import com.tripnest.dto.TripResponse;
+import com.tripnest.dto.TravelHistoryResponse;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.TripService;
 import jakarta.validation.Valid;
@@ -55,6 +56,13 @@ public class TripController {
         UserDetailsImpl userDetails = getCurrentUser();
         tripService.deleteTrip(id, userDetails.getId());
         return ResponseEntity.ok(new MessageResponse("Trip deleted successfully!"));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<?> getTravelHistory() {
+        UserDetailsImpl userDetails = getCurrentUser();
+        TravelHistoryResponse response = tripService.getTravelHistory(userDetails.getId());
+        return ResponseEntity.ok(response);
     }
 
     private UserDetailsImpl getCurrentUser() {
