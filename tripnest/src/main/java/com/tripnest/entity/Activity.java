@@ -33,6 +33,7 @@ public class Activity {
     private Double cost;
 
     private Long linkedExpenseId;
+    private Boolean reminderSent = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "itinerary_id")

@@ -32,6 +32,7 @@ public class Trip {
 
     private Integer numberOfTravelers;
     private Double budget;
+    private Boolean reminderSent = false;
 
     @Enumerated(EnumType.STRING)
     private TripStatus status = TripStatus.PLANNING;

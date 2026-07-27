@@ -4,9 +4,11 @@ import com.tripnest.dto.ActivityResponse;
 import com.tripnest.dto.ItineraryRequest;
 import com.tripnest.dto.ItineraryResponse;
 import com.tripnest.entity.Activity;
+import com.tripnest.entity.Expense;
 import com.tripnest.entity.Itinerary;
 import com.tripnest.entity.Trip;
 import com.tripnest.repository.ActivityRepository;
+import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.ItineraryRepository;
 import com.tripnest.repository.TripRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,9 @@ public class ItineraryService {
 
     @Autowired
     private ActivityRepository activityRepository;
+
+    @Autowired
+    private ExpenseRepository expenseRepository;
 
     @Autowired
     private TripShareService tripShareService;
@@ -90,6 +95,7 @@ public class ItineraryService {
         return mapToResponse(updated);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void deleteItinerary(Long id, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
@@ -101,6 +107,20 @@ public class ItineraryService {
             throw new RuntimeException("Unauthorized");
         }
 
+        // 1. Delete linked expenses from activities
+        List<Activity> activities = activityRepository.findByItineraryIdOrderByStartTimeAsc(id);
+        for (Activity activity : activities) {
+            if (activity.getLinkedExpenseId() != null) {
+                expenseRepository.findById(activity.getLinkedExpenseId()).ifPresent(expense -> {
+                    expenseRepository.delete(expense);
+                });
+            }
+        }
+
+        // 2. Delete activities
+        activityRepository.deleteAll(activities);
+
+        // 3. Delete itinerary
         itineraryRepository.delete(itinerary);
     }
 

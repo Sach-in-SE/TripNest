@@ -5,11 +5,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @ComponentScan(basePackages = "com.tripnest")
 @EnableJpaRepositories(basePackages = "com.tripnest.repository")
 @EntityScan(basePackages = "com.tripnest.entity")
+@EnableScheduling
 public class TripnestApplication {
 
 	public static void main(String[] args) {
