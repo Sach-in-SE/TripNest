@@ -32,6 +32,8 @@ public class Activity {
 
     private Double cost;
 
+    private Long linkedExpenseId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "itinerary_id")
     private Itinerary itinerary;

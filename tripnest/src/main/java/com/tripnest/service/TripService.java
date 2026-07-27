@@ -150,6 +150,28 @@ public class TripService {
         }
 
         Trip updated = tripRepository.save(trip);
+
+        budgetRepository.findByTripId(tripId).ifPresentOrElse(
+            budget -> {
+                if (request.getBudget() != null && request.getBudget() > 0 && !request.getBudget().equals(budget.getTotalAmount())) {
+                    BudgetRequest budgetRequest = new BudgetRequest();
+                    budgetRequest.setTotalAmount(request.getBudget());
+                    budgetRequest.setTripId(tripId);
+                    budgetRequest.setCurrency(budget.getCurrency());
+                    budgetService.createOrUpdateBudget(budgetRequest, userId);
+                }
+            },
+            () -> {
+                if (request.getBudget() != null && request.getBudget() > 0) {
+                    BudgetRequest budgetRequest = new BudgetRequest();
+                    budgetRequest.setTotalAmount(request.getBudget());
+                    budgetRequest.setTripId(tripId);
+                    budgetRequest.setCurrency("INR");
+                    budgetService.createOrUpdateBudget(budgetRequest, userId);
+                }
+            }
+        );
+
         TripResponse r = mapToResponse(updated);
         if (isOwner) {
             r.setPermission("OWNER");

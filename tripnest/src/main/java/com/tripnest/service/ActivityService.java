@@ -2,11 +2,14 @@ package com.tripnest.service;
 
 import com.tripnest.dto.ActivityRequest;
 import com.tripnest.dto.ActivityResponse;
+import com.tripnest.dto.ExpenseRequest;
 import com.tripnest.entity.Activity;
 import com.tripnest.entity.ActivityType;
+import com.tripnest.entity.ExpenseCategory;
 import com.tripnest.entity.Itinerary;
 import com.tripnest.entity.Trip;
 import com.tripnest.repository.ActivityRepository;
+import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.ItineraryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,12 @@ public class ActivityService {
 
     @Autowired
     private ItineraryRepository itineraryRepository;
+
+    @Autowired
+    private ExpenseRepository expenseRepository;
+
+    @Autowired
+    private ExpenseService expenseService;
 
     @Autowired
     private TripShareService tripShareService;
@@ -50,6 +59,22 @@ public class ActivityService {
         }
 
         Activity saved = activityRepository.save(activity);
+
+        if (request.getCost() != null && request.getCost() > 0) {
+            ExpenseCategory expenseCategory = mapActivityTypeToExpenseCategory(activity.getType());
+            ExpenseRequest expenseRequest = new ExpenseRequest();
+            expenseRequest.setTitle(activity.getTitle());
+            expenseRequest.setAmount(activity.getCost());
+            expenseRequest.setCategory(expenseCategory.name());
+            expenseRequest.setDescription("Auto-added from activity: " + activity.getTitle());
+            expenseRequest.setDate(itinerary.getDate());
+            expenseRequest.setTripId(trip.getId());
+
+            var expenseResponse = expenseService.createExpense(expenseRequest, userId);
+            saved.setLinkedExpenseId(expenseResponse.getId());
+            activityRepository.save(saved);
+        }
+
         return mapToResponse(saved);
     }
 
@@ -81,6 +106,8 @@ public class ActivityService {
             throw new RuntimeException("Unauthorized");
         }
 
+        Double oldCost = activity.getCost();
+
         activity.setTitle(request.getTitle());
         activity.setDescription(request.getDescription());
         activity.setStartTime(request.getStartTime());
@@ -93,6 +120,29 @@ public class ActivityService {
         }
 
         Activity updated = activityRepository.save(activity);
+
+        if (request.getCost() != null && request.getCost() > 0) {
+            if (activity.getLinkedExpenseId() != null) {
+                expenseRepository.findById(activity.getLinkedExpenseId()).ifPresent(expense -> {
+                    expense.setAmount(request.getCost());
+                    expenseRepository.save(expense);
+                });
+            } else if (oldCost == null || oldCost == 0) {
+                ExpenseCategory expenseCategory = mapActivityTypeToExpenseCategory(activity.getType());
+                ExpenseRequest expenseRequest = new ExpenseRequest();
+                expenseRequest.setTitle(activity.getTitle());
+                expenseRequest.setAmount(activity.getCost());
+                expenseRequest.setCategory(expenseCategory.name());
+                expenseRequest.setDescription("Auto-added from activity: " + activity.getTitle());
+                expenseRequest.setDate(activity.getItinerary().getDate());
+                expenseRequest.setTripId(activity.getItinerary().getTrip().getId());
+
+                var expenseResponse = expenseService.createExpense(expenseRequest, userId);
+                updated.setLinkedExpenseId(expenseResponse.getId());
+                activityRepository.save(updated);
+            }
+        }
+
         return mapToResponse(updated);
     }
 
@@ -105,6 +155,12 @@ public class ActivityService {
         boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
         if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
+        }
+
+        if (activity.getLinkedExpenseId() != null) {
+            expenseRepository.findById(activity.getLinkedExpenseId()).ifPresent(expense -> {
+                expenseRepository.delete(expense);
+            });
         }
 
         activityRepository.delete(activity);
@@ -124,5 +180,27 @@ public class ActivityService {
         response.setCreatedAt(activity.getCreatedAt());
         response.setUpdatedAt(activity.getUpdatedAt());
         return response;
+    }
+
+    private ExpenseCategory mapActivityTypeToExpenseCategory(ActivityType activityType) {
+        if (activityType == null) {
+            return ExpenseCategory.MISCELLANEOUS;
+        }
+        switch (activityType) {
+            case SIGHTSEEING:
+            case ADVENTURE:
+                return ExpenseCategory.ENTERTAINMENT;
+            case TRANSPORTATION:
+                return ExpenseCategory.TRANSPORTATION;
+            case ACCOMMODATION:
+                return ExpenseCategory.HOTEL;
+            case DINING:
+                return ExpenseCategory.FOOD;
+            case SHOPPING:
+                return ExpenseCategory.SHOPPING;
+            case OTHER:
+            default:
+                return ExpenseCategory.MISCELLANEOUS;
+        }
     }
 }
