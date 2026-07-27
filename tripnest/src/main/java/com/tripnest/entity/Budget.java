@@ -20,6 +20,9 @@ public class Budget {
     @Column(length = 100)
     private String currency = "INR";
 
+    private Boolean alert80Sent = false;
+    private Boolean alert100Sent = false;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "trip_id")
     private Trip trip;

@@ -3,6 +3,7 @@ package com.tripnest.service;
 import com.tripnest.dto.TripRequest;
 import com.tripnest.dto.TripResponse;
 import com.tripnest.dto.TravelHistoryResponse;
+import com.tripnest.dto.BudgetRequest;
 import com.tripnest.entity.*;
 import com.tripnest.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,9 @@ public class TripService {
     @Autowired
     private GroupRepository groupRepository;
 
+    @Autowired
+    private BudgetService budgetService;
+
     public TripResponse createTrip(TripRequest request, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -68,6 +72,15 @@ public class TripService {
         }
 
         Trip saved = tripRepository.save(trip);
+
+        if (request.getBudget() != null && request.getBudget() > 0) {
+            BudgetRequest budgetRequest = new BudgetRequest();
+            budgetRequest.setTotalAmount(request.getBudget());
+            budgetRequest.setTripId(saved.getId());
+            budgetRequest.setCurrency("INR");
+            budgetService.createOrUpdateBudget(budgetRequest, userId);
+        }
+
         TripResponse res = mapToResponse(saved);
         res.setPermission("OWNER");
         return res;

@@ -2,10 +2,13 @@ package com.tripnest.service;
 
 import com.tripnest.dto.ExpenseRequest;
 import com.tripnest.dto.ExpenseResponse;
+import com.tripnest.dto.NotificationRequest;
+import com.tripnest.entity.Budget;
 import com.tripnest.entity.Expense;
 import com.tripnest.entity.ExpenseCategory;
 import com.tripnest.entity.Trip;
 import com.tripnest.entity.User;
+import com.tripnest.repository.BudgetRepository;
 import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.UserRepository;
@@ -28,6 +31,12 @@ public class ExpenseService {
 
     @Autowired
     private TripShareService tripShareService;
+
+    @Autowired
+    private BudgetRepository budgetRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     public ExpenseResponse createExpense(ExpenseRequest request, Long userId) {
         Trip trip = tripRepository.findById(request.getTripId())
@@ -55,6 +64,7 @@ public class ExpenseService {
         }
 
         Expense saved = expenseRepository.save(expense);
+        checkBudgetAlerts(trip);
         return mapToResponse(saved);
     }
 
@@ -95,6 +105,7 @@ public class ExpenseService {
         }
 
         Expense updated = expenseRepository.save(expense);
+        checkBudgetAlerts(trip);
         return mapToResponse(updated);
     }
 
@@ -132,5 +143,42 @@ public class ExpenseService {
         response.setCreatedAt(expense.getCreatedAt());
         response.setUpdatedAt(expense.getUpdatedAt());
         return response;
+    }
+
+    private void checkBudgetAlerts(Trip trip) {
+        Budget budget = budgetRepository.findByTripId(trip.getId()).orElse(null);
+        if (budget == null) {
+            return;
+        }
+
+        Double totalSpent = expenseRepository.getTotalExpenseByTripId(trip.getId());
+        if (totalSpent == null) {
+            totalSpent = 0.0;
+        }
+
+        double eightyPercentThreshold = budget.getTotalAmount() * 0.8;
+        if (totalSpent >= eightyPercentThreshold && !budget.getAlert80Sent()) {
+            NotificationRequest request = new NotificationRequest();
+            request.setType("BUDGET_ALERT");
+            request.setTitle("Budget Alert: 80% Used");
+            request.setMessage("You have used 80% of your budget for trip: " + trip.getTitle());
+            request.setUserId(trip.getUser().getId());
+            request.setReferenceId(budget.getId());
+            notificationService.createNotification(request);
+            budget.setAlert80Sent(true);
+            budgetRepository.save(budget);
+        }
+
+        if (totalSpent >= budget.getTotalAmount() && !budget.getAlert100Sent()) {
+            NotificationRequest request = new NotificationRequest();
+            request.setType("BUDGET_ALERT");
+            request.setTitle("Budget Exceeded!");
+            request.setMessage("You have exceeded your budget for trip: " + trip.getTitle());
+            request.setUserId(trip.getUser().getId());
+            request.setReferenceId(budget.getId());
+            notificationService.createNotification(request);
+            budget.setAlert100Sent(true);
+            budgetRepository.save(budget);
+        }
     }
 }

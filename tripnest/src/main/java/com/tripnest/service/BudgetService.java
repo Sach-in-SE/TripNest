@@ -38,9 +38,15 @@ public class BudgetService {
         Budget budget = budgetRepository.findByTripId(request.getTripId())
                 .orElse(new Budget());
 
+        Double oldTotalAmount = budget.getTotalAmount();
         budget.setTotalAmount(request.getTotalAmount());
         budget.setCurrency(request.getCurrency() != null ? request.getCurrency() : "INR");
         budget.setTrip(trip);
+
+        if (oldTotalAmount != null && request.getTotalAmount() > oldTotalAmount) {
+            budget.setAlert80Sent(false);
+            budget.setAlert100Sent(false);
+        }
 
         Double spent = expenseRepository.getTotalExpenseByTripId(request.getTripId());
         budget.setSpentAmount(spent != null ? spent : 0.0);

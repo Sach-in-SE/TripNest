@@ -146,7 +146,10 @@ const Budget = () => {
                   </div>
                 )}
                 <div style={styles.budgetActions}>
-                  <button className="btn-aurora" onClick={() => setShowBudgetForm(true)}
+                  <button className="btn-aurora" onClick={() => {
+                    setBudgetForm(budget ? { totalAmount: budget.totalAmount, currency: budget.currency || "INR" } : { totalAmount: "", currency: "INR" });
+                    setShowBudgetForm(true);
+                  }}
                     style={{ fontSize: "13px", padding: "8px 16px" }}>
                     {budget ? "Update Budget" : "Set Budget"}
                   </button>
