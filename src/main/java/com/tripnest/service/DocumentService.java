@@ -6,6 +6,7 @@ import com.tripnest.entity.TravelDocument;
 import com.tripnest.entity.Trip;
 import com.tripnest.entity.User;
 import com.tripnest.repository.DocumentRepository;
+import com.tripnest.repository.GroupRepository;
 import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ public class DocumentService {
     @Autowired
     private TripShareService tripShareService;
 
+    @Autowired
+    private GroupRepository groupRepository;
+
     @Value("${tripnest.upload.dir:uploads}")
     private String uploadDir;
 
@@ -46,7 +50,8 @@ public class DocumentService {
 
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(tripId, userId);
-        if (!isOwner && !hasEditAccess) {
+        boolean isGroupMember = groupRepository.existsByTripIdAndMembersId(tripId, userId);
+        if (!isOwner && !hasEditAccess && !isGroupMember) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -88,7 +93,8 @@ public class DocumentService {
 
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasAccess = tripShareService.hasAccess(tripId, userId);
-        if (!isOwner && !hasAccess) {
+        boolean isGroupMember = groupRepository.existsByTripIdAndMembersId(tripId, userId);
+        if (!isOwner && !hasAccess && !isGroupMember) {
             throw new RuntimeException("Unauthorized");
         }
 

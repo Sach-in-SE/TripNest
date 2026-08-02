@@ -10,6 +10,7 @@ import com.tripnest.entity.Trip;
 import com.tripnest.entity.User;
 import com.tripnest.repository.BudgetRepository;
 import com.tripnest.repository.ExpenseRepository;
+import com.tripnest.repository.GroupRepository;
 import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,9 @@ public class ExpenseService {
     private BudgetRepository budgetRepository;
 
     @Autowired
+    private GroupRepository groupRepository;
+
+    @Autowired
     private NotificationService notificationService;
 
     public ExpenseResponse createExpense(ExpenseRequest request, Long userId) {
@@ -44,7 +48,8 @@ public class ExpenseService {
 
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(request.getTripId(), userId);
-        if (!isOwner && !hasEditAccess) {
+        boolean isGroupMember = groupRepository.existsByTripIdAndMembersId(request.getTripId(), userId);
+        if (!isOwner && !hasEditAccess && !isGroupMember) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -74,7 +79,8 @@ public class ExpenseService {
 
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasAccess = tripShareService.hasAccess(tripId, userId);
-        if (!isOwner && !hasAccess) {
+        boolean isGroupMember = groupRepository.existsByTripIdAndMembersId(tripId, userId);
+        if (!isOwner && !hasAccess && !isGroupMember) {
             throw new RuntimeException("Unauthorized");
         }
 

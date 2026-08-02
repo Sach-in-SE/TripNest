@@ -14,4 +14,6 @@ public interface GroupRepository extends JpaRepository<TravelGroup, Long> {
     List<TravelGroup> findByMembersId(Long userId);
 
     List<TravelGroup> findByTripId(Long tripId);
+
+    boolean existsByTripIdAndMembersId(Long tripId, Long userId);
 }

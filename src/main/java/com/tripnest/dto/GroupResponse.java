@@ -15,6 +15,7 @@ public class GroupResponse {
     private String createdByUsername;
     private List<String> memberUsernames;
     private int memberCount;
+    private String currentUserRole;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

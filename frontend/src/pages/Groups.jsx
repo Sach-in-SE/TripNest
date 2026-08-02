@@ -1,46 +1,81 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
 
 const Groups = () => {
   const [groups, setGroups] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     name: "", description: "", tripId: "",
   });
+  const navigate = useNavigate();
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
+      setError(null);
       const [groupsRes, tripsRes] = await Promise.all([
         api.get("/groups"),
         api.get("/trips"),
       ]);
       setGroups(groupsRes.data);
       setTrips(tripsRes.data);
+      const invitationsRes = await api.get("/groups/invitations");
+      setInvitations(invitationsRes.data);
       if (tripsRes.data.length > 0) {
         setFormData(prev => ({ ...prev, tripId: tripsRes.data[0].id }));
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load data");
+      console.error(err);
+    }
     finally { setLoading(false); }
+  };
+
+  const handleInvitationResponse = async (invitationId, action, groupId) => {
+    try {
+      setError(null);
+      await api.post(`/groups/invitations/${invitationId}/respond`, { action });
+      if (action === "ACCEPT" && groupId) {
+        navigate(`/groups/${groupId}`);
+      } else {
+        fetchData();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to respond to invitation");
+      console.error(err);
+    }
   };
 
   const handleSubmit = async () => {
     try {
+      setError(null);
       await api.post("/groups", { ...formData, tripId: parseInt(formData.tripId), memberIds: [] });
       setShowForm(false);
       setFormData({ name: "", description: "", tripId: trips[0]?.id || "" });
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to create group");
+      console.error(err);
+    }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm("Delete this group?")) {
-      await api.delete(`/groups/${id}`);
-      fetchData();
+      try {
+        setError(null);
+        await api.delete(`/groups/${id}`);
+        fetchData();
+      } catch (err) {
+        setError(err.response?.data?.message || "Failed to delete group");
+        console.error(err);
+      }
     }
   };
 
@@ -57,6 +92,13 @@ const Groups = () => {
             + Create Group
           </button>
         </div>
+
+        {error && (
+          <div style={styles.errorBanner}>
+            <p>{error}</p>
+            <button onClick={() => setError(null)} style={styles.closeError}>×</button>
+          </div>
+        )}
 
         {showForm && (
           <div style={styles.modal}>
@@ -116,6 +158,9 @@ const Groups = () => {
                     <span className="badge badge-upcoming">
                       👥 {group.memberCount} members
                     </span>
+                    {group.currentUserRole && (
+                      <span style={styles.roleTag}>{group.currentUserRole}</span>
+                    )}
                   </div>
                 </div>
                 <h3 style={styles.groupName}>{group.name}</h3>
@@ -137,12 +182,39 @@ const Groups = () => {
                   </div>
                 </div>
                 <div style={styles.cardActions}>
-                  <button onClick={() => handleDelete(group.id)} style={styles.deleteBtn}>
-                    🗑️ Delete Group
+                  <button onClick={() => navigate(`/groups/${group.id}`)} style={styles.openBtn}>
+                    Open Details
                   </button>
+                  {group.currentUserRole === "OWNER" && (
+                    <button onClick={() => handleDelete(group.id)} style={styles.deleteBtn}>
+                      🗑️ Delete Group
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {!loading && invitations.length > 0 && (
+          <div style={{ marginTop: "32px" }}>
+            <h2 style={styles.sectionTitle}>Pending Invitations</h2>
+            <div style={styles.grid}>
+              {invitations.map((invitation) => (
+                <div key={invitation.id} style={styles.card} className="glass-card">
+                  <h3 style={styles.groupName}>{invitation.groupName}</h3>
+                  <p style={styles.groupDesc}>{invitation.email}</p>
+                  <div style={styles.cardActions}>
+                    <button className="btn-aurora" onClick={() => handleInvitationResponse(invitation.id, "ACCEPT", invitation.groupId)}>
+                      Accept
+                    </button>
+                    <button className="btn-ghost" onClick={() => handleInvitationResponse(invitation.id, "DECLINE")}>
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </main>
@@ -177,7 +249,12 @@ const styles = {
   memberAvatars: { display: "flex", gap: "6px", flexWrap: "wrap" },
   memberAvatar: { width: "32px", height: "32px", borderRadius: "50%", background: "linear-gradient(135deg, #2563eb, #7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "600", color: "white" },
   cardActions: { display: "flex", gap: "8px" },
+  openBtn: { background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.25)", color: "#7dd3fc", borderRadius: "8px", cursor: "pointer", fontSize: "13px", padding: "8px 12px", flex: 1 },
   deleteBtn: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", borderRadius: "8px", cursor: "pointer", fontSize: "13px", padding: "8px 12px", width: "100%", transition: "all 0.2s" },
+  roleTag: { color: "#7dd3fc", fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase" },
+  sectionTitle: { fontSize: "18px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "16px" },
+  errorBanner: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  closeError: { background: "none", border: "none", color: "#ef4444", fontSize: "20px", cursor: "pointer", padding: "0 8px" },
 };
 
 export default Groups;

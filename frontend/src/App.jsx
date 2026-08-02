@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import Budget from "./pages/Budget";
 import Notifications from "./pages/Notifications";
 import Groups from "./pages/Groups";
+import GroupDetails from "./pages/GroupDetails";
 import Documents from "./pages/Documents";
 import OAuth2Redirect from "./pages/OAuth2Redirect";
 
@@ -35,6 +36,7 @@ function App() {
           <Route path="/budget" element={<PrivateRoute><Budget /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
           <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
+          <Route path="/groups/:id" element={<PrivateRoute><GroupDetails /></PrivateRoute>} />
           <Route path="/itineraries" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
           <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />

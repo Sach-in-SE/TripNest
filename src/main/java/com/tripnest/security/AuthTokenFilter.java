@@ -30,9 +30,16 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
         try {
+            logger.info("AuthTokenFilter request method={} uri={}", request.getMethod(), request.getRequestURI());
+            String headerAuth = request.getHeader("Authorization");
+            logger.info("AuthTokenFilter Authorization header present={} value={}", headerAuth != null, headerAuth);
             String jwt = parseJwt(request);
-            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
+            logger.info("AuthTokenFilter extracted JWT present={} value={}", jwt != null, jwt);
+            boolean validToken = jwt != null && jwtUtils.validateJwtToken(jwt);
+            logger.info("AuthTokenFilter validateJwtToken result={}", validToken);
+            if (validToken) {
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                logger.info("AuthTokenFilter username from JWT={}", username);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
@@ -40,6 +47,10 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                logger.info("AuthTokenFilter SecurityContextHolder.setAuthentication called=true principalType={}",
+                        userDetails.getClass().getName());
+            } else {
+                logger.info("AuthTokenFilter SecurityContextHolder.setAuthentication called=false");
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e.getMessage());
