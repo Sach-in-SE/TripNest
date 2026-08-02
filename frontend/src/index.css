@@ -163,7 +163,55 @@ body::before {
 .btn-ghost:hover {
   border-color: var(--aurora-1);
   color: var(--text-primary);
-  background: rgba(124, 58, 237, 0.1);
+}
+
+/* Compact Button */
+.btn-compact {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 70px;
+  max-width: 100px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.btn-compact:hover {
+  border-color: var(--aurora-1);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+  transform: translateY(-1px);
+}
+
+.btn-compact.primary {
+  background: var(--gradient-aurora);
+  color: white;
+  border: none;
+}
+
+.btn-compact.primary:hover {
+  box-shadow: 0 0 15px rgba(124, 58, 237, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-compact.danger {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-compact.danger:hover {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* Input */
@@ -223,6 +271,16 @@ body::before {
 @keyframes aurora-pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .fade-in-up {

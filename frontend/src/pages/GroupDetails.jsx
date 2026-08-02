@@ -159,6 +159,10 @@ const GroupDetails = () => {
   };
 
   const saveEditGroup = async () => {
+    if (!editName || editName.trim() === "") {
+      setError("Group name is required");
+      return;
+    }
     try {
       setError(null);
       await api.put(`/groups/${id}`, { name: editName, description: editDescription });
@@ -219,11 +223,38 @@ const GroupDetails = () => {
     }
   };
 
+  const handleCancelInvitation = async (invitationId) => {
+    try {
+      setError(null);
+      await api.delete(`/groups/${id}/invitations/${invitationId}`);
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to cancel invitation");
+      console.error(err);
+    }
+  };
+
+  const handleResendInvitation = async (invitationId) => {
+    try {
+      setError(null);
+      await api.post(`/groups/${id}/invitations/${invitationId}/resend`);
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to resend invitation");
+      console.error(err);
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.container}>
         <Sidebar />
-        <main style={styles.main}>Loading...</main>
+        <main style={styles.main}>
+          <div style={styles.loadingContainer}>
+            <div style={styles.spinner}></div>
+            <p style={styles.loadingText}>Loading group details...</p>
+          </div>
+        </main>
       </div>
     );
   }
@@ -273,13 +304,13 @@ const GroupDetails = () => {
             )}
           </div>
           <div style={styles.headerActions}>
-            <button className="btn-ghost" onClick={() => navigate("/groups")}>Back</button>
-            {isOwner && !editMode && <button className="btn-ghost" onClick={startEditGroup}>✏️ Edit</button>}
-            {canInvite && <button className="btn-aurora" onClick={() => setInviteOpen(true)}>Invite Member</button>}
-            {canLeave && <button className="btn-aurora" onClick={handleLeaveGroup}>Leave Group</button>}
+            <button className="btn-compact" onClick={() => navigate("/groups")}>← Back</button>
+            {isOwner && !editMode && <button className="btn-compact" onClick={startEditGroup}>✏️ Edit</button>}
+            {canInvite && <button className="btn-compact primary" onClick={() => setInviteOpen(true)}>+ Invite</button>}
+            {canLeave && <button className="btn-compact primary" onClick={handleLeaveGroup}>🚪 Leave</button>}
             {canDelete && (
-              <button className="btn-ghost" style={{ color: "#ef4444" }} onClick={handleDeleteGroup}>
-                🗑️ Delete Group
+              <button className="btn-compact danger" onClick={handleDeleteGroup}>
+                🗑️ Delete
               </button>
             )}
           </div>
@@ -309,24 +340,6 @@ const GroupDetails = () => {
         </div>
 
         <div style={styles.grid}>
-          {isOwner ? (
-            <section style={styles.card} className="glass-card">
-              <h2 style={styles.sectionTitle}>Owner Actions</h2>
-              <div style={styles.actionStack}>
-                {canInvite && <button className="btn-aurora" onClick={() => setInviteOpen(true)}>Invite Member</button>}
-                <p style={styles.helperText}>Owners can invite or remove members and delete the group.</p>
-              </div>
-            </section>
-          ) : (
-            <section style={styles.card} className="glass-card">
-              <h2 style={styles.sectionTitle}>Member Actions</h2>
-              <div style={styles.actionStack}>
-                {canLeave && <button className="btn-aurora" onClick={handleLeaveGroup}>Leave Group</button>}
-                <p style={styles.helperText}>Members can always add expenses and upload documents.</p>
-              </div>
-            </section>
-          )}
-
           {canInvite && (
             <section style={styles.card} className="glass-card">
               <h2 style={styles.sectionTitle}>Pending Invitations</h2>
@@ -335,13 +348,35 @@ const GroupDetails = () => {
               ) : (
                 <div style={styles.list}>
                   {pendingInvitations.map((invitation) => (
-                    <div key={invitation.id} style={styles.listItem}>
-                      <div>
-                        <p style={styles.memberName}>{invitation.name}</p>
+                    <div key={invitation.id} style={styles.invitationCard}>
+                      <div style={styles.invitationInfo}>
+                        <div style={styles.invitationHeader}>
+                          <p style={styles.memberName}>{invitation.name}</p>
+                          <span style={styles.pendingBadge}>PENDING</span>
+                        </div>
                         <p style={styles.memberMeta}>{invitation.email}</p>
-                        <p style={styles.memberMeta}>Invited by: {invitation.invitedByUsername || group.createdByUsername}</p>
+                        <p style={styles.memberMeta}>Invited: {new Date(invitation.invitedAt).toLocaleDateString()}</p>
+                        <p style={styles.memberMeta}>Trip Shared: {invitation.tripPermission ? "Yes" : "No"}</p>
+                        {invitation.tripPermission && (
+                          <p style={styles.memberMeta}>Permission: {invitation.tripPermission === "EDIT" ? "Editor" : "Viewer"}</p>
+                        )}
                       </div>
-                      <span style={styles.pendingBadge}>PENDING</span>
+                      <div style={styles.invitationActions}>
+                        <button 
+                          className="btn-ghost" 
+                          style={styles.resendBtn}
+                          onClick={() => handleResendInvitation(invitation.id)}
+                        >
+                          📧 Resend
+                        </button>
+                        <button 
+                          className="btn-ghost" 
+                          style={styles.cancelBtn}
+                          onClick={() => handleCancelInvitation(invitation.id)}
+                        >
+                          ✕ Cancel
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -359,7 +394,7 @@ const GroupDetails = () => {
                   <div style={styles.memberHeader}>
                     <p style={styles.memberName}>{member.name}</p>
                     <span style={styles.roleBadge(member.role)}>
-                      {member.role === "OWNER" ? "👑 Owner" : member.tripPermission === "EDIT" ? "✏️ Editor" : "👁️ Viewer"}
+                      {member.role === "OWNER" ? "OWNER" : member.tripPermission === "EDIT" ? "EDITOR" : "VIEWER"}
                     </span>
                   </div>
                   <p style={styles.memberMeta}>{member.email}</p>
@@ -529,22 +564,20 @@ const styles = {
   container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
   main: { marginLeft: "260px", flex: 1, padding: "32px" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" },
-  headerActions: { display: "flex", gap: "12px", flexWrap: "wrap" },
+  headerActions: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" },
   title: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },
   subtitle: { color: "#94a3b8", fontSize: "14px", marginTop: "4px" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px", marginBottom: "16px" },
-  card: { padding: "24px", marginBottom: "16px" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", gap: "16px", marginBottom: "16px" },
+  card: { padding: "20px", marginBottom: "16px" },
   sectionTitle: { fontSize: "18px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "16px" },
   infoLine: { color: "#cbd5e1", fontSize: "14px", marginBottom: "8px" },
   list: { display: "flex", flexDirection: "column", gap: "12px" },
-  listItem: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", padding: "14px", borderRadius: "12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" },
+  listItem: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", padding: "16px", borderRadius: "12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", transition: "all 0.2s ease" },
   memberName: { color: "#f1f5f9", fontSize: "15px", fontWeight: "600" },
   memberMeta: { color: "#94a3b8", fontSize: "12px", marginTop: "4px" },
   memberActions: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" },
   roleBadge: { color: "#7dd3fc", border: "1px solid rgba(125,211,252,0.2)", background: "rgba(125,211,252,0.08)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", letterSpacing: "0.08em" },
   pendingBadge: { color: "#fbbf24", border: "1px solid rgba(251, 191, 36, 0.3)", background: "rgba(251, 191, 36, 0.1)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", letterSpacing: "0.08em" },
-  actionStack: { display: "flex", flexDirection: "column", gap: "12px" },
-  helperText: { color: "#94a3b8", fontSize: "13px", lineHeight: "1.5" },
   modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
   modalCard: { width: "420px", maxWidth: "90vw", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" },
   modalActions: { display: "flex", justifyContent: "flex-end", gap: "12px" },
@@ -584,8 +617,9 @@ const styles = {
       background: colors[role] || colors.MEMBER,
       padding: "4px 10px",
       borderRadius: "999px",
-      fontSize: "11px",
-      letterSpacing: "0.08em"
+      fontSize: "10px",
+      fontWeight: "600",
+      letterSpacing: "0.05em"
     };
   },
   permissionDropdown: { display: "flex", alignItems: "center", gap: "8px" },
@@ -594,6 +628,15 @@ const styles = {
   removeBtn: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", borderRadius: "6px", cursor: "pointer", fontSize: "12px", padding: "6px 12px", transition: "all 0.2s" },
   transferBtn: { background: "rgba(250, 204, 21, 0.1)", border: "1px solid rgba(250, 204, 21, 0.3)", color: "#facc15", borderRadius: "6px", cursor: "pointer", fontSize: "12px", padding: "6px 12px", transition: "all 0.2s" },
   confirmText: { color: "#cbd5e1", fontSize: "14px", marginBottom: "16px" },
+  invitationCard: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", padding: "16px", borderRadius: "12px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", transition: "all 0.2s ease" },
+  invitationInfo: { flex: 1 },
+  invitationHeader: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" },
+  invitationActions: { display: "flex", gap: "8px" },
+  resendBtn: { background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.3)", color: "#7dd3fc", borderRadius: "6px", cursor: "pointer", fontSize: "12px", padding: "6px 12px", transition: "all 0.2s" },
+  cancelBtn: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", borderRadius: "6px", cursor: "pointer", fontSize: "12px", padding: "6px 12px", transition: "all 0.2s" },
+  loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: "16px" },
+  spinner: { width: "40px", height: "40px", border: "3px solid rgba(125,211,252,0.2)", borderTop: "3px solid #7dd3fc", borderRadius: "50%" },
+  loadingText: { color: "#94a3b8", fontSize: "14px" },
 };
 
 export default GroupDetails;

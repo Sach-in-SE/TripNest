@@ -12,6 +12,7 @@ import com.tripnest.dto.TransferOwnershipRequest;
 import com.tripnest.dto.UpdateMemberPermissionRequest;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.GroupService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
@@ -31,12 +32,14 @@ public class GroupController {
     private GroupService groupService;
 
     @PostMapping
-    public ResponseEntity<?> createGroup(@RequestBody GroupRequest request) {
+    public ResponseEntity<?> createGroup(@Valid @RequestBody GroupRequest request) {
         try {
             UserDetailsImpl userDetails = getCurrentUser();
             GroupResponse response = groupService.createGroup(request, userDetails.getId());
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
     }
@@ -176,12 +179,14 @@ public class GroupController {
     }
 
     @PutMapping("/{groupId}")
-    public ResponseEntity<?> editGroup(@PathVariable Long groupId, @RequestBody EditGroupRequest request) {
+    public ResponseEntity<?> editGroup(@PathVariable Long groupId, @Valid @RequestBody EditGroupRequest request) {
         try {
             UserDetailsImpl userDetails = getCurrentUser();
             GroupResponse response = groupService.editGroup(groupId, request, userDetails.getId());
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
     }

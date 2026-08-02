@@ -54,6 +54,10 @@ const Groups = () => {
   };
 
   const handleSubmit = async () => {
+    if (!formData.name || formData.name.trim() === "") {
+      setError("Group name is required");
+      return;
+    }
     try {
       setError(null);
       await api.post("/groups", { ...formData, tripId: parseInt(formData.tripId), memberIds: [] });
@@ -155,11 +159,14 @@ const Groups = () => {
                     {group.name?.charAt(0).toUpperCase()}
                   </div>
                   <div style={styles.cardHeaderRight}>
-                    <span className="badge badge-upcoming">
-                      👥 {group.memberCount} members
+                    <span style={styles.memberCount}>
+                      👥 {group.memberCount}
                     </span>
-                    {group.currentUserRole && (
-                      <span style={styles.roleTag}>{group.currentUserRole}</span>
+                    {group.currentUserRole === "OWNER" && (
+                      <span style={styles.ownerBadge}>👑 Owner</span>
+                    )}
+                    {group.currentUserRole && group.currentUserRole !== "OWNER" && (
+                      <span style={styles.memberBadge}>{group.currentUserRole}</span>
                     )}
                   </div>
                 </div>
@@ -171,24 +178,19 @@ const Groups = () => {
                   <span style={styles.metaItem}>✈️ {group.tripTitle}</span>
                   <span style={styles.metaItem}>👤 {group.createdByUsername}</span>
                 </div>
-                <div style={styles.membersList}>
-                  <p style={styles.membersLabel}>Members:</p>
-                  <div style={styles.memberAvatars}>
-                    {group.memberUsernames?.map((username, i) => (
-                      <div key={i} style={styles.memberAvatar} title={username}>
-                        {username.charAt(0).toUpperCase()}
-                      </div>
-                    ))}
-                  </div>
-                </div>
                 <div style={styles.cardActions}>
-                  <button onClick={() => navigate(`/groups/${group.id}`)} style={styles.openBtn}>
-                    Open Details
+                  <button className="btn-compact" onClick={() => navigate(`/groups/${group.id}`)}>
+                    👁 View
                   </button>
                   {group.currentUserRole === "OWNER" && (
-                    <button onClick={() => handleDelete(group.id)} style={styles.deleteBtn}>
-                      🗑️ Delete Group
-                    </button>
+                    <>
+                      <button className="btn-compact" onClick={() => navigate(`/groups/${group.id}`)}>
+                        ✏️ Edit
+                      </button>
+                      <button className="btn-compact danger" onClick={() => handleDelete(group.id)}>
+                        🗑️ Delete
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -235,23 +237,19 @@ const styles = {
   label: { color: "#94a3b8", fontSize: "13px", fontWeight: "500" },
   modalActions: { display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "8px" },
   emptyState: { padding: "48px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" },
-  card: { padding: "20px" },
-  cardHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" },
+  card: { padding: "20px", display: "flex", flexDirection: "column", gap: "12px" },
+  cardHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" },
   groupAvatar: { width: "48px", height: "48px", borderRadius: "12px", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: "700", color: "white" },
-  cardHeaderRight: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" },
-  groupName: { fontSize: "16px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "6px" },
-  groupDesc: { color: "#64748b", fontSize: "13px", lineHeight: "1.5", marginBottom: "12px" },
-  groupMeta: { display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" },
+  cardHeaderRight: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" },
+  memberCount: { color: "#94a3b8", fontSize: "12px", fontWeight: "500" },
+  ownerBadge: { color: "#fbbf24", fontSize: "11px", fontWeight: "600", letterSpacing: "0.05em" },
+  memberBadge: { color: "#7dd3fc", fontSize: "11px", fontWeight: "600", letterSpacing: "0.05em" },
+  groupName: { fontSize: "16px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
+  groupDesc: { color: "#64748b", fontSize: "13px", lineHeight: "1.4", marginBottom: "8px" },
+  groupMeta: { display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" },
   metaItem: { color: "#64748b", fontSize: "12px", background: "rgba(255,255,255,0.05)", padding: "4px 8px", borderRadius: "6px" },
-  membersList: { marginBottom: "16px" },
-  membersLabel: { color: "#94a3b8", fontSize: "12px", marginBottom: "8px" },
-  memberAvatars: { display: "flex", gap: "6px", flexWrap: "wrap" },
-  memberAvatar: { width: "32px", height: "32px", borderRadius: "50%", background: "linear-gradient(135deg, #2563eb, #7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "600", color: "white" },
-  cardActions: { display: "flex", gap: "8px" },
-  openBtn: { background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.25)", color: "#7dd3fc", borderRadius: "8px", cursor: "pointer", fontSize: "13px", padding: "8px 12px", flex: 1 },
-  deleteBtn: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", borderRadius: "8px", cursor: "pointer", fontSize: "13px", padding: "8px 12px", width: "100%", transition: "all 0.2s" },
-  roleTag: { color: "#7dd3fc", fontSize: "11px", letterSpacing: "0.08em", textTransform: "uppercase" },
+  cardActions: { display: "flex", gap: "8px", marginTop: "auto" },
   sectionTitle: { fontSize: "18px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "16px" },
   errorBanner: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" },
   closeError: { background: "none", border: "none", color: "#ef4444", fontSize: "20px", cursor: "pointer", padding: "0 8px" },

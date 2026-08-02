@@ -59,6 +59,10 @@ public class GroupService {
 
     @Transactional
     public GroupResponse createGroup(GroupRequest request, Long userId) {
+        if (request.getName() == null || request.getName().isBlank()) {
+            throw new RuntimeException("Group name is required");
+        }
+
         User creator = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -271,6 +275,61 @@ public class GroupService {
     }
 
     @Transactional
+    public void cancelInvitation(Long groupId, Long invitationId, Long userId) {
+        TravelGroup group = ensureOwner(groupId, userId);
+        
+        GroupMember membership = groupMemberRepository.findById(invitationId)
+                .orElseThrow(() -> new RuntimeException("Invitation not found"));
+        
+        if (!membership.getTravelGroup().getId().equals(groupId)) {
+            throw new RuntimeException("Invitation does not belong to this group");
+        }
+        
+        if (membership.getStatus() != GroupInvitationStatus.PENDING) {
+            throw new RuntimeException("Can only cancel pending invitations");
+        }
+        
+        // Remove corresponding TripShare if exists
+        if (group.getTrip() != null) {
+            Optional<TripShare> tripShare = tripShareRepository.findByTripIdAndSharedWithUserId(
+                group.getTrip().getId(), membership.getUser().getId());
+            if (tripShare.isPresent()) {
+                tripShareRepository.delete(tripShare.get());
+            }
+        }
+        
+        groupMemberRepository.delete(membership);
+    }
+
+    @Transactional
+    public void resendInvitation(Long groupId, Long invitationId, Long userId) {
+        TravelGroup group = ensureOwner(groupId, userId);
+        
+        GroupMember membership = groupMemberRepository.findById(invitationId)
+                .orElseThrow(() -> new RuntimeException("Invitation not found"));
+        
+        if (!membership.getTravelGroup().getId().equals(groupId)) {
+            throw new RuntimeException("Invitation does not belong to this group");
+        }
+        
+        if (membership.getStatus() != GroupInvitationStatus.PENDING) {
+            throw new RuntimeException("Can only resend pending invitations");
+        }
+        
+        User owner = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Create new notification
+        NotificationRequest notification = new NotificationRequest();
+        notification.setUserId(membership.getUser().getId());
+        notification.setType(NotificationType.GROUP_INVITATION.name());
+        notification.setTitle("Group Invitation: " + group.getName());
+        notification.setMessage(buildInvitationMessage(owner, group));
+        notification.setReferenceId(membership.getId());
+        notificationService.createNotification(notification);
+    }
+
+    @Transactional
     public void removeMember(Long groupId, Long memberId, Long userId) {
         TravelGroup group = ensureOwner(groupId, userId);
 
@@ -373,9 +432,11 @@ public class GroupService {
     public GroupResponse editGroup(Long groupId, EditGroupRequest request, Long userId) {
         TravelGroup group = ensureOwner(groupId, userId);
         
-        if (request.getName() != null && !request.getName().isBlank()) {
-            group.setName(request.getName());
+        if (request.getName() == null || request.getName().isBlank()) {
+            throw new RuntimeException("Group name is required");
         }
+        
+        group.setName(request.getName());
         if (request.getDescription() != null) {
             group.setDescription(request.getDescription());
         }

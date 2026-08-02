@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api"; // Authenticated api client
 
@@ -9,6 +10,7 @@ const Notifications = () => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [respondingId, setRespondingId] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => { fetchNotifications(); }, []);
 
@@ -43,6 +45,25 @@ const Notifications = () => {
       await api.delete(`/notifications/${id}`);
       fetchNotifications();
     } catch (err) { console.error(err); }
+  };
+
+  const handleNotificationClick = (notif) => {
+    // Mark as read first
+    if (!notif.read) {
+      handleMarkRead(notif.id);
+    }
+    
+    // Navigate based on notification type
+    if (notif.type === "GROUP_INVITATION" && notif.referenceId) {
+      navigate(`/groups`);
+    } else if (notif.type === "TRIP_INVITATION" && notif.referenceId) {
+      navigate(`/trips`);
+    } else if (notif.type === "TRIP_INVITATION_RESPONSE") {
+      navigate(`/trips`);
+    } else {
+      // Default navigation
+      navigate("/trips");
+    }
   };
 
   /**
@@ -110,7 +131,9 @@ const Notifications = () => {
               return (
                 <div key={notif.id}
                   style={{ ...styles.notifCard, ...(notif.read ? {} : styles.unread), ...(isPendingInvite ? styles.inviteCard : {}) }}
-                  className="glass-card">
+                  className="glass-card"
+                  onClick={() => !isPendingInvite && handleNotificationClick(notif)}
+                  title={isPendingInvite ? "" : "Click to view details"}>
 
                   {/* Left: icon + text */}
                   <div style={styles.notifLeft}>
@@ -132,7 +155,7 @@ const Notifications = () => {
                             id={`accept-invite-${notif.id}`}
                             style={styles.acceptBtn}
                             disabled={isResponding}
-                            onClick={() => handleRespond(notif, "ACCEPT")}
+                            onClick={(e) => { e.stopPropagation(); handleRespond(notif, "ACCEPT"); }}
                           >
                             {isResponding ? "⏳" : "✓ Accept"}
                           </button>
@@ -140,7 +163,7 @@ const Notifications = () => {
                             id={`decline-invite-${notif.id}`}
                             style={styles.declineBtn}
                             disabled={isResponding}
-                            onClick={() => handleRespond(notif, "DECLINE")}
+                            onClick={(e) => { e.stopPropagation(); handleRespond(notif, "DECLINE"); }}
                           >
                             {isResponding ? "⏳" : "✗ Decline"}
                           </button>
@@ -152,12 +175,20 @@ const Notifications = () => {
                   {/* Right: standard read/delete actions */}
                   <div style={styles.notifActions}>
                     {!notif.read && !isPendingInvite && (
-                      <button className="btn-ghost" onClick={() => handleMarkRead(notif.id)}
-                        style={{ fontSize: "12px", padding: "6px 12px" }}>
+                      <button 
+                        className="btn-ghost" 
+                        onClick={(e) => { e.stopPropagation(); handleMarkRead(notif.id); }}
+                        style={{ fontSize: "12px", padding: "6px 12px" }}
+                      >
                         Mark Read
                       </button>
                     )}
-                    <button onClick={() => handleDelete(notif.id)} style={styles.deleteBtn}>🗑️</button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDelete(notif.id); }} 
+                      style={styles.deleteBtn}
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
               );
