@@ -35,6 +35,9 @@ public class GroupMember {
     @Enumerated(EnumType.STRING)
     private GroupInvitationStatus status = GroupInvitationStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    private SharePermission tripPermission = SharePermission.VIEW;
+
     @Column(nullable = false)
     private LocalDateTime invitedAt;
 

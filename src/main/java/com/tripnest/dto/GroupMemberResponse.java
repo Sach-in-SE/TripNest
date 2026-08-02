@@ -19,4 +19,5 @@ public class GroupMemberResponse {
     private LocalDateTime invitedAt;
     private LocalDateTime joinedAt;
     private String invitedByUsername;
+    private String tripPermission;
 }

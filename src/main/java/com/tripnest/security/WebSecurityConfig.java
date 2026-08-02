@@ -79,6 +79,7 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/destinations/**").permitAll()
                         .requestMatchers("/api/documents/download/**").permitAll()
                     .requestMatchers("/api/groups", "/api/groups/**").authenticated()
+                        .requestMatchers("/api/trips", "/api/trips/**").authenticated()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/api/trip-shares", "/api/trip-shares/**").authenticated()
                         .requestMatchers("/api/notifications", "/api/notifications/**").authenticated()

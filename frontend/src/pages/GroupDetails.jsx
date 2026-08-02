@@ -15,6 +15,15 @@ const GroupDetails = () => {
   const [tripPermission, setTripPermission] = useState("VIEW");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [transferOwnershipOpen, setTransferOwnershipOpen] = useState(false);
+  const [newOwnerId, setNewOwnerId] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmTransfer, setConfirmTransfer] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -83,13 +92,18 @@ const GroupDetails = () => {
     }
   };
 
-  const leaveGroup = async () => {
+  const handleRemoveMember = (memberId) => {
+    setConfirmRemove(memberId);
+  };
+
+  const confirmRemoveMember = async () => {
     try {
       setError(null);
-      await api.post(`/groups/${id}/leave`);
-      navigate("/groups");
+      await api.delete(`/groups/${id}/members/${confirmRemove}`);
+      setConfirmRemove(null);
+      fetchData();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to leave group");
+      setError(err.response?.data?.message || "Failed to remove member");
       console.error(err);
     }
   };
@@ -102,6 +116,96 @@ const GroupDetails = () => {
       navigate("/groups");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete group");
+      console.error(err);
+    }
+  };
+
+  const handleDeleteGroup = () => {
+    setConfirmDelete(true);
+  };
+
+  const confirmDeleteGroup = async () => {
+    try {
+      setError(null);
+      await api.delete(`/groups/${id}`);
+      setConfirmDelete(false);
+      navigate("/groups");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to delete group");
+      console.error(err);
+    }
+  };
+
+  const handleLeaveGroup = () => {
+    setConfirmLeave(true);
+  };
+
+  const confirmLeaveGroup = async () => {
+    try {
+      setError(null);
+      await api.post(`/groups/${id}/leave`);
+      setConfirmLeave(false);
+      navigate("/groups");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to leave group");
+      console.error(err);
+    }
+  };
+
+  const startEditGroup = () => {
+    setEditName(group.name);
+    setEditDescription(group.description || "");
+    setEditMode(true);
+  };
+
+  const saveEditGroup = async () => {
+    try {
+      setError(null);
+      await api.put(`/groups/${id}`, { name: editName, description: editDescription });
+      setEditMode(false);
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update group");
+      console.error(err);
+    }
+  };
+
+  const handleTransferOwnership = (memberId) => {
+    setNewOwnerId(memberId);
+    setConfirmTransfer(memberId);
+  };
+
+  const confirmTransferOwnership = async () => {
+    try {
+      setError(null);
+      await api.post(`/groups/${id}/transfer-ownership`, { newOwnerId: confirmTransfer });
+      setConfirmTransfer(null);
+      setTransferOwnershipOpen(false);
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to transfer ownership");
+      console.error(err);
+    }
+  };
+
+  const updateMemberPermission = async (memberId, permission) => {
+    try {
+      setError(null);
+      await api.put(`/groups/${id}/members/${memberId}/permission`, { tripPermission: permission });
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update permission");
+      console.error(err);
+    }
+  };
+
+  const removeTripShare = async (memberId) => {
+    try {
+      setError(null);
+      await api.delete(`/groups/${id}/members/${memberId}/trip-share`);
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to remove trip share");
       console.error(err);
     }
   };
@@ -140,16 +244,42 @@ const GroupDetails = () => {
       <main style={styles.main}>
         <div style={styles.header}>
           <div>
-            <h1 style={styles.title}>{group.name}</h1>
-            <p style={styles.subtitle}>{group.description || "Group collaboration"}</p>
+            {editMode ? (
+              <div style={styles.editForm}>
+                <input
+                  className="aurora-input"
+                  placeholder="Group Name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  style={styles.editInput}
+                />
+                <input
+                  className="aurora-input"
+                  placeholder="Description"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  style={styles.editInput}
+                />
+                <div style={styles.editActions}>
+                  <button className="btn-ghost" onClick={() => setEditMode(false)}>Cancel</button>
+                  <button className="btn-aurora" onClick={saveEditGroup}>Save</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 style={styles.title}>{group.name}</h1>
+                <p style={styles.subtitle}>{group.description || "Group collaboration"}</p>
+              </>
+            )}
           </div>
           <div style={styles.headerActions}>
             <button className="btn-ghost" onClick={() => navigate("/groups")}>Back</button>
+            {isOwner && !editMode && <button className="btn-ghost" onClick={startEditGroup}>✏️ Edit</button>}
             {canInvite && <button className="btn-aurora" onClick={() => setInviteOpen(true)}>Invite Member</button>}
-            {canLeave && <button className="btn-aurora" onClick={leaveGroup}>Leave Group</button>}
+            {canLeave && <button className="btn-aurora" onClick={handleLeaveGroup}>Leave Group</button>}
             {canDelete && (
-              <button className="btn-ghost" style={{ color: "#ef4444" }} onClick={() => deleteGroup()}>
-                Delete Group
+              <button className="btn-ghost" style={{ color: "#ef4444" }} onClick={handleDeleteGroup}>
+                🗑️ Delete Group
               </button>
             )}
           </div>
@@ -191,7 +321,7 @@ const GroupDetails = () => {
             <section style={styles.card} className="glass-card">
               <h2 style={styles.sectionTitle}>Member Actions</h2>
               <div style={styles.actionStack}>
-                {canLeave && <button className="btn-aurora" onClick={leaveGroup}>Leave Group</button>}
+                {canLeave && <button className="btn-aurora" onClick={handleLeaveGroup}>Leave Group</button>}
                 <p style={styles.helperText}>Members can always add expenses and upload documents.</p>
               </div>
             </section>
@@ -211,7 +341,7 @@ const GroupDetails = () => {
                         <p style={styles.memberMeta}>{invitation.email}</p>
                         <p style={styles.memberMeta}>Invited by: {invitation.invitedByUsername || group.createdByUsername}</p>
                       </div>
-                      <span style={styles.roleBadge}>PENDING</span>
+                      <span style={styles.pendingBadge}>PENDING</span>
                     </div>
                   ))}
                 </div>
@@ -224,16 +354,49 @@ const GroupDetails = () => {
           <h2 style={styles.sectionTitle}>Member List</h2>
           <div style={styles.list}>
             {members.map((member) => (
-              <div key={member.id} style={styles.listItem}>
-                <div>
-                  <p style={styles.memberName}>{member.name}</p>
+              <div key={member.id} style={styles.memberCard}>
+                <div style={styles.memberInfo}>
+                  <div style={styles.memberHeader}>
+                    <p style={styles.memberName}>{member.name}</p>
+                    <span style={styles.roleBadge(member.role)}>
+                      {member.role === "OWNER" ? "👑 Owner" : member.tripPermission === "EDIT" ? "✏️ Editor" : "👁️ Viewer"}
+                    </span>
+                  </div>
                   <p style={styles.memberMeta}>{member.email}</p>
                   <p style={styles.memberMeta}>Joined: {member.joinedAt || member.invitedAt || "Pending"}</p>
+                  <p style={styles.memberMeta}>Trip Access: {member.tripPermission || "VIEW"}</p>
                 </div>
                 <div style={styles.memberActions}>
-                  <span style={styles.roleBadge}>{member.role}</span>
-                  {canRemove && member.role !== "OWNER" && (
-                    <button className="btn-ghost" onClick={() => removeMember(member.userId)}>Remove</button>
+                  {isOwner && member.role !== "OWNER" && (
+                    <div style={styles.permissionDropdown}>
+                      <select 
+                        className="aurora-input" 
+                        style={styles.permissionSelect}
+                        value={member.tripPermission || "VIEW"}
+                        onChange={(e) => updateMemberPermission(member.userId, e.target.value)}
+                      >
+                        <option value="VIEW">👁️ View</option>
+                        <option value="EDIT">✏️ Edit</option>
+                      </select>
+                      <button 
+                        className="btn-ghost" 
+                        style={styles.removeTripBtn}
+                        onClick={() => removeTripShare(member.userId)}
+                        title="Remove Trip Share"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  {isOwner && member.role !== "OWNER" && (
+                    <button className="btn-ghost" style={styles.removeBtn} onClick={() => handleRemoveMember(member.userId)}>
+                      Remove
+                    </button>
+                  )}
+                  {isOwner && member.role !== "OWNER" && (
+                    <button className="btn-ghost" style={styles.transferBtn} onClick={() => handleTransferOwnership(member.userId)}>
+                      👑 Transfer
+                    </button>
                   )}
                 </div>
               </div>
@@ -305,6 +468,58 @@ const GroupDetails = () => {
             </div>
           </div>
         )}
+
+        {confirmDelete && (
+          <div style={styles.modal}>
+            <div style={styles.modalCard} className="glass-card">
+              <h3 style={styles.sectionTitle}>Delete Group</h3>
+              <p style={styles.confirmText}>Are you sure you want to delete this group? This action cannot be undone.</p>
+              <div style={styles.modalActions}>
+                <button className="btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+                <button className="btn-aurora" style={{ background: "rgba(239,68,68,0.2)", borderColor: "rgba(239,68,68,0.4)" }} onClick={confirmDeleteGroup}>Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmRemove && (
+          <div style={styles.modal}>
+            <div style={styles.modalCard} className="glass-card">
+              <h3 style={styles.sectionTitle}>Remove Member</h3>
+              <p style={styles.confirmText}>Are you sure you want to remove this member from the group?</p>
+              <div style={styles.modalActions}>
+                <button className="btn-ghost" onClick={() => setConfirmRemove(null)}>Cancel</button>
+                <button className="btn-aurora" style={{ background: "rgba(239,68,68,0.2)", borderColor: "rgba(239,68,68,0.4)" }} onClick={confirmRemoveMember}>Remove</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmLeave && (
+          <div style={styles.modal}>
+            <div style={styles.modalCard} className="glass-card">
+              <h3 style={styles.sectionTitle}>Leave Group</h3>
+              <p style={styles.confirmText}>Are you sure you want to leave this group?</p>
+              <div style={styles.modalActions}>
+                <button className="btn-ghost" onClick={() => setConfirmLeave(false)}>Cancel</button>
+                <button className="btn-aurora" style={{ background: "rgba(239,68,68,0.2)", borderColor: "rgba(239,68,68,0.4)" }} onClick={confirmLeaveGroup}>Leave</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmTransfer && (
+          <div style={styles.modal}>
+            <div style={styles.modalCard} className="glass-card">
+              <h3 style={styles.sectionTitle}>Transfer Ownership</h3>
+              <p style={styles.confirmText}>Are you sure you want to transfer ownership to this member? You will become a regular member.</p>
+              <div style={styles.modalActions}>
+                <button className="btn-ghost" onClick={() => setConfirmTransfer(null)}>Cancel</button>
+                <button className="btn-aurora" style={{ background: "rgba(239,68,68,0.2)", borderColor: "rgba(239,68,68,0.4)" }} onClick={confirmTransferOwnership}>Transfer</button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -327,6 +542,7 @@ const styles = {
   memberMeta: { color: "#94a3b8", fontSize: "12px", marginTop: "4px" },
   memberActions: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" },
   roleBadge: { color: "#7dd3fc", border: "1px solid rgba(125,211,252,0.2)", background: "rgba(125,211,252,0.08)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", letterSpacing: "0.08em" },
+  pendingBadge: { color: "#fbbf24", border: "1px solid rgba(251, 191, 36, 0.3)", background: "rgba(251, 191, 36, 0.1)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", letterSpacing: "0.08em" },
   actionStack: { display: "flex", flexDirection: "column", gap: "12px" },
   helperText: { color: "#94a3b8", fontSize: "13px", lineHeight: "1.5" },
   modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
@@ -343,6 +559,41 @@ const styles = {
   permissionOptions: { display: "flex", flexDirection: "column", gap: "8px" },
   radioLabel: { color: "#cbd5e1", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" },
   radio: { width: "16px", height: "16px", cursor: "pointer" },
+  editForm: { display: "flex", flexDirection: "column", gap: "12px" },
+  editInput: { marginBottom: "8px" },
+  editActions: { display: "flex", gap: "8px", justifyContent: "flex-end" },
+  memberCard: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", padding: "16px", borderRadius: "12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" },
+  memberInfo: { flex: 1 },
+  memberHeader: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" },
+  roleBadge: (role) => {
+    const colors = {
+      "OWNER": "rgba(250, 204, 21, 0.15)",
+      "MEMBER": "rgba(125, 211, 252, 0.08)",
+      "EDITOR": "rgba(168, 85, 247, 0.15)",
+      "VIEWER": "rgba(251, 146, 60, 0.15)"
+    };
+    const borderColors = {
+      "OWNER": "rgba(250, 204, 21, 0.3)",
+      "MEMBER": "rgba(125, 211, 252, 0.2)",
+      "EDITOR": "rgba(168, 85, 247, 0.3)",
+      "VIEWER": "rgba(251, 146, 60, 0.3)"
+    };
+    return {
+      color: role === "OWNER" ? "#facc15" : role === "EDITOR" ? "#a855f7" : "#fb923c",
+      border: `1px solid ${borderColors[role] || borderColors.MEMBER}`,
+      background: colors[role] || colors.MEMBER,
+      padding: "4px 10px",
+      borderRadius: "999px",
+      fontSize: "11px",
+      letterSpacing: "0.08em"
+    };
+  },
+  permissionDropdown: { display: "flex", alignItems: "center", gap: "8px" },
+  permissionSelect: { padding: "6px 10px", borderRadius: "6px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#cbd5e1", fontSize: "12px" },
+  removeTripBtn: { background: "none", border: "none", color: "#94a3b8", fontSize: "16px", cursor: "pointer", padding: "4px 8px", transition: "all 0.2s" },
+  removeBtn: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", borderRadius: "6px", cursor: "pointer", fontSize: "12px", padding: "6px 12px", transition: "all 0.2s" },
+  transferBtn: { background: "rgba(250, 204, 21, 0.1)", border: "1px solid rgba(250, 204, 21, 0.3)", color: "#facc15", borderRadius: "6px", cursor: "pointer", fontSize: "12px", padding: "6px 12px", transition: "all 0.2s" },
+  confirmText: { color: "#cbd5e1", fontSize: "14px", marginBottom: "16px" },
 };
 
 export default GroupDetails;

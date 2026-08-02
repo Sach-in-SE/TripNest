@@ -1,5 +1,6 @@
 package com.tripnest.controller;
 
+import com.tripnest.dto.EditGroupRequest;
 import com.tripnest.dto.GroupDetailsResponse;
 import com.tripnest.dto.GroupInvitationRequest;
 import com.tripnest.dto.GroupMemberResponse;
@@ -7,6 +8,8 @@ import com.tripnest.dto.GroupRequest;
 import com.tripnest.dto.GroupResponse;
 import com.tripnest.dto.MessageResponse;
 import com.tripnest.dto.RespondRequest;
+import com.tripnest.dto.TransferOwnershipRequest;
+import com.tripnest.dto.UpdateMemberPermissionRequest;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.GroupService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,6 +87,28 @@ public class GroupController {
         return ResponseEntity.ok(invitations);
     }
 
+    @DeleteMapping("/{groupId}/invitations/{invitationId}")
+    public ResponseEntity<?> cancelInvitation(@PathVariable Long groupId, @PathVariable Long invitationId) {
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            groupService.cancelInvitation(groupId, invitationId, userDetails.getId());
+            return ResponseEntity.ok(new MessageResponse("Invitation cancelled successfully!"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{groupId}/invitations/{invitationId}/resend")
+    public ResponseEntity<?> resendInvitation(@PathVariable Long groupId, @PathVariable Long invitationId) {
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            groupService.resendInvitation(groupId, invitationId, userDetails.getId());
+            return ResponseEntity.ok(new MessageResponse("Invitation resent successfully!"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
     @PostMapping("/{groupId}/invite")
     public ResponseEntity<?> inviteMember(@PathVariable Long groupId, @RequestBody GroupInvitationRequest request) {
         try {
@@ -145,6 +170,50 @@ public class GroupController {
             UserDetailsImpl userDetails = getCurrentUser();
             groupService.deleteGroup(groupId, userDetails.getId());
             return ResponseEntity.ok(new MessageResponse("Group deleted successfully!"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{groupId}")
+    public ResponseEntity<?> editGroup(@PathVariable Long groupId, @RequestBody EditGroupRequest request) {
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            GroupResponse response = groupService.editGroup(groupId, request, userDetails.getId());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{groupId}/transfer-ownership")
+    public ResponseEntity<?> transferOwnership(@PathVariable Long groupId, @RequestBody TransferOwnershipRequest request) {
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            groupService.transferOwnership(groupId, request.getNewOwnerId(), userDetails.getId());
+            return ResponseEntity.ok(new MessageResponse("Ownership transferred successfully!"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{groupId}/members/{memberId}/permission")
+    public ResponseEntity<?> updateMemberPermission(@PathVariable Long groupId, @PathVariable Long memberId, @RequestBody UpdateMemberPermissionRequest request) {
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            groupService.updateMemberPermission(groupId, memberId, request.getTripPermission(), userDetails.getId());
+            return ResponseEntity.ok(new MessageResponse("Member permission updated successfully!"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{groupId}/members/{memberId}/trip-share")
+    public ResponseEntity<?> removeTripShare(@PathVariable Long groupId, @PathVariable Long memberId) {
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            groupService.removeTripShare(groupId, memberId, userDetails.getId());
+            return ResponseEntity.ok(new MessageResponse("Trip share removed successfully!"));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }

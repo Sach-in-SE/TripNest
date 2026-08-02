@@ -67,6 +67,13 @@ public class TripController {
 
     private UserDetailsImpl getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (UserDetailsImpl) authentication.getPrincipal();
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new RuntimeException("Authentication is missing");
+        }
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserDetailsImpl)) {
+            throw new RuntimeException("Invalid authentication principal type: " + principal.getClass().getName());
+        }
+        return (UserDetailsImpl) principal;
     }
 }

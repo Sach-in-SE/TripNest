@@ -1,5 +1,6 @@
 package com.tripnest.service;
 
+import com.tripnest.dto.EditGroupRequest;
 import com.tripnest.dto.GroupDetailsResponse;
 import com.tripnest.dto.GroupInvitationRequest;
 import com.tripnest.dto.GroupMemberResponse;
@@ -7,6 +8,8 @@ import com.tripnest.dto.GroupRequest;
 import com.tripnest.dto.GroupResponse;
 import com.tripnest.dto.NotificationRequest;
 import com.tripnest.dto.TripShareRequest;
+import com.tripnest.dto.TransferOwnershipRequest;
+import com.tripnest.dto.UpdateMemberPermissionRequest;
 import com.tripnest.entity.GroupInvitationStatus;
 import com.tripnest.entity.GroupMember;
 import com.tripnest.entity.GroupRole;
@@ -82,7 +85,7 @@ public class GroupService {
         group.setMembers(members);
 
         TravelGroup saved = groupRepository.save(group);
-        createMembership(saved, creator, creator, GroupRole.OWNER, GroupInvitationStatus.ACCEPTED);
+        createMembership(saved, creator, creator, GroupRole.OWNER, GroupInvitationStatus.ACCEPTED, SharePermission.EDIT);
 
         if (request.getMemberIds() != null) {
             for (Long memberId : request.getMemberIds()) {
@@ -90,7 +93,7 @@ public class GroupService {
                     continue;
                 }
                 userRepository.findById(memberId).ifPresent(member ->
-                        createMembership(saved, member, creator, GroupRole.MEMBER, GroupInvitationStatus.ACCEPTED)
+                        createMembership(saved, member, creator, GroupRole.MEMBER, GroupInvitationStatus.ACCEPTED, SharePermission.VIEW)
                 );
             }
         }
@@ -175,7 +178,11 @@ public class GroupService {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        GroupMember membership = createMembership(group, invitedUser, owner, GroupRole.MEMBER, GroupInvitationStatus.PENDING);
+        SharePermission tripPermission = request.getTripPermission() != null 
+            ? SharePermission.valueOf(request.getTripPermission()) 
+            : SharePermission.VIEW;
+
+        GroupMember membership = createMembership(group, invitedUser, owner, GroupRole.MEMBER, GroupInvitationStatus.PENDING, tripPermission);
 
         // Create TripShare if requested
         if (request.getShareTrip() != null && request.getShareTrip()) {
@@ -188,9 +195,7 @@ public class GroupService {
                 tripShare.setTrip(trip);
                 tripShare.setSharedWithUser(invitedUser);
                 tripShare.setSharedByUser(owner);
-                tripShare.setPermission(request.getTripPermission() != null 
-                    ? SharePermission.valueOf(request.getTripPermission()) 
-                    : SharePermission.VIEW);
+                tripShare.setPermission(tripPermission);
                 tripShare.setStatus(ShareStatus.PENDING);
                 tripShareRepository.save(tripShare);
             }
@@ -228,7 +233,7 @@ public class GroupService {
             group.getMembers().add(saved.getUser());
             groupRepository.save(group);
             
-            // Auto-accept trip share if exists
+            // Auto-accept trip share if exists and sync permissions
             if (group.getTrip() != null) {
                 Optional<TripShare> tripShare = tripShareRepository.findByTripIdAndSharedWithUserId(
                     group.getTrip().getId(), userId);
@@ -236,6 +241,10 @@ public class GroupService {
                     TripShare share = tripShare.get();
                     share.setStatus(ShareStatus.ACCEPTED);
                     tripShareRepository.save(share);
+                    
+                    // Sync GroupMember.tripPermission with TripShare.permission
+                    saved.setTripPermission(share.getPermission());
+                    groupMemberRepository.save(saved);
                 }
             }
             
@@ -243,6 +252,17 @@ public class GroupService {
         }
 
         if ("DECLINE".equalsIgnoreCase(action)) {
+            TravelGroup group = membership.getTravelGroup();
+            
+            // Remove corresponding TripShare if exists
+            if (group.getTrip() != null) {
+                Optional<TripShare> tripShare = tripShareRepository.findByTripIdAndSharedWithUserId(
+                    group.getTrip().getId(), userId);
+                if (tripShare.isPresent()) {
+                    tripShareRepository.delete(tripShare.get());
+                }
+            }
+            
             groupMemberRepository.delete(membership);
             return mapToMemberResponse(membership);
         }
@@ -266,6 +286,15 @@ public class GroupService {
             groupRepository.save(group);
         }
 
+        // Remove corresponding TripShare if exists
+        if (group.getTrip() != null) {
+            Optional<TripShare> tripShare = tripShareRepository.findByTripIdAndSharedWithUserId(
+                group.getTrip().getId(), memberId);
+            if (tripShare.isPresent()) {
+                tripShareRepository.delete(tripShare.get());
+            }
+        }
+
         groupMemberRepository.delete(membership);
     }
 
@@ -286,6 +315,16 @@ public class GroupService {
 
         group.getMembers().removeIf(member -> member.getId().equals(userId));
         groupRepository.save(group);
+        
+        // Remove corresponding TripShare if exists
+        if (group.getTrip() != null) {
+            Optional<TripShare> tripShare = tripShareRepository.findByTripIdAndSharedWithUserId(
+                group.getTrip().getId(), userId);
+            if (tripShare.isPresent()) {
+                tripShareRepository.delete(tripShare.get());
+            }
+        }
+        
         groupMemberRepository.delete(membership);
     }
 
@@ -306,11 +345,12 @@ public class GroupService {
         }
 
         if (membership == null) {
-            membership = createMembership(group, member, group.getCreatedBy(), GroupRole.MEMBER, GroupInvitationStatus.ACCEPTED);
+            membership = createMembership(group, member, group.getCreatedBy(), GroupRole.MEMBER, GroupInvitationStatus.ACCEPTED, SharePermission.VIEW);
         } else {
             membership.setStatus(GroupInvitationStatus.ACCEPTED);
             membership.setJoinedAt(LocalDateTime.now());
             membership.setRole(GroupRole.MEMBER);
+            membership.setTripPermission(SharePermission.VIEW);
             membership.setInvitedBy(group.getCreatedBy());
             membership = groupMemberRepository.save(membership);
         }
@@ -327,6 +367,109 @@ public class GroupService {
         TravelGroup group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new RuntimeException("Group not found"));
         groupRepository.delete(group);
+    }
+
+    @Transactional
+    public GroupResponse editGroup(Long groupId, EditGroupRequest request, Long userId) {
+        TravelGroup group = ensureOwner(groupId, userId);
+        
+        if (request.getName() != null && !request.getName().isBlank()) {
+            group.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            group.setDescription(request.getDescription());
+        }
+        
+        TravelGroup saved = groupRepository.save(group);
+        return mapToResponse(saved, userId);
+    }
+
+    @Transactional
+    public void transferOwnership(Long groupId, Long newOwnerId, Long currentOwnerId) {
+        TravelGroup group = ensureOwner(groupId, currentOwnerId);
+        
+        if (newOwnerId.equals(currentOwnerId)) {
+            throw new RuntimeException("You cannot transfer ownership to yourself");
+        }
+        
+        GroupMember newOwnerMembership = groupMemberRepository.findByTravelGroupIdAndUserId(groupId, newOwnerId)
+                .orElseThrow(() -> new RuntimeException("User is not a member of this group"));
+        
+        if (newOwnerMembership.getStatus() != GroupInvitationStatus.ACCEPTED) {
+            throw new RuntimeException("Can only transfer ownership to accepted members");
+        }
+        
+        User newOwner = userRepository.findById(newOwnerId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        User currentOwner = userRepository.findById(currentOwnerId)
+                .orElseThrow(() -> new RuntimeException("Current owner not found"));
+        
+        // Update group ownership
+        group.setCreatedBy(newOwner);
+        groupRepository.save(group);
+        
+        // Update roles
+        newOwnerMembership.setRole(GroupRole.OWNER);
+        groupMemberRepository.save(newOwnerMembership);
+        
+        // Change old owner to member
+        GroupMember oldOwnerMembership = groupMemberRepository.findByTravelGroupIdAndUserId(groupId, currentOwnerId)
+                .orElseThrow(() -> new RuntimeException("Current owner membership not found"));
+        oldOwnerMembership.setRole(GroupRole.MEMBER);
+        groupMemberRepository.save(oldOwnerMembership);
+    }
+
+    @Transactional
+    public void updateMemberPermission(Long groupId, Long memberId, String tripPermission, Long userId) {
+        TravelGroup group = ensureOwner(groupId, userId);
+        
+        GroupMember membership = groupMemberRepository.findByTravelGroupIdAndUserId(groupId, memberId)
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+        
+        if (membership.getRole() == GroupRole.OWNER) {
+            throw new RuntimeException("Cannot change owner's permissions");
+        }
+        
+        SharePermission permission = SharePermission.valueOf(tripPermission);
+        membership.setTripPermission(permission);
+        groupMemberRepository.save(membership);
+        
+        // Update corresponding TripShare if exists
+        if (group.getTrip() != null) {
+            Optional<TripShare> tripShare = tripShareRepository.findByTripIdAndSharedWithUserId(
+                group.getTrip().getId(), memberId);
+            if (tripShare.isPresent()) {
+                TripShare share = tripShare.get();
+                share.setPermission(permission);
+                tripShareRepository.save(share);
+            }
+        }
+    }
+
+    @Transactional
+    public void removeTripShare(Long groupId, Long memberId, Long userId) {
+        TravelGroup group = ensureOwner(groupId, userId);
+        
+        GroupMember membership = groupMemberRepository.findByTravelGroupIdAndUserId(groupId, memberId)
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+        
+        if (membership.getRole() == GroupRole.OWNER) {
+            throw new RuntimeException("Cannot remove trip share from owner");
+        }
+        
+        // Reset member's trip permission to VIEW
+        membership.setTripPermission(SharePermission.VIEW);
+        groupMemberRepository.save(membership);
+        
+        // Remove corresponding TripShare if exists
+        if (group.getTrip() != null) {
+            Optional<TripShare> tripShare = tripShareRepository.findByTripIdAndSharedWithUserId(
+                group.getTrip().getId(), memberId);
+            if (tripShare.isPresent()) {
+                tripShareRepository.delete(tripShare.get());
+            }
+        }
     }
 
     private GroupResponse mapToResponse(TravelGroup group, Long currentUserId) {
@@ -362,7 +505,7 @@ public class GroupService {
         response.setCreatedById(group.getCreatedBy().getId());
         response.setCreatedByUsername(group.getCreatedBy().getUsername());
         response.setCurrentUserRole(resolveCurrentUserRole(group, currentUserId));
-        response.setCanEditTrip(isOwner(group, currentUserId));
+        response.setCanEditTrip(canEditTrip(group, currentUserId));
         response.setCanInviteMembers(isOwner(group, currentUserId));
         response.setCanRemoveMembers(isOwner(group, currentUserId));
         response.setCanDeleteGroup(isOwner(group, currentUserId));
@@ -393,10 +536,11 @@ public class GroupService {
         response.setInvitedAt(membership.getInvitedAt());
         response.setJoinedAt(membership.getJoinedAt());
         response.setInvitedByUsername(membership.getInvitedBy() != null ? membership.getInvitedBy().getUsername() : null);
+        response.setTripPermission(membership.getTripPermission() != null ? membership.getTripPermission().name() : SharePermission.VIEW.name());
         return response;
     }
 
-    private GroupMember createMembership(TravelGroup group, User user, User invitedBy, GroupRole role, GroupInvitationStatus status) {
+    private GroupMember createMembership(TravelGroup group, User user, User invitedBy, GroupRole role, GroupInvitationStatus status, SharePermission tripPermission) {
         GroupMember membership = groupMemberRepository.findByTravelGroupIdAndUserId(group.getId(), user.getId())
                 .orElse(new GroupMember());
         membership.setTravelGroup(group);
@@ -404,6 +548,7 @@ public class GroupService {
         membership.setInvitedBy(invitedBy);
         membership.setRole(role);
         membership.setStatus(status);
+        membership.setTripPermission(tripPermission);
         membership.setInvitedAt(LocalDateTime.now());
         membership.setJoinedAt(status == GroupInvitationStatus.ACCEPTED ? LocalDateTime.now() : null);
         GroupMember saved = groupMemberRepository.save(membership);
@@ -467,6 +612,21 @@ public class GroupService {
                 .filter(member -> member.getStatus() == GroupInvitationStatus.ACCEPTED)
                 .map(member -> member.getRole().name())
                 .orElse(null);
+    }
+
+    private boolean canEditTrip(TravelGroup group, Long currentUserId) {
+        if (isOwner(group, currentUserId)) {
+            return true;
+        }
+        
+        GroupMember membership = groupMemberRepository.findByTravelGroupIdAndUserId(group.getId(), currentUserId)
+                .orElse(null);
+        
+        if (membership == null || membership.getStatus() != GroupInvitationStatus.ACCEPTED) {
+            return false;
+        }
+        
+        return membership.getTripPermission() == SharePermission.EDIT;
     }
 
     private String buildDisplayName(User user) {
