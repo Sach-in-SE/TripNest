@@ -176,25 +176,27 @@ const Trips = () => {
                 <p style={styles.tripDest}>📍 {trip.destination}</p>
                 {trip.description && <p style={styles.tripDesc}>{trip.description}</p>}
                 <div style={styles.tripMeta}>
-                  {trip.startDate && <span style={styles.metaItem}>📅 {trip.startDate}</span>}
+                  {trip.startDate && trip.endDate && (
+                    <span style={styles.metaItem}>📅 {trip.startDate} → {trip.endDate}</span>
+                  )}
+                  {trip.startDate && !trip.endDate && (
+                    <span style={styles.metaItem}>📅 {trip.startDate}</span>
+                  )}
                   <span style={styles.metaItem}>👥 {trip.numberOfTravelers}</span>
                   {trip.budget && <span style={styles.metaItem}>💰 ₹{trip.budget.toLocaleString()}</span>}
                 </div>
                 <div style={styles.tripActions}>
-                  <button className="btn-ghost" onClick={() => navigate(`/trips/${trip.id}`)}
-                    style={{ flex: 1, fontSize: "13px", padding: "8px" }}>
-                    View
+                  <button className="btn-compact" onClick={() => navigate(`/itineraries/${trip.id}`)}>
+                    👁 View
                   </button>
                   {(!trip.permission || trip.permission === "OWNER" || trip.permission === "EDIT") && (
-                    <button className="btn-ghost" onClick={() => handleEdit(trip)}
-                      style={{ flex: 1, fontSize: "13px", padding: "8px" }}>
-                      Edit
+                    <button className="btn-compact" onClick={() => handleEdit(trip)}>
+                      ✏️ Edit
                     </button>
                   )}
                   {(!trip.permission || trip.permission === "OWNER") && (
-                    <button onClick={() => handleDelete(trip.id)}
-                      style={{ ...styles.deleteBtn, flex: 1 }}>
-                      Delete
+                    <button className="btn-compact danger" onClick={() => handleDelete(trip.id)}>
+                      🗑️ Delete
                     </button>
                   )}
                 </div>
@@ -220,25 +222,15 @@ const styles = {
   inputGroup: { display: "flex", flexDirection: "column", gap: "8px" },
   label: { color: "#94a3b8", fontSize: "13px", fontWeight: "500" },
   modalActions: { display: "flex", gap: "12px", justifyContent: "flex-end" },
-  tripsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" },
-  tripCard: { padding: "20px" },
-  tripCardHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" },
+  tripsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" },
+  tripCard: { padding: "20px", display: "flex", flexDirection: "column", gap: "12px" },
+  tripCardHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" },
   tripTitle: { fontSize: "16px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "6px" },
   tripDest: { color: "#94a3b8", fontSize: "13px", marginBottom: "8px" },
   tripDesc: { color: "#64748b", fontSize: "12px", marginBottom: "12px", lineHeight: "1.5" },
-  tripMeta: { display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" },
+  tripMeta: { display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "8px" },
   metaItem: { color: "#64748b", fontSize: "12px", background: "rgba(255,255,255,0.05)", padding: "4px 8px", borderRadius: "6px" },
-  tripActions: { display: "flex", gap: "8px" },
-  deleteBtn: {
-    background: "rgba(239,68,68,0.1)",
-    border: "1px solid rgba(239,68,68,0.3)",
-    color: "#fca5a5",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "13px",
-    padding: "8px",
-    transition: "all 0.2s",
-  },
+  tripActions: { display: "flex", gap: "8px", marginTop: "auto" },
   emptyState: { padding: "48px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" },
 };
 

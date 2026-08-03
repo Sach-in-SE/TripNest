@@ -5,6 +5,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Trips from "./pages/Trips";
 import TripDetail from "./pages/TripDetail";
+import Itineraries from "./pages/Itineraries";
 import Destinations from "./pages/Destinations";
 import Profile from "./pages/Profile";
 import Budget from "./pages/Budget";
@@ -31,13 +32,14 @@ function App() {
           <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
           <Route path="/trips/new" element={<PrivateRoute><Trips /></PrivateRoute>} />
           <Route path="/trips/:id" element={<PrivateRoute><TripDetail /></PrivateRoute>} />
+          <Route path="/itineraries" element={<PrivateRoute><Trips /></PrivateRoute>} />
+          <Route path="/itineraries/:id" element={<PrivateRoute><Itineraries /></PrivateRoute>} />
           <Route path="/destinations" element={<PrivateRoute><Destinations /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/budget" element={<PrivateRoute><Budget /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
           <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
           <Route path="/groups/:id" element={<PrivateRoute><GroupDetails /></PrivateRoute>} />
-          <Route path="/itineraries" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
           <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
         </Routes>

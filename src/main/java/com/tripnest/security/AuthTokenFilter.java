@@ -30,48 +30,20 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
         try {
-            String requestUri = request.getRequestURI();
-            String requestMethod = request.getMethod();
-            logger.info("DEBUG AuthTokenFilter: Request {} {}", requestMethod, requestUri);
-            
-            String headerAuth = request.getHeader("Authorization");
-            logger.info("DEBUG AuthTokenFilter: Authorization header present={} value={}", headerAuth != null, headerAuth);
-            
             String jwt = parseJwt(request);
-            logger.info("DEBUG AuthTokenFilter: Extracted JWT present={} value={}", jwt != null, jwt);
-            
-            if (jwt != null) {
-                boolean validToken = jwtUtils.validateJwtToken(jwt);
-                logger.info("DEBUG AuthTokenFilter: JWT validation result={}", validToken);
-                
-                if (validToken) {
-                    String username = jwtUtils.getUserNameFromJwtToken(jwt);
-                    logger.info("DEBUG AuthTokenFilter: Username from JWT={}", username);
-                    
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    logger.info("DEBUG AuthTokenFilter: UserDetails loaded username={}", userDetails.getUsername());
-                    
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails, null, userDetails.getAuthorities());
-                    authentication.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request));
-                    
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                    logger.info("DEBUG AuthTokenFilter: SecurityContextHolder.setAuthentication SUCCESS principalType={}",
-                            userDetails.getClass().getName());
-                } else {
-                    logger.info("DEBUG AuthTokenFilter: JWT validation FAILED - SecurityContext NOT set");
-                }
-            } else {
-                logger.info("DEBUG AuthTokenFilter: No JWT found - SecurityContext NOT set");
+            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
+                String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
-            logger.error("DEBUG AuthTokenFilter: Exception during authentication: {}", e.getMessage());
-            e.printStackTrace();
+            logger.error("Cannot set user authentication: {}", e.getMessage());
         }
-        
-        logger.info("DEBUG AuthTokenFilter: Proceeding to filter chain");
         filterChain.doFilter(request, response);
     }
 

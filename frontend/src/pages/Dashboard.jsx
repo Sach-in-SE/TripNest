@@ -122,7 +122,7 @@ const Dashboard = () => {
                   key={trip.id}
                   style={styles.tripCard}
                   className="glass-card"
-                  onClick={() => navigate(`/trips/${trip.id}`)}
+                  onClick={() => navigate(`/itineraries/${trip.id}`)}
                 >
                   <div style={styles.tripCardHeader}>
                     <span style={styles.tripDestIcon}>🌍</span>

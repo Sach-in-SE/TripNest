@@ -38,10 +38,8 @@ public class JwtUtils {
     }
 
     public boolean validateJwtToken(String authToken) {
-        logger.info("DEBUG: validateJwtToken called with token: {}", authToken);
         try {
             Jwts.parserBuilder().setSigningKey(key()).build().parse(authToken);
-            logger.info("DEBUG: validateJwtToken returning TRUE - token is valid");
             return true;
         } catch (MalformedJwtException e) {
             logger.error("Invalid JWT token: {}", e.getMessage());
@@ -52,7 +50,6 @@ public class JwtUtils {
         } catch (IllegalArgumentException e) {
             logger.error("JWT claims string is empty: {}", e.getMessage());
         }
-        logger.info("DEBUG: validateJwtToken returning FALSE - token is invalid");
         return false;
     }
 }
