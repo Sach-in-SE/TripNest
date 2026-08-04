@@ -20,4 +20,8 @@ public class TripResponse {
     private String permission;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // Owner information for PDF export
+    private String ownerName;
+    private String ownerEmail;
 }

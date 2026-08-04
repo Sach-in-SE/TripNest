@@ -9,6 +9,7 @@ const Budget = () => {
   const [expenses, setExpenses] = useState([]);
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
   const [budgetForm, setBudgetForm] = useState({ totalAmount: "", currency: "INR" });
   const [expenseForm, setExpenseForm] = useState({
     title: "", amount: "", category: "FOOD",
@@ -32,10 +33,12 @@ const Budget = () => {
 
   const fetchBudgetData = async (tripId) => {
     try {
-      const [expRes] = await Promise.all([
+      const [expRes, tripRes] = await Promise.all([
         api.get(`/expenses/trip/${tripId}`),
+        api.get(`/trips/${tripId}`),
       ]);
       setExpenses(expRes.data);
+      setSelectedTrip(tripRes.data);
       try {
         const budRes = await api.get(`/budget/trip/${tripId}`);
         setBudget(budRes.data);
@@ -47,7 +50,10 @@ const Budget = () => {
     setSelectedTrip(trip);
     setBudget(null);
     setExpenses([]);
-    fetchBudgetData(trip.id);
+    // Don't call fetchBudgetData here since we already have the trip object
+    // Just fetch expenses and budget
+    api.get(`/expenses/trip/${trip.id}`).then(res => setExpenses(res.data)).catch(console.error);
+    api.get(`/budget/trip/${trip.id}`).then(res => setBudget(res.data)).catch(() => setBudget(null));
   };
 
   const handleBudgetSubmit = async () => {
@@ -59,12 +65,52 @@ const Budget = () => {
   };
 
   const handleExpenseSubmit = async () => {
+    // Validate expense date is within trip timeline
+    if (selectedTrip && expenseForm.date) {
+      const expenseDate = new Date(expenseForm.date);
+      const startDate = selectedTrip.startDate ? new Date(selectedTrip.startDate) : null;
+      const endDate = selectedTrip.endDate ? new Date(selectedTrip.endDate) : null;
+      
+      if (startDate && expenseDate < startDate) {
+        alert("Expense date cannot be before trip start date (" + selectedTrip.startDate + ")");
+        return;
+      }
+      if (endDate && expenseDate > endDate) {
+        alert("Expense date cannot be after trip end date (" + selectedTrip.endDate + ")");
+        return;
+      }
+    }
+
     try {
-      await api.post("/expenses", { ...expenseForm, amount: parseFloat(expenseForm.amount), tripId: selectedTrip.id });
+      if (editingExpense) {
+        await api.put(`/expenses/${editingExpense.id}`, { ...expenseForm, amount: parseFloat(expenseForm.amount), tripId: selectedTrip.id });
+      } else {
+        await api.post("/expenses", { ...expenseForm, amount: parseFloat(expenseForm.amount), tripId: selectedTrip.id });
+      }
       setShowExpenseForm(false);
+      setEditingExpense(null);
       setExpenseForm({ title: "", amount: "", category: "FOOD", description: "", date: "" });
       fetchBudgetData(selectedTrip.id);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      if (err.response?.data?.message) {
+        alert(err.response.data.message);
+      } else {
+        alert("Failed to save expense. Please try again.");
+      }
+    }
+  };
+
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setExpenseForm({
+      title: expense.title,
+      amount: expense.amount,
+      category: expense.category,
+      description: expense.description || "",
+      date: expense.date || "",
+    });
+    setShowExpenseForm(true);
   };
 
   const handleDeleteExpense = async (id) => {
@@ -153,7 +199,11 @@ const Budget = () => {
                     style={{ fontSize: "13px", padding: "8px 16px" }}>
                     {budget ? "Update Budget" : "Set Budget"}
                   </button>
-                  <button className="btn-aurora" onClick={() => setShowExpenseForm(true)}
+                  <button className="btn-aurora" onClick={() => {
+                    setEditingExpense(null);
+                    setExpenseForm({ title: "", amount: "", category: "FOOD", description: "", date: "" });
+                    setShowExpenseForm(true);
+                  }}
                     style={{ fontSize: "13px", padding: "8px 16px" }}>
                     + Add Expense
                   </button>
@@ -191,7 +241,7 @@ const Budget = () => {
             {showExpenseForm && (
               <div style={styles.modal}>
                 <div style={styles.modalCard} className="glass-card">
-                  <h3 style={styles.modalTitle}>Add Expense</h3>
+                  <h3 style={styles.modalTitle}>{editingExpense ? "Edit Expense" : "Add Expense"}</h3>
                   <div style={styles.formGrid}>
                     <div style={styles.formGroup}>
                       <label style={styles.label}>Title</label>
@@ -216,8 +266,19 @@ const Budget = () => {
                     </div>
                     <div style={styles.formGroup}>
                       <label style={styles.label}>Date</label>
-                      <input className="aurora-input" type="date" value={expenseForm.date}
-                        onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })} />
+                      <input 
+                        className="aurora-input" 
+                        type="date" 
+                        value={expenseForm.date}
+                        min={selectedTrip?.startDate || ""}
+                        max={selectedTrip?.endDate || ""}
+                        onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })} 
+                      />
+                      {selectedTrip && (
+                        <small style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
+                          Trip dates: {selectedTrip.startDate} to {selectedTrip.endDate}
+                        </small>
+                      )}
                     </div>
                     <div style={{ ...styles.formGroup, gridColumn: "1 / -1" }}>
                       <label style={styles.label}>Description</label>
@@ -227,8 +288,12 @@ const Budget = () => {
                     </div>
                   </div>
                   <div style={styles.modalActions}>
-                    <button className="btn-ghost" onClick={() => setShowExpenseForm(false)}>Cancel</button>
-                    <button className="btn-aurora" onClick={handleExpenseSubmit}>Add Expense</button>
+                    <button className="btn-ghost" onClick={() => {
+                      setShowExpenseForm(false);
+                      setEditingExpense(null);
+                      setExpenseForm({ title: "", amount: "", category: "FOOD", description: "", date: "" });
+                    }}>Cancel</button>
+                    <button className="btn-aurora" onClick={handleExpenseSubmit}>{editingExpense ? "Update Expense" : "Add Expense"}</button>
                   </div>
                 </div>
               </div>
@@ -245,7 +310,9 @@ const Budget = () => {
               ) : (
                 <div style={styles.expensesList}>
                   {expenses.map((expense) => (
-                    <div key={expense.id} style={styles.expenseItem} className="glass-card">
+                    <div key={expense.id} style={styles.expenseItem} className="glass-card"
+                      onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}>
                       <div style={styles.expenseLeft}>
                         <span style={styles.expenseIcon}>
                           {categoryIcons[expense.category] || "📦"}
@@ -262,8 +329,12 @@ const Budget = () => {
                       </div>
                       <div style={styles.expenseRight}>
                         <p style={styles.expenseAmount}>₹{expense.amount?.toLocaleString()}</p>
-                        <button onClick={() => handleDeleteExpense(expense.id)}
-                          style={styles.deleteBtn}>🗑️</button>
+                        <div style={styles.expenseActions}>
+                          <button onClick={() => handleEditExpense(expense)}
+                            style={styles.editBtn}>✏️</button>
+                          <button onClick={() => handleDeleteExpense(expense.id)}
+                            style={styles.deleteBtn}>🗑️</button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -313,7 +384,7 @@ const styles = {
   sectionTitle: { fontSize: "18px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "16px" },
   emptyState: { padding: "40px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" },
   expensesList: { display: "flex", flexDirection: "column", gap: "12px" },
-  expenseItem: { padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  expenseItem: { padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "transform 0.2s ease, box-shadow 0.2s ease" },
   expenseLeft: { display: "flex", alignItems: "center", gap: "16px" },
   expenseIcon: { fontSize: "28px" },
   expenseTitle: { color: "#f1f5f9", fontSize: "15px", fontWeight: "500", marginBottom: "2px" },
@@ -321,7 +392,9 @@ const styles = {
   expenseDesc: { color: "#94a3b8", fontSize: "12px", marginTop: "2px" },
   expenseRight: { display: "flex", alignItems: "center", gap: "16px" },
   expenseAmount: { color: "#a78bfa", fontSize: "18px", fontWeight: "700", fontFamily: "'Space Grotesk', sans-serif" },
-  deleteBtn: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", borderRadius: "6px", cursor: "pointer", padding: "6px 10px" },
+  expenseActions: { display: "flex", gap: "8px" },
+  editBtn: { background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd", borderRadius: "6px", cursor: "pointer", padding: "6px 10px", transition: "background 0.2s ease" },
+  deleteBtn: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", borderRadius: "6px", cursor: "pointer", padding: "6px 10px", transition: "background 0.2s ease" },
   totalRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", background: "rgba(124,58,237,0.1)", borderRadius: "12px", border: "1px solid rgba(124,58,237,0.3)", marginTop: "4px" },
   totalLabel: { color: "#a78bfa", fontSize: "15px", fontWeight: "600" },
   totalAmount: { color: "#a78bfa", fontSize: "22px", fontWeight: "700", fontFamily: "'Space Grotesk', sans-serif" },

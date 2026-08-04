@@ -6,6 +6,8 @@ import com.tripnest.dto.TravelHistoryResponse;
 import com.tripnest.dto.BudgetRequest;
 import com.tripnest.entity.*;
 import com.tripnest.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -19,6 +21,8 @@ import java.util.Set;
 
 @Service
 public class TripService {
+
+    private static final Logger logger = LoggerFactory.getLogger(TripService.class);
 
     @Autowired
     private TripRepository tripRepository;
@@ -285,6 +289,14 @@ public class TripService {
         response.setUsername(trip.getUser().getUsername());
         response.setCreatedAt(trip.getCreatedAt());
         response.setUpdatedAt(trip.getUpdatedAt());
+        
+        // Add owner information for PDF export
+        String ownerName = trip.getUser().getFirstName() != null && trip.getUser().getLastName() != null
+            ? trip.getUser().getFirstName() + " " + trip.getUser().getLastName()
+            : trip.getUser().getUsername();
+        response.setOwnerName(ownerName);
+        response.setOwnerEmail(trip.getUser().getEmail());
+        
         return response;
     }
 }

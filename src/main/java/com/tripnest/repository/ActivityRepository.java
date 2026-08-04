@@ -10,4 +10,5 @@ import java.util.List;
 public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findByItineraryIdOrderByStartTimeAsc(Long itineraryId);
     List<Activity> findByItinerary_DateAndReminderSentFalse(LocalDate date);
+    List<Activity> findByItinerary_Date(LocalDate date);
 }

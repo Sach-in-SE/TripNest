@@ -53,6 +53,16 @@ public class ExpenseService {
             throw new RuntimeException("Unauthorized");
         }
 
+        // Validate expense date is within trip timeline
+        if (request.getDate() != null) {
+            if (trip.getStartDate() != null && request.getDate().isBefore(trip.getStartDate())) {
+                throw new RuntimeException("Expense date cannot be before trip start date (" + trip.getStartDate() + ")");
+            }
+            if (trip.getEndDate() != null && request.getDate().isAfter(trip.getEndDate())) {
+                throw new RuntimeException("Expense date cannot be after trip end date (" + trip.getEndDate() + ")");
+            }
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -99,6 +109,16 @@ public class ExpenseService {
         boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
         if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
+        }
+
+        // Validate expense date is within trip timeline
+        if (request.getDate() != null) {
+            if (trip.getStartDate() != null && request.getDate().isBefore(trip.getStartDate())) {
+                throw new RuntimeException("Expense date cannot be before trip start date (" + trip.getStartDate() + ")");
+            }
+            if (trip.getEndDate() != null && request.getDate().isAfter(trip.getEndDate())) {
+                throw new RuntimeException("Expense date cannot be after trip end date (" + trip.getEndDate() + ")");
+            }
         }
 
         expense.setTitle(request.getTitle());
