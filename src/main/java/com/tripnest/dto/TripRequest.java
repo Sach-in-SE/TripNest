@@ -2,6 +2,7 @@ package com.tripnest.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.AssertTrue;
 import lombok.Data;
 import java.time.LocalDate;
 
@@ -24,4 +25,12 @@ public class TripRequest {
     private Integer numberOfTravelers;
     private Double budget;
     private String status;
+
+    @AssertTrue(message = "End date must be on or after start date")
+    private boolean isEndDateValid() {
+        if (startDate == null || endDate == null) {
+            return true; // Allow null dates (they'll be validated separately if required)
+        }
+        return !endDate.isBefore(startDate);
+    }
 }

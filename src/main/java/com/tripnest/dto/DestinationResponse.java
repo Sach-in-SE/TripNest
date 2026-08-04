@@ -6,12 +6,15 @@ import lombok.Data;
 public class DestinationResponse {
     private Long id;
     private String name;
+    private String state;
     private String country;
-    private String city;
     private String description;
+    private String category;
     private String imageUrl;
-    private String climate;
-    private String bestTimeToVisit;
-    private Double averageCost;
-    private boolean popular;
+    private String bestSeason;
+    private Double estimatedBudget;
+    private Integer recommendedDays;
+    private Double latitude;
+    private Double longitude;
+    private Double rating;
 }

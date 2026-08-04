@@ -57,6 +57,13 @@ public class TripService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        // Validate dates
+        if (request.getStartDate() != null && request.getEndDate() != null) {
+            if (request.getEndDate().isBefore(request.getStartDate())) {
+                throw new RuntimeException("End date must be on or after start date");
+            }
+        }
+
         Trip trip = new Trip();
         trip.setTitle(request.getTitle());
         trip.setDescription(request.getDescription());
@@ -135,6 +142,13 @@ public class TripService {
         boolean hasEditAccess = tripShareService.hasEditAccess(tripId, userId);
         if (!isOwner && !hasEditAccess) {
             throw new RuntimeException("Unauthorized");
+        }
+
+        // Validate dates
+        if (request.getStartDate() != null && request.getEndDate() != null) {
+            if (request.getEndDate().isBefore(request.getStartDate())) {
+                throw new RuntimeException("End date must be on or after start date");
+            }
         }
 
         trip.setTitle(request.getTitle());

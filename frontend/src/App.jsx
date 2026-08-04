@@ -5,8 +5,11 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Trips from "./pages/Trips";
 import TripDetail from "./pages/TripDetail";
+import CreateTrip from "./pages/CreateTrip";
+import EditTrip from "./pages/EditTrip";
 import Itineraries from "./pages/Itineraries";
 import Destinations from "./pages/Destinations";
+import DestinationDetails from "./pages/DestinationDetails";
 import Profile from "./pages/Profile";
 import Budget from "./pages/Budget";
 import Notifications from "./pages/Notifications";
@@ -30,11 +33,13 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
-          <Route path="/trips/new" element={<PrivateRoute><Trips /></PrivateRoute>} />
+          <Route path="/trips/new" element={<PrivateRoute><CreateTrip /></PrivateRoute>} />
           <Route path="/trips/:id" element={<PrivateRoute><TripDetail /></PrivateRoute>} />
+          <Route path="/trips/:id/edit" element={<PrivateRoute><EditTrip /></PrivateRoute>} />
           <Route path="/itineraries" element={<PrivateRoute><Trips /></PrivateRoute>} />
           <Route path="/itineraries/:id" element={<PrivateRoute><Itineraries /></PrivateRoute>} />
           <Route path="/destinations" element={<PrivateRoute><Destinations /></PrivateRoute>} />
+          <Route path="/destinations/:id" element={<PrivateRoute><DestinationDetails /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/budget" element={<PrivateRoute><Budget /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />

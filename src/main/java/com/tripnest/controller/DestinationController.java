@@ -29,15 +29,21 @@ public class DestinationController {
         return ResponseEntity.ok(destinations);
     }
 
-    @GetMapping("/popular")
-    public ResponseEntity<?> getPopularDestinations() {
-        List<DestinationResponse> destinations = destinationService.getPopularDestinations();
+    @GetMapping("/search")
+    public ResponseEntity<?> searchDestinations(@RequestParam String query) {
+        List<DestinationResponse> destinations = destinationService.searchDestinations(query);
         return ResponseEntity.ok(destinations);
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<?> searchDestinations(@RequestParam String name) {
-        List<DestinationResponse> destinations = destinationService.searchDestinations(name);
+    @GetMapping("/filter")
+    public ResponseEntity<?> filterByCategory(@RequestParam String category) {
+        List<DestinationResponse> destinations = destinationService.filterByCategory(category);
+        return ResponseEntity.ok(destinations);
+    }
+
+    @GetMapping("/sort")
+    public ResponseEntity<?> sortDestinations(@RequestParam String sortBy) {
+        List<DestinationResponse> destinations = destinationService.sortDestinations(sortBy);
         return ResponseEntity.ok(destinations);
     }
 

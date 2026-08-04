@@ -9,12 +9,13 @@ public class FavoriteDestinationResponse {
     private Long destinationId;
     private String destinationName;
     private String country;
-    private String city;
+    private String state;
     private String description;
     private String imageUrl;
-    private String climate;
-    private String bestTimeToVisit;
-    private Double averageCost;
-    private boolean popular;
+    private String category;
+    private String bestSeason;
+    private Double estimatedBudget;
+    private Integer recommendedDays;
+    private Double rating;
     private LocalDateTime createdAt;
 }

@@ -16,16 +16,23 @@ public class DestinationService {
     private DestinationRepository destinationRepository;
 
     public DestinationResponse createDestination(DestinationRequest request) {
+        if (destinationRepository.existsByName(request.getName())) {
+            throw new RuntimeException("Destination with this name already exists");
+        }
+        
         Destination destination = new Destination();
         destination.setName(request.getName());
+        destination.setState(request.getState());
         destination.setCountry(request.getCountry());
-        destination.setCity(request.getCity());
         destination.setDescription(request.getDescription());
+        destination.setCategory(request.getCategory());
         destination.setImageUrl(request.getImageUrl());
-        destination.setClimate(request.getClimate());
-        destination.setBestTimeToVisit(request.getBestTimeToVisit());
-        destination.setAverageCost(request.getAverageCost());
-        destination.setPopular(request.isPopular());
+        destination.setBestSeason(request.getBestSeason());
+        destination.setEstimatedBudget(request.getEstimatedBudget());
+        destination.setRecommendedDays(request.getRecommendedDays());
+        destination.setLatitude(request.getLatitude());
+        destination.setLongitude(request.getLongitude());
+        destination.setRating(request.getRating() != null ? request.getRating() : 4.0);
 
         Destination saved = destinationRepository.save(destination);
         return mapToResponse(saved);
@@ -38,16 +45,36 @@ public class DestinationService {
                 .collect(Collectors.toList());
     }
 
-    public List<DestinationResponse> getPopularDestinations() {
-        return destinationRepository.findByPopularTrue()
+    public List<DestinationResponse> searchDestinations(String query) {
+        return destinationRepository.findByNameContainingIgnoreCaseOrStateContainingIgnoreCaseOrCountryContainingIgnoreCase(query, query, query)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    public List<DestinationResponse> searchDestinations(String name) {
-        return destinationRepository.findByNameContainingIgnoreCase(name)
+    public List<DestinationResponse> filterByCategory(String category) {
+        return destinationRepository.findByCategoryIgnoreCase(category)
                 .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<DestinationResponse> sortDestinations(String sortBy) {
+        List<Destination> destinations;
+        switch (sortBy) {
+            case "name":
+                destinations = destinationRepository.findAllByOrderByNameAsc();
+                break;
+            case "rating":
+                destinations = destinationRepository.findAllByOrderByRatingDesc();
+                break;
+            case "budget":
+                destinations = destinationRepository.findAllByOrderByEstimatedBudgetAsc();
+                break;
+            default:
+                destinations = destinationRepository.findAll();
+        }
+        return destinations.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -62,15 +89,23 @@ public class DestinationService {
         Destination destination = destinationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Destination not found"));
 
+        if (!destination.getName().equals(request.getName()) && 
+            destinationRepository.existsByName(request.getName())) {
+            throw new RuntimeException("Destination with this name already exists");
+        }
+
         destination.setName(request.getName());
+        destination.setState(request.getState());
         destination.setCountry(request.getCountry());
-        destination.setCity(request.getCity());
         destination.setDescription(request.getDescription());
+        destination.setCategory(request.getCategory());
         destination.setImageUrl(request.getImageUrl());
-        destination.setClimate(request.getClimate());
-        destination.setBestTimeToVisit(request.getBestTimeToVisit());
-        destination.setAverageCost(request.getAverageCost());
-        destination.setPopular(request.isPopular());
+        destination.setBestSeason(request.getBestSeason());
+        destination.setEstimatedBudget(request.getEstimatedBudget());
+        destination.setRecommendedDays(request.getRecommendedDays());
+        destination.setLatitude(request.getLatitude());
+        destination.setLongitude(request.getLongitude());
+        destination.setRating(request.getRating());
 
         Destination updated = destinationRepository.save(destination);
         return mapToResponse(updated);
@@ -86,14 +121,17 @@ public class DestinationService {
         DestinationResponse response = new DestinationResponse();
         response.setId(destination.getId());
         response.setName(destination.getName());
+        response.setState(destination.getState());
         response.setCountry(destination.getCountry());
-        response.setCity(destination.getCity());
         response.setDescription(destination.getDescription());
+        response.setCategory(destination.getCategory());
         response.setImageUrl(destination.getImageUrl());
-        response.setClimate(destination.getClimate());
-        response.setBestTimeToVisit(destination.getBestTimeToVisit());
-        response.setAverageCost(destination.getAverageCost());
-        response.setPopular(destination.isPopular());
+        response.setBestSeason(destination.getBestSeason());
+        response.setEstimatedBudget(destination.getEstimatedBudget());
+        response.setRecommendedDays(destination.getRecommendedDays());
+        response.setLatitude(destination.getLatitude());
+        response.setLongitude(destination.getLongitude());
+        response.setRating(destination.getRating());
         return response;
     }
 }

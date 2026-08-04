@@ -7,7 +7,13 @@ import java.util.List;
 
 @Repository
 public interface DestinationRepository extends JpaRepository<Destination, Long> {
-    List<Destination> findByPopularTrue();
-    List<Destination> findByCountryIgnoreCase(String country);
+    List<Destination> findByCategoryIgnoreCase(String category);
     List<Destination> findByNameContainingIgnoreCase(String name);
+    List<Destination> findByStateContainingIgnoreCase(String state);
+    List<Destination> findByCountryContainingIgnoreCase(String country);
+    List<Destination> findByNameContainingIgnoreCaseOrStateContainingIgnoreCaseOrCountryContainingIgnoreCase(String name, String state, String country);
+    List<Destination> findAllByOrderByNameAsc();
+    List<Destination> findAllByOrderByRatingDesc();
+    List<Destination> findAllByOrderByEstimatedBudgetAsc();
+    boolean existsByName(String name);
 }

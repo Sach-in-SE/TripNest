@@ -68,13 +68,14 @@ public class FavoriteDestinationService {
         response.setDestinationId(favorite.getDestination().getId());
         response.setDestinationName(favorite.getDestination().getName());
         response.setCountry(favorite.getDestination().getCountry());
-        response.setCity(favorite.getDestination().getCity());
+        response.setState(favorite.getDestination().getState());
         response.setDescription(favorite.getDestination().getDescription());
         response.setImageUrl(favorite.getDestination().getImageUrl());
-        response.setClimate(favorite.getDestination().getClimate());
-        response.setBestTimeToVisit(favorite.getDestination().getBestTimeToVisit());
-        response.setAverageCost(favorite.getDestination().getAverageCost());
-        response.setPopular(favorite.getDestination().isPopular());
+        response.setCategory(favorite.getDestination().getCategory());
+        response.setBestSeason(favorite.getDestination().getBestSeason());
+        response.setEstimatedBudget(favorite.getDestination().getEstimatedBudget());
+        response.setRecommendedDays(favorite.getDestination().getRecommendedDays());
+        response.setRating(favorite.getDestination().getRating());
         response.setCreatedAt(favorite.getCreatedAt());
         return response;
     }

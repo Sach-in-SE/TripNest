@@ -1,6 +1,7 @@
 package com.tripnest.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -13,28 +14,36 @@ public class Destination {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank
     @Size(max = 100)
+    @Column(unique = true)
     private String name;
+
+    @Size(max = 100)
+    private String state;
 
     @Size(max = 100)
     private String country;
 
-    @Size(max = 100)
-    private String city;
-
     @Column(length = 1000)
     private String description;
 
-    @Size(max = 200)
+    @Size(max = 100)
+    private String category;
+
+    @Size(max = 500)
     private String imageUrl;
 
     @Size(max = 100)
-    private String climate;
+    private String bestSeason;
 
-    @Size(max = 200)
-    private String bestTimeToVisit;
+    private Double estimatedBudget;
 
-    private Double averageCost;
+    private Integer recommendedDays;
 
-    private boolean popular = false;
+    private Double latitude;
+
+    private Double longitude;
+
+    private Double rating;
 }
