@@ -1,101 +1,300 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
+import "./Profile.css";
+
+const SocialIcon = ({ name, hasLink, link, icon }) => {
+  if (hasLink) {
+    return (
+      <a 
+        href={link} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={styles.socialIcon}
+        title={name}
+      >
+        {icon}
+      </a>
+    );
+  }
+  return (
+    <span style={{ ...styles.socialIcon, ...styles.socialIconDisabled }} title={name}>
+      {icon}
+    </span>
+  );
+};
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
-  const [formData, setFormData] = useState({ firstName: "", lastName: "", phone: "" });
-  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    bio: "",
+    country: "",
+    state: "",
+    city: "",
+    dateOfBirth: "",
+    gender: "",
+    occupation: "",
+    travelStyle: "",
+    preferredTransport: "",
+    accommodationPreference: "",
+    dreamDestination: "",
+    favoriteDestination: "",
+    passportHolder: false,
+    emergencyContactName: "",
+    emergencyContactRelationship: "",
+    emergencyContactPhone: "",
+    github: "",
+    linkedin: "",
+    instagram: "",
+    portfolio: ""
+  });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("profile");
-
-  // Travel Preferences
-  const [preferences, setPreferences] = useState(null);
-  const [prefForm, setPrefForm] = useState({ preferredTripTypes: [], preferredBudgetRange: "", preferredTravelStyle: "" });
-
-  // Favorite Destinations
-  const [favorites, setFavorites] = useState([]);
-
-  // Travel History
-  const [travelHistory, setTravelHistory] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+  
+  // Edit mode states
+  const [editingSocialLinks, setEditingSocialLinks] = useState(false);
+  const [editingPersonalProfile, setEditingPersonalProfile] = useState(false);
+  const [editingAboutMe, setEditingAboutMe] = useState(false);
+  const [socialLinksForm, setSocialLinksForm] = useState({ github: "", linkedin: "", instagram: "", portfolio: "" });
+  const [aboutMeForm, setAboutMeForm] = useState("");
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const res = await api.get("/user/profile");
         setProfile(res.data);
-        setFormData({ firstName: res.data.firstName || "", lastName: res.data.lastName || "", phone: res.data.phone || "" });
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
+        setFormData({
+          firstName: res.data.firstName || "",
+          lastName: res.data.lastName || "",
+          email: res.data.email || "",
+          phone: res.data.phone || "",
+          bio: res.data.bio || "",
+          country: res.data.country || "",
+          state: res.data.state || "",
+          city: res.data.city || "",
+          dateOfBirth: res.data.dateOfBirth || "",
+          gender: res.data.gender || "",
+          occupation: res.data.occupation || "",
+          travelStyle: res.data.travelStyle || "",
+          preferredTransport: res.data.preferredTransport || "",
+          accommodationPreference: res.data.accommodationPreference || "",
+          dreamDestination: res.data.dreamDestination || "",
+          favoriteDestination: res.data.favoriteDestination || "",
+          passportHolder: res.data.passportHolder || false,
+          emergencyContactName: res.data.emergencyContactName || "",
+          emergencyContactRelationship: res.data.emergencyContactRelationship || "",
+          emergencyContactPhone: res.data.emergencyContactPhone || "",
+          github: res.data.github || "",
+          linkedin: res.data.linkedin || "",
+          instagram: res.data.instagram || "",
+          portfolio: res.data.portfolio || ""
+        });
+        setSocialLinksForm({
+          github: res.data.github || "",
+          linkedin: res.data.linkedin || "",
+          instagram: res.data.instagram || "",
+          portfolio: res.data.portfolio || ""
+        });
+        setAboutMeForm(res.data.bio || "");
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
     };
     fetchProfile();
   }, []);
 
-  useEffect(() => {
-    if (activeTab === "preferences") fetchPreferences();
-    if (activeTab === "favorites") fetchFavorites();
-    if (activeTab === "history") fetchTravelHistory();
-  }, [activeTab]);
+  const handleChangePassword = async () => {
+    if (changingPassword) return;
+    setPasswordError("");
 
-  const fetchPreferences = async () => {
-    try {
-      const res = await api.get("/preferences");
-      setPreferences(res.data);
-      setPrefForm({
-        preferredTripTypes: res.data.preferredTripTypes || [],
-        preferredBudgetRange: res.data.preferredBudgetRange || "",
-        preferredTravelStyle: res.data.preferredTravelStyle || ""
-      });
-    } catch (err) { console.error(err); }
-  };
+    const errors = {};
+    if (!passwordForm.currentPassword) errors.currentPassword = "Current password is required";
+    if (!passwordForm.newPassword) errors.newPassword = "New password is required";
+    else if (passwordForm.newPassword.length < 6) errors.newPassword = "New password must be at least 6 characters";
+    if (!passwordForm.confirmPassword) errors.confirmPassword = "Please confirm your password";
+    else if (passwordForm.newPassword !== passwordForm.confirmPassword) errors.confirmPassword = "Passwords do not match";
 
-  const fetchFavorites = async () => {
-    try {
-      const res = await api.get("/favorites");
-      setFavorites(res.data);
-    } catch (err) { console.error(err); }
-  };
+    if (Object.keys(errors).length > 0) {
+      setPasswordError(Object.values(errors)[0]);
+      return;
+    }
 
-  const fetchTravelHistory = async () => {
+    setChangingPassword(true);
     try {
-      const res = await api.get("/trips/history");
-      setTravelHistory(res.data);
-    } catch (err) { console.error(err); }
-  };
-
-  const handleSavePreferences = async () => {
-    try {
-      await api.put("/preferences", prefForm);
-      setMessage("Preferences saved successfully!");
+      await api.post("/user/change-password", passwordForm);
+      setMessage("Password changed successfully!");
+      setShowPasswordForm(false);
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       setTimeout(() => setMessage(""), 3000);
-      fetchPreferences();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      setPasswordError(err.response?.data?.message || "Failed to change password. Please try again.");
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
-  const handleRemoveFavorite = async (destinationId) => {
+  const handleSaveSocialLinks = async () => {
+    if (saving) return;
+
+    const errors = {};
+    if (socialLinksForm.github && !/^(https?:\/\/)?(www\.)?github\.com\/[\w-]+\/?$/.test(socialLinksForm.github)) errors.github = "Invalid GitHub URL";
+    if (socialLinksForm.linkedin && !/^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w-]+\/?$/.test(socialLinksForm.linkedin)) errors.linkedin = "Invalid LinkedIn URL";
+    if (socialLinksForm.instagram && !/^(https?:\/\/)?(www\.)?instagram\.com\/[\w.]+\/?$/.test(socialLinksForm.instagram)) errors.instagram = "Invalid Instagram URL";
+    if (socialLinksForm.portfolio && !/^(https?:\/\/)?(www\.)?[\w-]+\.[\w.-]+\/?$/.test(socialLinksForm.portfolio)) errors.portfolio = "Invalid portfolio URL";
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setFormErrors({});
+    setSaving(true);
+    setError("");
     try {
-      await api.delete(`/favorites/${destinationId}`);
-      fetchFavorites();
-    } catch (err) { console.error(err); }
+      await api.put("/user/profile", { ...formData, ...socialLinksForm });
+      setMessage("Social links updated successfully!");
+      const res = await api.get("/user/profile");
+      setProfile(res.data);
+      setFormData({ ...formData, ...socialLinksForm });
+      setEditingSocialLinks(false);
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to update social links. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleTripTypeToggle = (type) => {
-    const updated = prefForm.preferredTripTypes.includes(type)
-      ? prefForm.preferredTripTypes.filter(t => t !== type)
-      : [...prefForm.preferredTripTypes, type];
-    setPrefForm({ ...prefForm, preferredTripTypes: updated });
+  const handleCancelSocialLinks = () => {
+    setSocialLinksForm({
+      github: formData.github,
+      linkedin: formData.linkedin,
+      instagram: formData.instagram,
+      portfolio: formData.portfolio
+    });
+    setEditingSocialLinks(false);
+    setFormErrors({});
   };
 
-  const handleUpdate = async () => {
+  const handleSavePersonalProfile = async () => {
+    if (saving) return;
+
+    const errors = {};
+    if (formData.firstName && formData.firstName.length > 50) errors.firstName = "First name must be less than 50 characters";
+    if (formData.lastName && formData.lastName.length > 50) errors.lastName = "Last name must be less than 50 characters";
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = "Invalid email format";
+    if (formData.phone && !/^[0-9+\-\s()]{10,15}$/.test(formData.phone)) errors.phone = "Invalid phone number format";
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setFormErrors({});
+    setSaving(true);
+    setError("");
     try {
       await api.put("/user/profile", formData);
       setMessage("Profile updated successfully!");
-      setEditing(false);
       const res = await api.get("/user/profile");
       setProfile(res.data);
+      setEditingPersonalProfile(false);
       setTimeout(() => setMessage(""), 3000);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to update profile. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelPersonalProfile = () => {
+    const res = api.get("/user/profile").then(response => {
+      setFormData({
+        firstName: response.data.firstName || "",
+        lastName: response.data.lastName || "",
+        email: response.data.email || "",
+        phone: response.data.phone || "",
+        bio: response.data.bio || "",
+        country: response.data.country || "",
+        state: response.data.state || "",
+        city: response.data.city || "",
+        dateOfBirth: response.data.dateOfBirth || "",
+        gender: response.data.gender || "",
+        occupation: response.data.occupation || "",
+        travelStyle: response.data.travelStyle || "",
+        preferredTransport: response.data.preferredTransport || "",
+        accommodationPreference: response.data.accommodationPreference || "",
+        dreamDestination: response.data.dreamDestination || "",
+        favoriteDestination: response.data.favoriteDestination || "",
+        passportHolder: response.data.passportHolder || false,
+        emergencyContactName: response.data.emergencyContactName || "",
+        emergencyContactRelationship: response.data.emergencyContactRelationship || "",
+        emergencyContactPhone: response.data.emergencyContactPhone || "",
+        github: response.data.github || "",
+        linkedin: response.data.linkedin || "",
+        instagram: response.data.instagram || "",
+        portfolio: response.data.portfolio || ""
+      });
+    });
+    setEditingPersonalProfile(false);
+    setFormErrors({});
+  };
+
+  const handleSaveAboutMe = async () => {
+    if (saving) return;
+
+    const errors = {};
+    if (aboutMeForm && aboutMeForm.length > 300) errors.bio = "Bio must be less than 300 characters";
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setFormErrors({});
+    setSaving(true);
+    setError("");
+    try {
+      await api.put("/user/profile", { ...formData, bio: aboutMeForm });
+      setMessage("About me updated successfully!");
+      setFormData({ ...formData, bio: aboutMeForm });
+      setEditingAboutMe(false);
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to update about me. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelAboutMe = () => {
+    setAboutMeForm(formData.bio);
+    setEditingAboutMe(false);
+    setFormErrors({});
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not set";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   };
 
   if (loading) return <div style={{ display: "flex", minHeight: "100vh" }}><Sidebar /><main style={{ marginLeft: "260px", padding: "32px", color: "#94a3b8" }}>Loading...</main></div>;
@@ -103,219 +302,387 @@ const Profile = () => {
   return (
     <div style={styles.container}>
       <Sidebar />
-      <main style={styles.main}>
-        <h1 style={styles.title}>My Profile 👤</h1>
+      <main style={styles.main} className="profile-main">
+        <h1 style={styles.title}>My Profile</h1>
 
-        {message && (
-          <div style={styles.successBox}>✅ {message}</div>
-        )}
+        {message && <div style={styles.successBox}>✅ {message}</div>}
+        {error && <div style={styles.errorBox}>❌ {error}</div>}
 
-        {/* Tabs */}
-        <div style={styles.tabs}>
-          {["profile", "preferences", "favorites", "history"].map((tab) => (
-            <button
-              key={tab}
-              className={activeTab === tab ? "btn-aurora" : "btn-ghost"}
-              onClick={() => setActiveTab(tab)}
-              style={styles.tabButton}
-            >
-              {tab === "profile" && "👤 Profile"}
-              {tab === "preferences" && "⚙️ Preferences"}
-              {tab === "favorites" && "❤️ Favorites"}
-              {tab === "history" && "📜 History"}
-            </button>
-          ))}
-        </div>
-
-        {/* Profile Tab */}
-        {activeTab === "profile" && (
-          <div style={styles.profileCard} className="glass-card">
-          {/* Avatar */}
-          <div style={styles.avatarSection}>
+        {/* Hero Section */}
+        <div style={styles.heroCard} className="glass-card profile-hero-card">
+          <div style={styles.heroContent} className="profile-hero-content">
             <div style={styles.avatar}>
               {profile?.firstName?.charAt(0) || profile?.username?.charAt(0)}
             </div>
-            <div>
-              <h2 style={styles.profileName}>{profile?.firstName} {profile?.lastName}</h2>
-              <p style={styles.profileUsername}>@{profile?.username}</p>
-              <span className={`badge badge-upcoming`} style={{ marginTop: "8px", display: "inline-flex" }}>
-                {profile?.roles?.[0]?.replace("ROLE_", "") || "TRAVELER"}
-              </span>
-            </div>
-          </div>
-
-          <div className="divider" />
-
-          {/* Info */}
-          {!editing ? (
-            <div style={styles.infoGrid}>
-              {[
-                { label: "First Name", value: profile?.firstName || "Not set", icon: "👤" },
-                { label: "Last Name", value: profile?.lastName || "Not set", icon: "👤" },
-                { label: "Email", value: profile?.email, icon: "✉️" },
-                { label: "Phone", value: profile?.phone || "Not set", icon: "📱" },
-                { label: "Username", value: profile?.username, icon: "🔑" },
-                { label: "Role", value: profile?.roles?.[0]?.replace("ROLE_", ""), icon: "🎭" },
-              ].map((item, i) => (
-                <div key={i} style={styles.infoItem}>
-                  <p style={styles.infoLabel}>{item.icon} {item.label}</p>
-                  <p style={styles.infoValue}>{item.value}</p>
-                </div>
-              ))}
-              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
-                <button className="btn-aurora" onClick={() => setEditing(true)}>Edit Profile</button>
+            <div style={styles.heroInfo}>
+              <h2 style={styles.heroName}>{profile?.firstName} {profile?.lastName}</h2>
+              <p style={styles.heroUsername}>@{profile?.username}</p>
+              <div style={styles.heroMeta} className="profile-hero-meta">
+                <span className={`badge badge-upcoming`}>{profile?.roles?.[0]?.replace("ROLE_", "") || "TRAVELER"}</span>
+                <span className={`badge ${profile?.enabled ? "badge-completed" : "badge-cancelled"}`}>
+                  {profile?.enabled ? "Active" : "Disabled"}
+                </span>
+              </div>
+              
+              {/* Social Icons */}
+              <div style={styles.socialIcons}>
+                {editingSocialLinks ? (
+                  <div style={styles.socialLinksEdit} className="profile-social-links-edit">
+                    {[
+                      { key: "github", label: "GitHub", placeholder: "https://github.com/username" },
+                      { key: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/username" },
+                      { key: "instagram", label: "Instagram", placeholder: "https://instagram.com/username" },
+                      { key: "portfolio", label: "Portfolio", placeholder: "https://yourportfolio.com" },
+                    ].map((field) => (
+                      <div key={field.key} style={styles.socialLinkInput}>
+                        <label style={styles.label}>{field.label}</label>
+                        <input
+                          className="aurora-input"
+                          placeholder={field.placeholder}
+                          value={socialLinksForm[field.key]}
+                          onChange={(e) => setSocialLinksForm({ ...socialLinksForm, [field.key]: e.target.value })}
+                        />
+                        {formErrors[field.key] && <div style={styles.validationError}>{formErrors[field.key]}</div>}
+                      </div>
+                    ))}
+                    <div style={styles.socialActions}>
+                      <button className="btn-ghost" onClick={handleCancelSocialLinks} disabled={saving}>
+                        Cancel
+                      </button>
+                      <button className="btn-aurora" onClick={handleSaveSocialLinks} disabled={saving}>
+                        {saving ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={styles.socialIconsDisplay} className="profile-social-icons-display">
+                    <SocialIcon 
+                      name="GitHub" 
+                      hasLink={!!formData.github} 
+                      link={formData.github} 
+                      icon="📦"
+                    />
+                    <SocialIcon 
+                      name="LinkedIn" 
+                      hasLink={!!formData.linkedin} 
+                      link={formData.linkedin} 
+                      icon="💼"
+                    />
+                    <SocialIcon 
+                      name="Instagram" 
+                      hasLink={!!formData.instagram} 
+                      link={formData.instagram} 
+                      icon="📷"
+                    />
+                    <SocialIcon 
+                      name="Portfolio" 
+                      hasLink={!!formData.portfolio} 
+                      link={formData.portfolio} 
+                      icon="🌐"
+                    />
+                    <button 
+                      className="btn-ghost" 
+                      onClick={() => setEditingSocialLinks(true)}
+                      style={styles.editIconButton}
+                      title="Edit social links"
+                    >
+                      ✏️
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          ) : (
-            <div style={styles.editForm}>
-              {[
-                { key: "firstName", label: "First Name", placeholder: "Enter first name" },
-                { key: "lastName", label: "Last Name", placeholder: "Enter last name" },
-                { key: "phone", label: "Phone", placeholder: "Enter phone number" },
-              ].map(({ key, label, placeholder }) => (
-                <div key={key} style={styles.inputGroup}>
-                  <label style={styles.label}>{label}</label>
-                  <input className="aurora-input" placeholder={placeholder}
-                    value={formData[key]} onChange={(e) => setFormData({ ...formData, [key]: e.target.value })} />
-                </div>
-              ))}
-              <div style={styles.editActions}>
-                <button className="btn-ghost" onClick={() => setEditing(false)}>Cancel</button>
-                <button className="btn-aurora" onClick={handleUpdate}>Save Changes</button>
-              </div>
-            </div>
-          )}
           </div>
-        )}
+        </div>
 
-        {/* Travel Preferences Tab */}
-        {activeTab === "preferences" && (
-          <div style={styles.sectionCard} className="glass-card">
-            <h2 style={styles.sectionTitle}>Travel Preferences ⚙️</h2>
-            <div style={styles.prefForm}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Trip Types</label>
-                <div style={styles.checkboxGroup}>
-                  {["ADVENTURE", "RELAXATION", "CULTURAL", "BUSINESS", "FAMILY", "SOLO"].map((type) => (
-                    <label key={type} style={styles.checkboxLabel}>
-                      <input
-                        type="checkbox"
-                        checked={prefForm.preferredTripTypes.includes(type)}
-                        onChange={() => handleTripTypeToggle(type)}
-                        style={{ marginRight: "8px" }}
-                      />
-                      {type}
-                    </label>
+        {/* Personal Profile (Merged) */}
+        <div style={styles.sectionCard} className="glass-card profile-section-card">
+          <div style={styles.sectionHeader} className="profile-section-header">
+            <h3 style={styles.sectionTitle}>Personal Profile</h3>
+            {!editingPersonalProfile && (
+              <button 
+                className="btn-ghost" 
+                onClick={() => setEditingPersonalProfile(true)}
+                style={styles.editButton}
+              >
+                ✏️ Edit
+              </button>
+            )}
+          </div>
+          
+          {editingPersonalProfile ? (
+            <div style={styles.personalProfileEdit}>
+              {/* Personal Information */}
+              <div style={styles.subsection}>
+                <h4 style={styles.subsectionTitle}>Personal Information</h4>
+                <div style={styles.formGrid} className="profile-form-grid">
+                  {[
+                    { key: "firstName", label: "First Name", placeholder: "Enter first name" },
+                    { key: "lastName", label: "Last Name", placeholder: "Enter last name" },
+                    { key: "email", label: "Email", placeholder: "Enter email", type: "email" },
+                    { key: "phone", label: "Phone Number", placeholder: "Enter phone number" },
+                    { key: "dateOfBirth", label: "Date of Birth", placeholder: "YYYY-MM-DD", type: "date" },
+                    { key: "gender", label: "Gender", type: "select", options: ["", "Male", "Female", "Other", "Prefer not to say"] },
+                    { key: "country", label: "Country", placeholder: "Enter country" },
+                    { key: "state", label: "State", placeholder: "Enter state" },
+                    { key: "city", label: "City", placeholder: "Enter city" },
+                    { key: "occupation", label: "Occupation", placeholder: "Enter occupation" },
+                  ].map((field) => (
+                    <div key={field.key} style={styles.formGroup}>
+                      <label style={styles.label}>{field.label}</label>
+                      {field.type === "select" ? (
+                        <select
+                          className="aurora-input"
+                          value={formData[field.key]}
+                          onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                        >
+                          {field.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt || "Select gender"}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className="aurora-input"
+                          type={field.type || "text"}
+                          placeholder={field.placeholder}
+                          value={formData[field.key]}
+                          onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                        />
+                      )}
+                      {formErrors[field.key] && <div style={styles.validationError}>{formErrors[field.key]}</div>}
+                    </div>
                   ))}
                 </div>
               </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Budget Range</label>
-                <select
-                  className="aurora-input"
-                  value={prefForm.preferredBudgetRange}
-                  onChange={(e) => setPrefForm({ ...prefForm, preferredBudgetRange: e.target.value })}
-                >
-                  <option value="">Select budget range</option>
-                  <option value="BUDGET">Budget</option>
-                  <option value="MODERATE">Moderate</option>
-                  <option value="LUXURY">Luxury</option>
-                </select>
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Travel Style</label>
-                <select
-                  className="aurora-input"
-                  value={prefForm.preferredTravelStyle}
-                  onChange={(e) => setPrefForm({ ...prefForm, preferredTravelStyle: e.target.value })}
-                >
-                  <option value="">Select travel style</option>
-                  <option value="FAST_PACED">Fast-paced</option>
-                  <option value="RELAXED">Relaxed</option>
-                  <option value="MIXED">Mixed</option>
-                </select>
-              </div>
-              <button className="btn-aurora" onClick={handleSavePreferences}>Save Preferences</button>
-            </div>
-          </div>
-        )}
 
-        {/* Favorite Destinations Tab */}
-        {activeTab === "favorites" && (
-          <div style={styles.sectionCard} className="glass-card">
-            <h2 style={styles.sectionTitle}>Favorite Destinations ❤️</h2>
-            {favorites.length === 0 ? (
-              <div style={styles.emptyState}>
-                <span style={{ fontSize: "48px" }}>❤️</span>
-                <h3 style={{ color: "#f1f5f9" }}>No favorites yet</h3>
-                <p style={{ color: "#94a3b8" }}>Start adding destinations you love</p>
-              </div>
-            ) : (
-              <div style={styles.favoritesGrid}>
-                {favorites.map((fav) => (
-                  <div key={fav.id} style={styles.favCard} className="glass-card">
-                    <div style={styles.favHeader}>
-                      <span style={{ fontSize: "32px" }}>🏖️</span>
-                      <button className="btn-ghost" onClick={() => handleRemoveFavorite(fav.destinationId)} style={{ padding: "4px 8px", fontSize: "12px" }}>Remove</button>
+              {/* Travel Profile */}
+              <div style={styles.subsection}>
+                <h4 style={styles.subsectionTitle}>Travel Profile</h4>
+                <div style={styles.formGrid} className="profile-form-grid">
+                  {[
+                    { key: "travelStyle", label: "Travel Style", type: "select", options: ["", "Solo", "Family", "Luxury", "Budget", "Backpacking", "Adventure", "Business"] },
+                    { key: "preferredTransport", label: "Preferred Transport", type: "select", options: ["", "Flight", "Train", "Bus", "Car", "Bike"] },
+                    { key: "accommodationPreference", label: "Accommodation Preference", type: "select", options: ["", "Hotel", "Hostel", "Resort", "Camping", "Homestay"] },
+                    { key: "dreamDestination", label: "Dream Destination", placeholder: "Your dream destination" },
+                    { key: "favoriteDestination", label: "Favorite Destination", placeholder: "Your favorite destination" },
+                  ].map((field) => (
+                    <div key={field.key} style={styles.formGroup}>
+                      <label style={styles.label}>{field.label}</label>
+                      {field.type === "select" ? (
+                        <select
+                          className="aurora-input"
+                          value={formData[field.key]}
+                          onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                        >
+                          {field.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt || "Select option"}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className="aurora-input"
+                          placeholder={field.placeholder}
+                          value={formData[field.key]}
+                          onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                        />
+                      )}
                     </div>
-                    <h3 style={styles.favName}>{fav.destinationName}</h3>
-                    <p style={styles.favLocation}>📍 {fav.city}, {fav.country}</p>
-                    {fav.description && <p style={styles.favDesc}>{fav.description}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Travel History Tab */}
-        {activeTab === "history" && (
-          <div style={styles.sectionCard} className="glass-card">
-            <h2 style={styles.sectionTitle}>Travel History 📜</h2>
-            {travelHistory ? (
-              <>
-                <div style={styles.statsGrid}>
-                  <div style={styles.statCard} className="glass-card">
-                    <span style={styles.statValue} className="gradient-text">{travelHistory.totalCompletedTrips}</span>
-                    <span style={styles.statLabel}>Completed Trips</span>
-                  </div>
-                  <div style={styles.statCard} className="glass-card">
-                    <span style={styles.statValue} className="gradient-text">₹{travelHistory.totalAmountSpent?.toLocaleString() || 0}</span>
-                    <span style={styles.statLabel}>Total Spent</span>
-                  </div>
-                  <div style={styles.statCard} className="glass-card">
-                    <span style={styles.statValue} className="gradient-text">{travelHistory.destinationsVisited?.length || 0}</span>
-                    <span style={styles.statLabel}>Destinations</span>
+                  ))}
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Passport Holder</label>
+                    <select
+                      className="aurora-input"
+                      value={formData.passportHolder ? "true" : "false"}
+                      onChange={(e) => setFormData({ ...formData, passportHolder: e.target.value === "true" })}
+                    >
+                      <option value="false">No</option>
+                      <option value="true">Yes</option>
+                    </select>
                   </div>
                 </div>
-                <h3 style={styles.subsectionTitle}>Past Trips</h3>
-                {travelHistory.completedTrips?.length === 0 ? (
-                  <div style={styles.emptyState}>
-                    <span style={{ fontSize: "48px" }}>📜</span>
-                    <h3 style={{ color: "#f1f5f9" }}>No completed trips yet</h3>
-                    <p style={{ color: "#94a3b8" }}>Your travel history will appear here</p>
-                  </div>
-                ) : (
-                  <div style={styles.historyList}>
-                    {travelHistory.completedTrips.map((trip) => (
-                      <div key={trip.id} style={styles.historyItem} className="glass-card">
-                        <div style={styles.historyHeader}>
-                          <h4 style={styles.historyTitle}>{trip.title}</h4>
-                          <span className="badge badge-upcoming">{trip.status}</span>
-                        </div>
-                        <p style={styles.historyDest}>📍 {trip.destination}</p>
-                        <p style={styles.historyDates}>📅 {trip.startDate} - {trip.endDate}</p>
-                        {trip.budget && <p style={styles.historyBudget}>💰 ₹{trip.budget.toLocaleString()}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <p style={{ color: "#94a3b8" }}>Loading travel history...</p>
+              </div>
+
+              {/* Emergency Contact */}
+              <div style={styles.subsection}>
+                <h4 style={styles.subsectionTitle}>Emergency Contact</h4>
+                <div style={styles.formGrid} className="profile-form-grid">
+                  {[
+                    { key: "emergencyContactName", label: "Contact Name", placeholder: "Emergency contact name" },
+                    { key: "emergencyContactRelationship", label: "Relationship", placeholder: "Relationship (e.g., Spouse, Parent)" },
+                    { key: "emergencyContactPhone", label: "Phone Number", placeholder: "Emergency contact phone" },
+                  ].map((field) => (
+                    <div key={field.key} style={styles.formGroup}>
+                      <label style={styles.label}>{field.label}</label>
+                      <input
+                        className="aurora-input"
+                        placeholder={field.placeholder}
+                        value={formData[field.key]}
+                        onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={styles.actions}>
+                <button className="btn-ghost" onClick={handleCancelPersonalProfile} disabled={saving}>
+                  Cancel
+                </button>
+                <button className="btn-aurora" onClick={handleSavePersonalProfile} disabled={saving}>
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={styles.personalProfileDisplay}>
+              {/* Personal Information Display */}
+              <div style={styles.subsection}>
+                <h4 style={styles.subsectionTitle}>Personal Information</h4>
+                <div style={styles.infoGrid} className="profile-info-grid">
+                  {[
+                    { label: "First Name", value: formData.firstName || "Not set" },
+                    { label: "Last Name", value: formData.lastName || "Not set" },
+                    { label: "Email", value: formData.email || "Not set" },
+                    { label: "Phone", value: formData.phone || "Not set" },
+                    { label: "Date of Birth", value: formData.dateOfBirth || "Not set" },
+                    { label: "Gender", value: formData.gender || "Not set" },
+                    { label: "Country", value: formData.country || "Not set" },
+                    { label: "State", value: formData.state || "Not set" },
+                    { label: "City", value: formData.city || "Not set" },
+                    { label: "Occupation", value: formData.occupation || "Not set" },
+                  ].map((item, i) => (
+                    <div key={i} style={styles.infoItem}>
+                      <p style={styles.infoLabel}>{item.label}</p>
+                      <p style={styles.infoValue}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Travel Profile Display */}
+              <div style={styles.subsection}>
+                <h4 style={styles.subsectionTitle}>Travel Profile</h4>
+                <div style={styles.infoGrid} className="profile-info-grid">
+                  {[
+                    { label: "Travel Style", value: formData.travelStyle || "Not set" },
+                    { label: "Preferred Transport", value: formData.preferredTransport || "Not set" },
+                    { label: "Accommodation Preference", value: formData.accommodationPreference || "Not set" },
+                    { label: "Dream Destination", value: formData.dreamDestination || "Not set" },
+                    { label: "Favorite Destination", value: formData.favoriteDestination || "Not set" },
+                    { label: "Passport Holder", value: formData.passportHolder ? "Yes" : "No" },
+                  ].map((item, i) => (
+                    <div key={i} style={styles.infoItem}>
+                      <p style={styles.infoLabel}>{item.label}</p>
+                      <p style={styles.infoValue}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Emergency Contact Display */}
+              <div style={styles.subsection}>
+                <h4 style={styles.subsectionTitle}>Emergency Contact</h4>
+                <div style={styles.infoGrid} className="profile-info-grid">
+                  {[
+                    { label: "Contact Name", value: formData.emergencyContactName || "Not set" },
+                    { label: "Relationship", value: formData.emergencyContactRelationship || "Not set" },
+                    { label: "Phone", value: formData.emergencyContactPhone || "Not set" },
+                  ].map((item, i) => (
+                    <div key={i} style={styles.infoItem}>
+                      <p style={styles.infoLabel}>{item.label}</p>
+                      <p style={styles.infoValue}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Security */}
+        <div style={styles.sectionCard} className="glass-card profile-section-card">
+          <h3 style={styles.sectionTitle}>Security</h3>
+          {!showPasswordForm ? (
+            <button className="btn-ghost" onClick={() => setShowPasswordForm(true)}>Change Password</button>
+          ) : (
+            <div style={styles.passwordForm}>
+              {passwordError && <div style={styles.passwordError}>{passwordError}</div>}
+              {[
+                { key: "currentPassword", label: "Current Password", type: "password", placeholder: "Enter current password" },
+                { key: "newPassword", label: "New Password", type: "password", placeholder: "Enter new password (min 6 characters)" },
+                { key: "confirmPassword", label: "Confirm Password", type: "password", placeholder: "Confirm new password" },
+              ].map((field) => (
+                <div key={field.key} style={styles.formGroup}>
+                  <label style={styles.label}>{field.label}</label>
+                  <input
+                    className="aurora-input"
+                    type={field.type}
+                    placeholder={field.placeholder}
+                    value={passwordForm[field.key]}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, [field.key]: e.target.value })}
+                  />
+                </div>
+              ))}
+              <div style={styles.actions}>
+                <button className="btn-ghost" onClick={() => { setShowPasswordForm(false); setPasswordError(""); setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); }} disabled={changingPassword}>
+                  Cancel
+                </button>
+                <button className="btn-aurora" onClick={handleChangePassword} disabled={changingPassword}>
+                  {changingPassword ? "Changing..." : "Change Password"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* About Me */}
+        <div style={styles.sectionCard} className="glass-card profile-section-card">
+          <div style={styles.sectionHeader} className="profile-section-header">
+            <h3 style={styles.sectionTitle}>About Me</h3>
+            {!editingAboutMe && (
+              <button 
+                className="btn-ghost" 
+                onClick={() => setEditingAboutMe(true)}
+                style={styles.editButton}
+              >
+                ✏️ Edit
+              </button>
             )}
           </div>
-        )}
+          
+          {editingAboutMe ? (
+            <div style={styles.aboutMeEdit}>
+              <div style={styles.textareaGroup}>
+                <textarea
+                  className="aurora-input"
+                  style={styles.textarea}
+                  placeholder="Tell us about yourself..."
+                  maxLength={300}
+                  value={aboutMeForm}
+                  onChange={(e) => setAboutMeForm(e.target.value)}
+                />
+                <div style={styles.charCounter}>{aboutMeForm.length}/300</div>
+                {formErrors.bio && <div style={styles.validationError}>{formErrors.bio}</div>}
+              </div>
+              <div style={styles.actions}>
+                <button className="btn-ghost" onClick={handleCancelAboutMe} disabled={saving}>
+                  Cancel
+                </button>
+                <button className="btn-aurora" onClick={handleSaveAboutMe} disabled={saving}>
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={styles.aboutMeDisplay}>
+              {formData.bio ? (
+                <p style={styles.bioText}>{formData.bio}</p>
+              ) : (
+                <p style={styles.emptyHint}>No bio added yet</p>
+              )}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
@@ -323,48 +690,52 @@ const Profile = () => {
 
 const styles = {
   container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px" },
+  main: { marginLeft: "260px", flex: 1, padding: "32px", maxWidth: "1200px" },
   title: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "24px" },
   successBox: { background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: "8px", padding: "12px 16px", color: "#6ee7b7", fontSize: "14px", marginBottom: "20px" },
-  profileCard: { padding: "32px" },
-  avatarSection: { display: "flex", alignItems: "center", gap: "24px", marginBottom: "24px" },
-  avatar: { width: "80px", height: "80px", borderRadius: "50%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px", fontWeight: "700", color: "white", textTransform: "uppercase", flexShrink: 0 },
-  profileName: { fontSize: "22px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },
-  profileUsername: { color: "#7c3aed", fontSize: "14px", marginTop: "4px" },
-  infoGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" },
+  errorBox: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", padding: "12px 16px", color: "#f87171", fontSize: "14px", marginBottom: "20px" },
+  heroCard: { padding: "32px", marginBottom: "32px" },
+  heroContent: { display: "flex", alignItems: "flex-start", gap: "24px" },
+  avatar: { width: "100px", height: "100px", borderRadius: "50%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "40px", fontWeight: "700", color: "white", textTransform: "uppercase", flexShrink: 0 },
+  heroInfo: { flex: 1 },
+  heroName: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
+  heroUsername: { color: "#7c3aed", fontSize: "16px", marginBottom: "12px" },
+  heroMeta: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap", marginBottom: "16px" },
+  socialIcons: { marginTop: "16px" },
+  socialIconsDisplay: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" },
+  socialIcon: { fontSize: "20px", padding: "8px", borderRadius: "8px", background: "rgba(255,255,255,0.05)", transition: "all 0.2s ease", cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center" },
+  socialIconDisabled: { opacity: 0.3, cursor: "not-allowed" },
+  editIconButton: { padding: "8px", fontSize: "16px", minWidth: "auto" },
+  socialLinksEdit: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginTop: "16px" },
+  socialLinkInput: { display: "flex", flexDirection: "column", gap: "6px" },
+  socialActions: { display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "16px", gridColumn: "1 / -1" },
+  sectionCard: { padding: "32px", marginBottom: "32px" },
+  sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" },
+  sectionTitle: { fontSize: "22px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "0" },
+  editButton: { padding: "8px 16px", fontSize: "14px", minWidth: "auto" },
+  subsection: { marginBottom: "24px" },
+  subsectionTitle: { fontSize: "18px", fontWeight: "600", color: "#94a3b8", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "16px", paddingBottom: "8px", borderBottom: "1px solid rgba(255,255,255,0.1)" },
+  personalProfileEdit: { display: "flex", flexDirection: "column", gap: "24px" },
+  personalProfileDisplay: { display: "flex", flexDirection: "column", gap: "24px" },
+  textareaGroup: { position: "relative" },
+  textarea: { width: "100%", minHeight: "120px", resize: "vertical", fontFamily: "inherit" },
+  charCounter: { position: "absolute", bottom: "8px", right: "12px", color: "#64748b", fontSize: "12px" },
+  emptyHint: { color: "#64748b", fontSize: "14px", fontStyle: "italic" },
+  bioText: { color: "#f1f5f9", fontSize: "15px", lineHeight: "1.6" },
+  aboutMeEdit: { display: "flex", flexDirection: "column", gap: "16px" },
+  aboutMeDisplay: { padding: "16px", background: "rgba(255,255,255,0.03)", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.06)" },
+  formGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px" },
+  formGroup: { display: "flex", flexDirection: "column", gap: "8px" },
+  label: { color: "#94a3b8", fontSize: "13px", fontWeight: "500" },
+  validationError: { color: "#f87171", fontSize: "12px", marginTop: "4px" },
+  actions: { display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px" },
+  saveButton: { padding: "12px 32px", fontSize: "16px" },
+  passwordForm: { display: "flex", flexDirection: "column", gap: "16px" },
+  passwordError: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", padding: "12px 16px", color: "#f87171", fontSize: "13px" },
+  infoGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" },
   infoItem: { padding: "16px", background: "rgba(255,255,255,0.03)", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.06)" },
   infoLabel: { color: "#64748b", fontSize: "12px", marginBottom: "6px" },
   infoValue: { color: "#f1f5f9", fontSize: "15px", fontWeight: "500" },
-  editForm: { display: "flex", flexDirection: "column", gap: "16px" },
-  inputGroup: { display: "flex", flexDirection: "column", gap: "8px" },
-  label: { color: "#94a3b8", fontSize: "13px", fontWeight: "500" },
-  editActions: { display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "8px" },
-  tabs: { display: "flex", gap: "8px", marginBottom: "24px" },
-  tabButton: { padding: "8px 16px", fontSize: "14px" },
-  sectionCard: { padding: "32px" },
-  sectionTitle: { fontSize: "22px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "20px" },
-  prefForm: { display: "flex", flexDirection: "column", gap: "16px" },
-  checkboxGroup: { display: "flex", flexWrap: "wrap", gap: "12px" },
-  checkboxLabel: { display: "flex", alignItems: "center", color: "#94a3b8", fontSize: "14px", cursor: "pointer" },
-  emptyState: { padding: "48px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" },
-  favoritesGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" },
-  favCard: { padding: "20px" },
-  favHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" },
-  favName: { fontSize: "18px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
-  favLocation: { color: "#94a3b8", fontSize: "13px", marginBottom: "10px" },
-  favDesc: { color: "#64748b", fontSize: "12px", lineHeight: "1.6" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "24px" },
-  statCard: { padding: "24px", textAlign: "center" },
-  statValue: { fontSize: "32px", fontWeight: "700", fontFamily: "'Space Grotesk', sans-serif" },
-  statLabel: { color: "#94a3b8", fontSize: "14px", marginTop: "8px" },
-  subsectionTitle: { fontSize: "18px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "16px" },
-  historyList: { display: "flex", flexDirection: "column", gap: "12px" },
-  historyItem: { padding: "16px" },
-  historyHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" },
-  historyTitle: { fontSize: "16px", fontWeight: "600", color: "#f1f5f9" },
-  historyDest: { color: "#94a3b8", fontSize: "13px", marginBottom: "4px" },
-  historyDates: { color: "#94a3b8", fontSize: "13px", marginBottom: "4px" },
-  historyBudget: { color: "#a78bfa", fontSize: "13px" },
 };
 
 export default Profile;

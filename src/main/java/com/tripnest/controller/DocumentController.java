@@ -88,6 +88,33 @@ public class DocumentController {
         }
     }
 
+    @GetMapping("/download/profile-pictures/{fileName}")
+    public ResponseEntity<Resource> downloadProfilePicture(@PathVariable String fileName) {
+        try {
+            Resource resource = new UrlResource(documentService.getProfilePicturePath(fileName).toUri());
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String contentType = null;
+            try {
+                contentType = Files.probeContentType(documentService.getProfilePicturePath(fileName));
+            } catch (IOException e) {
+                contentType = "image/jpeg";
+            }
+            if (contentType == null) {
+                contentType = "image/jpeg";
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                    .body(resource);
+        } catch (MalformedURLException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     private UserDetailsImpl getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return (UserDetailsImpl) authentication.getPrincipal();

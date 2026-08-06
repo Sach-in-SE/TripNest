@@ -8,5 +8,8 @@ public class TravelHistoryResponse {
     private int totalCompletedTrips;
     private Double totalAmountSpent;
     private List<String> destinationsVisited;
+    private Double averageTripDuration;
+    private String longestTrip;
+    private String mostVisitedDestination;
     private List<TripResponse> completedTrips;
 }

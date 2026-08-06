@@ -1,0 +1,66 @@
+/* Profile Page Responsive Styles */
+
+@media (max-width: 1024px) {
+  .profile-main {
+    margin-left: 0 !important;
+    padding: 24px !important;
+  }
+  
+  .profile-hero-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .profile-hero-meta {
+    justify-content: center;
+  }
+  
+  .profile-social-icons-display {
+    justify-content: center;
+  }
+  
+  .profile-form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  }
+  
+  .profile-info-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+  }
+  
+  .profile-social-links-edit {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-main {
+    padding: 16px !important;
+  }
+  
+  .profile-hero-card {
+    padding: 24px !important;
+  }
+  
+  .profile-section-card {
+    padding: 24px !important;
+  }
+  
+  .profile-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .profile-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .profile-social-links-edit {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .profile-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}

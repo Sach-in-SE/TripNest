@@ -17,6 +17,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ArrayList;
 
 
 @Service
@@ -255,18 +258,48 @@ public class TripService {
 
         Set<String> destinationsVisited = new HashSet<>();
         Double totalAmountSpent = 0.0;
+        Map<String, Integer> destinationCount = new HashMap<>();
+        List<Double> tripDurations = new ArrayList<>();
+        String longestTrip = null;
+        long maxDuration = 0;
 
         for (Trip trip : completedTrips) {
             destinationsVisited.add(trip.getDestination());
-            if (trip.getBudget() != null) {
-                totalAmountSpent += trip.getBudget();
+
+            Long tripId = trip.getId();
+            Double tripExpenses = expenseRepository.getTotalExpenseByTripId(tripId);
+            if (tripExpenses != null) {
+                totalAmountSpent += tripExpenses;
+            }
+
+            String destination = trip.getDestination();
+            destinationCount.put(destination, destinationCount.getOrDefault(destination, 0) + 1);
+
+            if (trip.getStartDate() != null && trip.getEndDate() != null) {
+                long duration = java.time.temporal.ChronoUnit.DAYS.between(trip.getStartDate(), trip.getEndDate()) + 1;
+                tripDurations.add((double) duration);
+                if (duration > maxDuration) {
+                    maxDuration = duration;
+                    longestTrip = trip.getTitle();
+                }
             }
         }
+
+        Double averageTripDuration = tripDurations.isEmpty() ? 0.0 :
+            tripDurations.stream().mapToDouble(d -> d).average().orElse(0.0);
+
+        String mostVisitedDestination = destinationCount.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .orElse(null);
 
         TravelHistoryResponse response = new TravelHistoryResponse();
         response.setTotalCompletedTrips(completedTrips.size());
         response.setTotalAmountSpent(totalAmountSpent);
         response.setDestinationsVisited(destinationsVisited.stream().sorted().collect(Collectors.toList()));
+        response.setAverageTripDuration(averageTripDuration);
+        response.setLongestTrip(longestTrip);
+        response.setMostVisitedDestination(mostVisitedDestination);
         response.setCompletedTrips(completedTrips.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList()));

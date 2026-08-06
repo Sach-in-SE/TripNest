@@ -126,6 +126,10 @@ public class DocumentService {
         return Paths.get(uploadDir).resolve(storedFileName);
     }
 
+    public Path getProfilePicturePath(String storedFileName) {
+        return Paths.get(uploadDir, "profile-pictures").resolve(storedFileName);
+    }
+
     private DocumentResponse mapToResponse(TravelDocument document) {
         DocumentResponse response = new DocumentResponse();
         response.setId(document.getId());

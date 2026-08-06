@@ -1,42 +1,79 @@
 package com.tripnest.dto;
 
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
-public class UserProfileResponse {
-    private Long id;
-    private String username;
-    private String email;
+public class CompleteProfileRequest {
+
+    @Size(max = 50)
     private String firstName;
+
+    @Size(max = 50)
     private String lastName;
+
+    @Size(max = 100)
+    private String email;
+
+    @Size(max = 15)
     private String phone;
-    private String profilePictureUrl;
+
+    @Size(max = 300)
     private String bio;
+
+    @Size(max = 100)
     private String country;
+
+    @Size(max = 100)
     private String state;
+
+    @Size(max = 100)
     private String city;
+
     private LocalDate dateOfBirth;
+
+    @Size(max = 20)
     private String gender;
+
+    @Size(max = 100)
     private String occupation;
-    private boolean emailVerified;
-    private LocalDateTime createdAt;
+
+    @Size(max = 50)
     private String travelStyle;
+
+    @Size(max = 50)
     private String preferredTransport;
+
+    @Size(max = 50)
     private String accommodationPreference;
+
+    @Size(max = 100)
     private String dreamDestination;
+
+    @Size(max = 100)
     private String favoriteDestination;
-    private boolean passportHolder;
+
+    private Boolean passportHolder;
+
+    @Size(max = 100)
     private String emergencyContactName;
+
+    @Size(max = 50)
     private String emergencyContactRelationship;
+
+    @Size(max = 15)
     private String emergencyContactPhone;
+
+    @Size(max = 500)
     private String github;
+
+    @Size(max = 500)
     private String linkedin;
+
+    @Size(max = 500)
     private String instagram;
+
+    @Size(max = 500)
     private String portfolio;
-    private String provider;
-    private boolean enabled;
-    private List<String> roles;
 }
