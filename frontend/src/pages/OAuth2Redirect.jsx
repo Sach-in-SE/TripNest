@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
 const OAuth2Redirect = () => {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -15,19 +17,21 @@ const OAuth2Redirect = () => {
       return;
     }
 
+    // Store token first
     localStorage.setItem("token", token);
 
-    // Token set ho gaya, ab profile fetch karo taaki user object bhi sahi format mein ban sake
+    // Fetch user profile to get complete user information
     api.get("/user/profile")
       .then((res) => {
         const profile = res.data;
 
-        // roles kisi bhi shape mein aa sakte hain (string array ya object array) - defensively normalize
+        // Normalize roles - handle both string arrays and object arrays
         let roles = [];
         if (Array.isArray(profile.roles)) {
           roles = profile.roles.map((r) => (typeof r === "string" ? r : r.name));
         }
 
+        // Create user object matching the expected format
         const userObject = {
           token,
           id: profile.id,
@@ -36,16 +40,22 @@ const OAuth2Redirect = () => {
           roles,
         };
 
+        // Store user object in localStorage
         localStorage.setItem("user", JSON.stringify(userObject));
-        // Reload taaki AuthContext naye localStorage se user pick kare
-        window.location.href = "/dashboard";
+
+        // Refresh AuthContext to pick up new authentication state
+        refreshUser();
+
+        // Navigate to dashboard
+        navigate("/dashboard", { replace: true });
       })
       .catch((err) => {
-        console.error(err);
+        console.error("Profile fetch error:", err);
         setError("Failed to fetch profile after Google login.");
         localStorage.removeItem("token");
+        localStorage.removeItem("user");
       });
-  }, [navigate]);
+  }, [navigate, refreshUser]);
 
   return (
     <div style={styles.container}>

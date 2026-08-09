@@ -51,6 +51,9 @@ public class AuthController {
     @Autowired
     private PasswordResetService passwordResetService;
 
+    @Autowired
+    private com.tripnest.service.DisposableEmailService disposableEmailService;
+
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
@@ -83,6 +86,12 @@ public class AuthController {
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Email is already in use!"));
+        }
+
+        // Check for disposable email domains
+        if (disposableEmailService.isDisposableEmail(signUpRequest.getEmail())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Disposable email addresses are not allowed. Please use a permanent email address."));
         }
 
         User user = new User();
@@ -146,5 +155,16 @@ public class AuthController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
+    }
+
+    @GetMapping("/check-username")
+    public ResponseEntity<?> checkUsernameAvailability(@RequestParam String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Username is required"));
+        }
+
+        boolean isAvailable = !userRepository.existsByUsername(username.trim());
+        return ResponseEntity.ok(new MessageResponse(isAvailable ? "Username is available" : "Username is already taken"));
     }
 }

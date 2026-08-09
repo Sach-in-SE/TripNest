@@ -22,6 +22,9 @@ public class PasswordResetService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private EmailService emailService;
+
     public void createResetToken(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("No account found with this email"));
@@ -36,11 +39,8 @@ public class PasswordResetService {
         resetToken.setUser(user);
         tokenRepository.save(resetToken);
 
-        // TODO: Email bhejna hai yahan baad mein — abhi ke liye console mein print
-        System.out.println("=================================================");
-        System.out.println("PASSWORD RESET TOKEN for " + email + ": " + token);
-        System.out.println("Use this token in POST /api/auth/reset-password");
-        System.out.println("=================================================");
+        // Send password reset email
+        emailService.sendPasswordResetEmail(email, token);
     }
 
     public void resetPassword(String token, String newPassword) {

@@ -1,12 +1,15 @@
 package com.tripnest.controller;
 
 import com.tripnest.dto.ChangePasswordRequest;
+import com.tripnest.dto.ChangeUsernameRequest;
+import com.tripnest.dto.JwtResponse;
 import com.tripnest.dto.MessageResponse;
 import com.tripnest.dto.ProfilePictureResponse;
 import com.tripnest.dto.UpdateProfileRequest;
 import com.tripnest.dto.UserProfileResponse;
 import com.tripnest.entity.User;
 import com.tripnest.service.UserService;
+import com.tripnest.security.JwtUtils;
 import com.tripnest.security.UserDetailsImpl;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +29,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private JwtUtils jwtUtils;
 
     @GetMapping("/profile")
     public ResponseEntity<?> getUserProfile() {
@@ -168,6 +174,43 @@ public class UserController {
         try {
             userService.changePassword(userDetails.getId(), request.getCurrentPassword(), request.getNewPassword());
             return ResponseEntity.ok(new MessageResponse("Password changed successfully!"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/username")
+    public ResponseEntity<?> changeUsername(@Valid @RequestBody ChangeUsernameRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        User user = userService.getUserById(userDetails.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Check if username is already taken by another user
+        if (userService.existsByUsername(request.getUsername()) && 
+            !request.getUsername().equals(user.getUsername())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Username is already taken"));
+        }
+
+        try {
+            user.setUsername(request.getUsername());
+            userService.updateUser(user);
+            
+            // Generate new JWT token with updated username as subject
+            String newToken = jwtUtils.generateJwtToken(user.getUsername());
+            
+            JwtResponse response = new JwtResponse();
+            response.setToken(newToken);
+            response.setType("Bearer");
+            response.setId(user.getId());
+            response.setUsername(user.getUsername());
+            response.setEmail(user.getEmail());
+            response.setRoles(userDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList()));
+            
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }

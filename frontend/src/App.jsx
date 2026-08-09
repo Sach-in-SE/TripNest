@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Trips from "./pages/Trips";
 import TripDetail from "./pages/TripDetail";
@@ -31,6 +33,8 @@ function App() {
           <Route path="/" element={<Navigate to="/login" />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
           <Route path="/trips/new" element={<PrivateRoute><CreateTrip /></PrivateRoute>} />

@@ -99,6 +99,12 @@ const Login = () => {
               {loading ? "Signing in..." : "Sign In →"}
             </button>
 
+            <div style={styles.forgotPassword}>
+              <Link to="/forgot-password" style={styles.forgotPasswordLink}>
+                Forgot Password?
+              </Link>
+            </div>
+
             <div style={styles.divider}>
               <span style={styles.dividerLine} />
               <span style={styles.dividerText}>OR</span>
@@ -263,6 +269,17 @@ const styles = {
     color: "#a78bfa",
     textDecoration: "none",
     fontWeight: "500",
+  },
+  forgotPassword: {
+    textAlign: "center",
+    marginTop: "12px",
+  },
+  forgotPasswordLink: {
+    color: "#94a3b8",
+    textDecoration: "none",
+    fontSize: "13px",
+    fontWeight: "500",
+    transition: "color 0.2s ease",
   },
 };
 

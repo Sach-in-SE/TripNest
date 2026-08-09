@@ -65,9 +65,10 @@ public class WebSecurityConfig {
                             "http://localhost:5173",
                             "http://localhost:5174"
                         ));
-                    corsConfig.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                    corsConfig.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
                     corsConfig.setAllowedHeaders(java.util.List.of("*"));
                     corsConfig.setAllowCredentials(true);
+                    corsConfig.setExposedHeaders(java.util.List.of("Authorization", "Content-Type"));
                     return corsConfig;
                 }))
                 .sessionManagement(session -> session

@@ -29,6 +29,17 @@ export const AuthProvider = ({ children }) => {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
+    // Method to refresh user from localStorage (useful after OAuth2 redirect)
+    const refreshUser = () => {
+        const currentUser = AuthService.getCurrentUser();
+        setUser(currentUser);
+    };
+
+    // Method to update user data in context (useful after username change)
+    const updateUser = (userData) => {
+        setUser(userData);
+    };
+
     const login = async (credentials) => {
         const data = await AuthService.signin(credentials);
         setUser(data);
@@ -46,7 +57,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, signup, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, signup, logout, loading, refreshUser, updateUser }}>
             {children}
         </AuthContext.Provider>
     );

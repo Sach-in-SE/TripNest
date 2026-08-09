@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import "./Profile.css";
 
 const SocialIcon = ({ name, hasLink, link, icon }) => {
@@ -25,6 +26,7 @@ const SocialIcon = ({ name, hasLink, link, icon }) => {
 };
 
 const Profile = () => {
+  const { updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -66,8 +68,12 @@ const Profile = () => {
   const [editingSocialLinks, setEditingSocialLinks] = useState(false);
   const [editingPersonalProfile, setEditingPersonalProfile] = useState(false);
   const [editingAboutMe, setEditingAboutMe] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
   const [socialLinksForm, setSocialLinksForm] = useState({ github: "", linkedin: "", instagram: "", portfolio: "" });
   const [aboutMeForm, setAboutMeForm] = useState("");
+  const [usernameForm, setUsernameForm] = useState("");
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameAvailability, setUsernameAvailability] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -107,6 +113,7 @@ const Profile = () => {
           portfolio: res.data.portfolio || ""
         });
         setAboutMeForm(res.data.bio || "");
+        setUsernameForm(res.data.username || "");
       } catch (err) {
         console.error(err);
         setError("Failed to load profile");
@@ -291,6 +298,95 @@ const Profile = () => {
     setFormErrors({});
   };
 
+  // Username editing handlers
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (usernameForm && usernameForm.length >= 3 && usernameForm !== profile?.username) {
+        checkUsernameAvailability(usernameForm);
+      } else if (usernameForm === profile?.username) {
+        setUsernameAvailability(true);
+      } else {
+        setUsernameAvailability(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [usernameForm, profile?.username]);
+
+  const checkUsernameAvailability = async (username) => {
+    if (username.length < 3) return;
+    
+    setCheckingUsername(true);
+    try {
+      const response = await api.get(`/auth/check-username?username=${username}`);
+      setUsernameAvailability(response.data.available !== false);
+    } catch (err) {
+      console.error("Username check failed:", err);
+      setUsernameAvailability(null);
+    } finally {
+      setCheckingUsername(false);
+    }
+  };
+
+  const handleSaveUsername = async () => {
+    if (saving) return;
+    
+    if (!usernameForm || usernameForm.length < 3) {
+      setError("Username must be at least 3 characters");
+      return;
+    }
+
+    if (usernameAvailability === false) {
+      setError("Username is already taken");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      const response = await api.put("/user/username", { username: usernameForm });
+      
+      // Update the JWT token in localStorage with the new token
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        
+        // Update the user object in localStorage with new username
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        currentUser.username = response.data.username;
+        localStorage.setItem('user', JSON.stringify(currentUser));
+        
+        // Update the AuthContext with the new user data
+        updateUser(currentUser);
+      }
+      
+      setMessage("Username updated successfully!");
+      const res = await api.get("/user/profile");
+      setProfile(res.data);
+      setEditingUsername(false);
+      setUsernameAvailability(null);
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      if (err.response && err.response.status === 401) {
+        setError("Authentication failed. Please log in again.");
+      } else if (err.response && err.response.status === 400) {
+        setError(err.response?.data?.message || "Invalid username request.");
+      } else {
+        setError(err.response?.data?.message || "Failed to update username. Please try again.");
+      }
+      // Keep user in edit mode on error - don't set editingUsername to false
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelUsername = () => {
+    setUsernameForm(profile?.username || "");
+    setEditingUsername(false);
+    setUsernameAvailability(null);
+    setError("");
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Not set";
     const date = new Date(dateString);
@@ -316,7 +412,56 @@ const Profile = () => {
             </div>
             <div style={styles.heroInfo}>
               <h2 style={styles.heroName}>{profile?.firstName} {profile?.lastName}</h2>
-              <p style={styles.heroUsername}>@{profile?.username}</p>
+              {editingUsername ? (
+                <div style={styles.usernameEditContainer}>
+                  <input
+                    className="aurora-input"
+                    type="text"
+                    value={usernameForm}
+                    onChange={(e) => setUsernameForm(e.target.value)}
+                    style={styles.usernameInput}
+                    placeholder="Username"
+                  />
+                  {checkingUsername && (
+                    <div style={styles.availabilityMessage}>Checking availability...</div>
+                  )}
+                  {usernameAvailability === true && usernameForm !== profile?.username && (
+                    <div style={styles.availableMessage}>Username is available</div>
+                  )}
+                  {usernameAvailability === false && (
+                    <div style={styles.takenMessage}>Username is already taken</div>
+                  )}
+                  <div style={styles.usernameEditButtons}>
+                    <button
+                      className="btn-ghost"
+                      onClick={handleCancelUsername}
+                      style={styles.usernameEditButton}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn-aurora"
+                      onClick={handleSaveUsername}
+                      disabled={saving || usernameAvailability === false}
+                      style={styles.usernameEditButton}
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={styles.usernameDisplay}>
+                  <p style={styles.heroUsername}>@{profile?.username}</p>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => setEditingUsername(true)}
+                    style={styles.usernameEditIcon}
+                    title="Edit username"
+                  >
+                    ✏️
+                  </button>
+                </div>
+              )}
               <div style={styles.heroMeta} className="profile-hero-meta">
                 <span className={`badge badge-upcoming`}>{profile?.roles?.[0]?.replace("ROLE_", "") || "TRAVELER"}</span>
                 <span className={`badge ${profile?.enabled ? "badge-completed" : "badge-cancelled"}`}>
@@ -736,6 +881,16 @@ const styles = {
   infoItem: { padding: "16px", background: "rgba(255,255,255,0.03)", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.06)" },
   infoLabel: { color: "#64748b", fontSize: "12px", marginBottom: "6px" },
   infoValue: { color: "#f1f5f9", fontSize: "15px", fontWeight: "500" },
+  usernameDisplay: { display: "flex", alignItems: "center", gap: "8px" },
+  usernameEditIcon: { padding: "4px", fontSize: "14px", opacity: 0.7, transition: "opacity 0.2s" },
+  usernameEditIconHover: { opacity: 1 },
+  usernameEditContainer: { display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "300px" },
+  usernameInput: { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", padding: "8px 12px", color: "#f1f5f9", fontSize: "14px" },
+  usernameEditButtons: { display: "flex", gap: "8px", justifyContent: "flex-end" },
+  usernameEditButton: { padding: "6px 16px", fontSize: "13px" },
+  availabilityMessage: { fontSize: "12px", color: "#94a3b8" },
+  availableMessage: { fontSize: "12px", color: "#6ee7b7" },
+  takenMessage: { fontSize: "12px", color: "#fca5a5" },
 };
 
 export default Profile;

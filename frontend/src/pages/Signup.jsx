@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import api from "../services/api";
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -13,12 +14,50 @@ const Signup = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [usernameAvailability, setUsernameAvailability] = useState(null); // null = not checked, true = available, false = taken
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    
+    // Reset username availability when username changes
+    if (e.target.name === 'username') {
+      setUsernameAvailability(null);
+    }
   };
+
+  // Debounced username availability check
+  const checkUsernameAvailability = useCallback(async (username) => {
+    if (!username || username.length < 3) {
+      setUsernameAvailability(null);
+      return;
+    }
+
+    setCheckingUsername(true);
+    try {
+      const response = await api.get(`/auth/check-username?username=${encodeURIComponent(username)}`);
+      const message = response.data.message;
+      setUsernameAvailability(message === "Username is available");
+    } catch (err) {
+      console.error("Username check failed:", err);
+      // Don't block signup if check fails - let server validation handle it
+      setUsernameAvailability(null);
+    } finally {
+      setCheckingUsername(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.username) {
+        checkUsernameAvailability(formData.username);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.username, checkUsernameAvailability]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +68,8 @@ const Signup = () => {
       setSuccess("Account created! Redirecting to login...");
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      setError("Signup failed! Username or email already exists.");
+      const errorMessage = err.response?.data?.message || "Signup failed! Username or email already exists.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -107,6 +147,15 @@ const Signup = () => {
                 value={formData.username}
                 onChange={handleChange}
               />
+              {checkingUsername && (
+                <div style={styles.availabilityMessage}>Checking availability...</div>
+              )}
+              {usernameAvailability === true && (
+                <div style={styles.availableMessage}>Username is available</div>
+              )}
+              {usernameAvailability === false && (
+                <div style={styles.takenMessage}>Username is already taken</div>
+              )}
             </div>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Email</label>
@@ -278,6 +327,21 @@ const styles = {
     color: "#a78bfa",
     textDecoration: "none",
     fontWeight: "500",
+  },
+  availabilityMessage: {
+    fontSize: "12px",
+    color: "#94a3b8",
+    marginTop: "4px",
+  },
+  availableMessage: {
+    fontSize: "12px",
+    color: "#6ee7b7",
+    marginTop: "4px",
+  },
+  takenMessage: {
+    fontSize: "12px",
+    color: "#fca5a5",
+    marginTop: "4px",
   },
 };
 

@@ -31,12 +31,15 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         String email = oAuth2User.getAttribute("email");
 
+        // User should already be created/fetched in CustomOAuth2UserService
+        // Fetch again to ensure we have the persisted user with correct ID
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found after OAuth login"));
 
-        // Username-based subject use kiya hai, taaki baaki system (AuthTokenFilter, UserDetailsServiceImpl) se match ho
+        // Generate JWT token using username to match existing JWT authentication system
         String token = jwtUtils.generateJwtToken(user.getUsername());
 
+        // Redirect to frontend with token in URL parameter
         String targetUrl = FRONTEND_REDIRECT_URL + "?token=" + token;
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
