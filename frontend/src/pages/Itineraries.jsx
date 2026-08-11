@@ -692,7 +692,9 @@ const Itineraries = () => {
                     <div style={styles.itineraryDate}>
                       <span style={styles.dayIcon}>📅</span>
                       <div>
-                        <p style={styles.dateText}>{new Date(itinerary.date).toLocaleDateString()}</p>
+                        <p style={styles.dateText}>
+                          {new Date(itinerary.date).toLocaleDateString()} {itinerary.username ? `• Added by ${itinerary.username}` : ""}
+                        </p>
                         {itinerary.notes && <p style={styles.notesText}>{itinerary.notes}</p>}
                       </div>
                     </div>
@@ -732,6 +734,7 @@ const Itineraries = () => {
                               <p style={styles.activityMeta}>
                                 {activity.startTime && activity.endTime && `${activity.startTime} - ${activity.endTime}`}
                                 {activity.location && ` • ${activity.location}`}
+                                {activity.username && ` • Added by ${activity.username}`}
                               </p>
                               {activity.reminder && activity.reminder !== "NONE" && (
                                 <p style={styles.activityReminder}>🔔 {activity.reminder.replace(/_/g, ' ').toLowerCase()}</p>

@@ -320,7 +320,7 @@ const Budget = () => {
                         <div>
                           <p style={styles.expenseTitle}>{expense.title}</p>
                           <p style={styles.expenseMeta}>
-                            {expense.category} {expense.date ? `• ${expense.date}` : ""}
+                            {expense.category} {expense.date ? `• ${expense.date}` : ""} {expense.username ? `• Added by ${expense.username}` : ""}
                           </p>
                           {expense.description && (
                             <p style={styles.expenseDesc}>{expense.description}</p>

@@ -12,6 +12,8 @@ public class ItineraryResponse {
     private String notes;
     private Long tripId;
     private String tripTitle;
+    private Long userId;
+    private String username;
     private List<ActivityResponse> activities;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

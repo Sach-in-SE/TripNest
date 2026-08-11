@@ -23,6 +23,10 @@ public class Itinerary {
     @JoinColumn(name = "trip_id")
     private Trip trip;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
