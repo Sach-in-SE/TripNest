@@ -61,6 +61,9 @@ public class TripService {
     private GroupMemberRepository groupMemberRepository;
 
     @Autowired
+    private GroupMessageRepository groupMessageRepository;
+
+    @Autowired
     private BudgetService budgetService;
 
     @Autowired
@@ -270,9 +273,10 @@ public class TripService {
         }
         documentRepository.deleteAll(documents);
 
-        // 7. Delete travel groups (and their members first to prevent FK constraint violations)
+        // 7. Delete travel groups (and their messages/members first to prevent FK constraint violations)
         List<TravelGroup> groups = groupRepository.findByTripId(tripId);
         for (TravelGroup group : groups) {
+            groupMessageRepository.deleteByTravelGroupId(group.getId());
             groupMemberRepository.deleteByTravelGroupId(group.getId());
         }
         groupRepository.deleteAll(groups);

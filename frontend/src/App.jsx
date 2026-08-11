@@ -18,6 +18,7 @@ import Notifications from "./pages/Notifications";
 import NotificationPreferences from "./pages/NotificationPreferences";
 import Groups from "./pages/Groups";
 import GroupDetails from "./pages/GroupDetails";
+import GroupDiscussion from "./pages/GroupDiscussion";
 import Documents from "./pages/Documents";
 import OAuth2Redirect from "./pages/OAuth2Redirect";
 
@@ -51,6 +52,7 @@ function App() {
           <Route path="/notification-preferences" element={<PrivateRoute><NotificationPreferences /></PrivateRoute>} />
           <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
           <Route path="/groups/:id" element={<PrivateRoute><GroupDetails /></PrivateRoute>} />
+          <Route path="/groups/:id/discussion" element={<PrivateRoute><GroupDiscussion /></PrivateRoute>} />
           <Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
           <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
         </Routes>

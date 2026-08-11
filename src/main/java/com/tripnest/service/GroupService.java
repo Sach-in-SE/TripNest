@@ -3,6 +3,8 @@ package com.tripnest.service;
 import com.tripnest.dto.EditGroupRequest;
 import com.tripnest.dto.GroupDetailsResponse;
 import com.tripnest.dto.GroupInvitationRequest;
+import com.tripnest.dto.GroupMessageRequest;
+import com.tripnest.dto.GroupMessageResponse;
 import com.tripnest.dto.GroupMemberResponse;
 import com.tripnest.dto.GroupRequest;
 import com.tripnest.dto.GroupResponse;
@@ -12,6 +14,7 @@ import com.tripnest.dto.TransferOwnershipRequest;
 import com.tripnest.dto.UpdateMemberPermissionRequest;
 import com.tripnest.entity.GroupInvitationStatus;
 import com.tripnest.entity.GroupMember;
+import com.tripnest.entity.GroupMessage;
 import com.tripnest.entity.GroupRole;
 import com.tripnest.entity.NotificationType;
 import com.tripnest.entity.SharePermission;
@@ -21,6 +24,7 @@ import com.tripnest.entity.Trip;
 import com.tripnest.entity.TripShare;
 import com.tripnest.entity.User;
 import com.tripnest.repository.GroupMemberRepository;
+import com.tripnest.repository.GroupMessageRepository;
 import com.tripnest.repository.GroupRepository;
 import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.TripShareRepository;
@@ -44,6 +48,9 @@ public class GroupService {
 
     @Autowired
     private GroupMemberRepository groupMemberRepository;
+
+    @Autowired
+    private GroupMessageRepository groupMessageRepository;
 
     @Autowired
     private TripRepository tripRepository;
@@ -425,10 +432,54 @@ public class GroupService {
     @Transactional
     public void deleteGroup(Long groupId, Long userId) {
         ensureOwner(groupId, userId);
+        groupMessageRepository.deleteByTravelGroupId(groupId);
         groupMemberRepository.deleteByTravelGroupId(groupId);
         TravelGroup group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new RuntimeException("Group not found"));
         groupRepository.delete(group);
+    }
+
+    public List<GroupMessageResponse> getGroupMessages(Long groupId, Long userId) {
+        TravelGroup group = getAccessibleGroup(groupId, userId);
+        return groupMessageRepository.findByTravelGroupIdOrderByCreatedAtAsc(group.getId())
+                .stream()
+                .map(msg -> mapToMessageResponse(msg, userId))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public GroupMessageResponse sendGroupMessage(Long groupId, GroupMessageRequest request, Long userId) {
+        if (request.getContent() == null || request.getContent().trim().isEmpty()) {
+            throw new RuntimeException("Message content cannot be blank");
+        }
+        if (request.getContent().length() > 1000) {
+            throw new RuntimeException("Message content cannot exceed 1000 characters");
+        }
+
+        TravelGroup group = getAccessibleGroup(groupId, userId);
+        User sender = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        GroupMessage message = new GroupMessage();
+        message.setTravelGroup(group);
+        message.setSender(sender);
+        message.setContent(request.getContent().trim());
+
+        GroupMessage saved = groupMessageRepository.save(message);
+        return mapToMessageResponse(saved, userId);
+    }
+
+    private GroupMessageResponse mapToMessageResponse(GroupMessage message, Long currentUserId) {
+        GroupMessageResponse response = new GroupMessageResponse();
+        response.setId(message.getId());
+        response.setGroupId(message.getTravelGroup().getId());
+        response.setSenderId(message.getSender().getId());
+        response.setSenderName(buildDisplayName(message.getSender()));
+        response.setSenderUsername(message.getSender().getUsername());
+        response.setContent(message.getContent());
+        response.setCreatedAt(message.getCreatedAt());
+        response.setIsSelf(message.getSender().getId().equals(currentUserId));
+        return response;
     }
 
     @Transactional
