@@ -1,12 +1,17 @@
 package com.tripnest.scheduler;
 
 import com.tripnest.dto.NotificationRequest;
+import com.tripnest.entity.NotificationPreference;
+import com.tripnest.entity.NotificationType;
 import com.tripnest.entity.Trip;
+import com.tripnest.repository.NotificationPreferenceRepository;
+import com.tripnest.repository.NotificationRepository;
 import com.tripnest.repository.TripRepository;
 import com.tripnest.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -20,51 +25,241 @@ public class TripReminderScheduler {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private NotificationPreferenceRepository notificationPreferenceRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
     @Scheduled(cron = "0 0 9 * * *")
+    @Transactional
     public void sendTripReminders() {
         LocalDate today = LocalDate.now();
         
-        // 7 days before
-        LocalDate sevenDaysBefore = today.plusDays(7);
-        sendTripReminder(sevenDaysBefore, "Trip Starting in 7 Days", "Your trip to %s (%s) starts in 7 days!", 7);
+        // 7 days before trip starts
+        send7DayReminder(today);
         
-        // 3 days before
-        LocalDate threeDaysBefore = today.plusDays(3);
-        sendTripReminder(threeDaysBefore, "Trip Starting in 3 Days", "Your trip to %s (%s) starts in 3 days!", 3);
+        // 3 days before trip starts
+        send3DayReminder(today);
         
-        // 1 day before
-        LocalDate oneDayBefore = today.plusDays(1);
-        sendTripReminder(oneDayBefore, "Trip Starting Tomorrow!", "Your trip to %s (%s) starts tomorrow!", 1);
+        // 24 hours before trip starts
+        send24HourReminder(today);
         
-        // Same day
-        sendTripReminder(today, "Trip Starts Today!", "Your trip to %s (%s) starts today!", 0);
+        // Trip started notification
+        sendTripStartedNotification(today);
+        
+        // Trip completed notification
+        sendTripCompletedNotification(today);
     }
 
-    private void sendTripReminder(LocalDate date, String title, String messageTemplate, int daysBefore) {
-        List<Trip> trips = tripRepository.findByStartDateAndReminderSentFalse(date);
+    // Package-private for testing
+    void send7DayReminder(LocalDate today) {
+        LocalDate sevenDaysFromNow = today.plusDays(7);
+        List<Trip> trips = tripRepository.findByStartDate(sevenDaysFromNow);
         
         for (Trip trip : trips) {
-            // Check if reminder was already sent for this specific time period
-            // For simplicity, we'll use a flag-based approach, but in production you'd want separate flags
-            if (trip.getReminderSent()) {
+            if (trip.getReminder7DaySent()) {
+                continue;
+            }
+
+            // Skip if user has disabled trip reminders
+            if (!shouldSendTripReminder(trip.getUser().getId())) {
+                continue;
+            }
+
+            // Additional duplicate prevention at database level
+            if (notificationRepository.existsByUserIdAndTypeAndTitleAndReferenceId(
+                trip.getUser().getId(), NotificationType.TRIP_REMINDER, "Trip Coming Up in 7 Days", trip.getId())) {
+                trip.setReminder7DaySent(true);
+                tripRepository.save(trip);
                 continue;
             }
 
             NotificationRequest request = new NotificationRequest();
             request.setType("TRIP_REMINDER");
-            request.setTitle(title);
-            request.setMessage(String.format(messageTemplate, trip.getDestination(), trip.getTitle()));
+            request.setTitle("Trip Coming Up in 7 Days");
+            request.setMessage(String.format("Your trip to %s is coming up in 7 days.", trip.getDestination()));
             request.setUserId(trip.getUser().getId());
             request.setReferenceId(trip.getId());
 
             notificationService.createNotification(request);
 
-            // For simplicity, we mark as sent after the 1-day reminder
-            // In production, you'd want separate flags for each reminder period
-            if (daysBefore <= 1) {
-                trip.setReminderSent(true);
+            trip.setReminder7DaySent(true);
+            tripRepository.save(trip);
+        }
+    }
+
+    // Package-private for testing
+    void send3DayReminder(LocalDate today) {
+        LocalDate threeDaysFromNow = today.plusDays(3);
+        List<Trip> trips = tripRepository.findByStartDate(threeDaysFromNow);
+        
+        for (Trip trip : trips) {
+            if (trip.getReminder3DaySent()) {
+                continue;
+            }
+
+            // Skip if user has disabled trip reminders
+            if (!shouldSendTripReminder(trip.getUser().getId())) {
+                continue;
+            }
+
+            // Additional duplicate prevention at database level
+            if (notificationRepository.existsByUserIdAndTypeAndTitleAndReferenceId(
+                trip.getUser().getId(), NotificationType.TRIP_REMINDER, "Trip Coming Up in 3 Days", trip.getId())) {
+                trip.setReminder3DaySent(true);
+                tripRepository.save(trip);
+                continue;
+            }
+
+            NotificationRequest request = new NotificationRequest();
+            request.setType("TRIP_REMINDER");
+            request.setTitle("Trip Coming Up in 3 Days");
+            request.setMessage(String.format("Your trip to %s is coming up in 3 days.", trip.getDestination()));
+            request.setUserId(trip.getUser().getId());
+            request.setReferenceId(trip.getId());
+
+            notificationService.createNotification(request);
+
+            trip.setReminder3DaySent(true);
+            tripRepository.save(trip);
+        }
+    }
+
+    // Package-private for testing
+    void send24HourReminder(LocalDate today) {
+        LocalDate tomorrow = today.plusDays(1);
+        List<Trip> trips = tripRepository.findByStartDate(tomorrow);
+        
+        for (Trip trip : trips) {
+            if (trip.getReminder24HourSent()) {
+                continue;
+            }
+
+            // Skip if user has disabled trip reminders
+            if (!shouldSendTripReminder(trip.getUser().getId())) {
+                continue;
+            }
+
+            // Additional duplicate prevention at database level
+            if (notificationRepository.existsByUserIdAndTypeAndTitleAndReferenceId(
+                trip.getUser().getId(), NotificationType.TRIP_REMINDER, "Trip Starts Tomorrow", trip.getId())) {
+                trip.setReminder24HourSent(true);
+                tripRepository.save(trip);
+                continue;
+            }
+
+            NotificationRequest request = new NotificationRequest();
+            request.setType("TRIP_REMINDER");
+            request.setTitle("Trip Starts Tomorrow");
+            request.setMessage(String.format("Your trip to %s starts tomorrow. Get ready for your journey!", trip.getDestination()));
+            request.setUserId(trip.getUser().getId());
+            request.setReferenceId(trip.getId());
+
+            notificationService.createNotification(request);
+
+            trip.setReminder24HourSent(true);
+            tripRepository.save(trip);
+        }
+    }
+
+    // Package-private for testing
+    void sendTripStartedNotification(LocalDate today) {
+        // Find trips that started today
+        List<Trip> tripsStartingToday = tripRepository.findByStartDate(today);
+        
+        for (Trip trip : tripsStartingToday) {
+            if (trip.getTripStartedSent()) {
+                continue;
+            }
+
+            // Additional duplicate prevention at database level
+            if (notificationRepository.existsByUserIdAndTypeAndTitleAndReferenceId(
+                trip.getUser().getId(), NotificationType.TRIP_REMINDER, "Trip Started", trip.getId())) {
+                trip.setTripStartedSent(true);
+                tripRepository.save(trip);
+                continue;
+            }
+
+            NotificationRequest request = new NotificationRequest();
+            request.setType("TRIP_REMINDER");
+            request.setTitle("Trip Started");
+            request.setMessage(String.format("Your trip to %s has started from %s. Have a great journey!", 
+                trip.getDestination(), trip.getStartDate()));
+            request.setUserId(trip.getUser().getId());
+            request.setReferenceId(trip.getId());
+
+            notificationService.createNotification(request);
+
+            trip.setTripStartedSent(true);
+            tripRepository.save(trip);
+        }
+
+        // Handle edge case: trip was created after start date but is still ongoing
+        // Find trips that are currently ongoing but haven't sent started notification
+        List<Trip> ongoingTrips = tripRepository.findByStartDateBeforeAndEndDateAfter(today, today);
+        for (Trip trip : ongoingTrips) {
+            if (!trip.getTripStartedSent()) {
+                // Additional duplicate prevention at database level
+                if (notificationRepository.existsByUserIdAndTypeAndTitleAndReferenceId(
+                    trip.getUser().getId(), NotificationType.TRIP_REMINDER, "Trip Started", trip.getId())) {
+                    trip.setTripStartedSent(true);
+                    tripRepository.save(trip);
+                    continue;
+                }
+
+                NotificationRequest request = new NotificationRequest();
+                request.setType("TRIP_REMINDER");
+                request.setTitle("Trip Started");
+                request.setMessage(String.format("Your trip to %s has started from %s. Have a great journey!", 
+                    trip.getDestination(), trip.getStartDate()));
+                request.setUserId(trip.getUser().getId());
+                request.setReferenceId(trip.getId());
+
+                notificationService.createNotification(request);
+
+                trip.setTripStartedSent(true);
                 tripRepository.save(trip);
             }
         }
+    }
+
+    // Package-private for testing
+    void sendTripCompletedNotification(LocalDate today) {
+        // Find trips that ended yesterday (so we notify on the day after completion)
+        LocalDate yesterday = today.minusDays(1);
+        List<Trip> trips = tripRepository.findByEndDate(yesterday);
+        
+        for (Trip trip : trips) {
+            if (trip.getTripCompletedSent()) {
+                continue;
+            }
+
+            // Additional duplicate prevention at database level
+            if (notificationRepository.existsByUserIdAndTypeAndTitleAndReferenceId(
+                trip.getUser().getId(), NotificationType.TRIP_REMINDER, "Trip Completed", trip.getId())) {
+                trip.setTripCompletedSent(true);
+                tripRepository.save(trip);
+                continue;
+            }
+
+            NotificationRequest request = new NotificationRequest();
+            request.setType("TRIP_REMINDER");
+            request.setTitle("Trip Completed");
+            request.setMessage(String.format("Your trip to %s has been completed. You can review your expenses and trip details.", 
+                trip.getDestination()));
+            request.setUserId(trip.getUser().getId());
+            request.setReferenceId(trip.getId());
+
+            notificationService.createNotification(request);
+
+            trip.setTripCompletedSent(true);
+            tripRepository.save(trip);
+        }
+    }
+
+    private boolean shouldSendTripReminder(Long userId) {
+        NotificationPreference preference = notificationPreferenceRepository.findByUserId(userId).orElse(null);
+        return preference == null || preference.isTripReminders();
     }
 }

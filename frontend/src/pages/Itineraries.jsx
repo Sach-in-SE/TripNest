@@ -24,7 +24,7 @@ const Itineraries = () => {
   const [itineraryForm, setItineraryForm] = useState({ date: "", notes: "" });
   const [activityForm, setActivityForm] = useState({
     title: "", description: "", startTime: "", endTime: "",
-    location: "", type: "SIGHTSEEING", cost: "",
+    location: "", type: "SIGHTSEEING", cost: "", reminder: "THIRTY_MINUTES",
   });
 
   useEffect(() => { fetchTripData(); }, [id]);
@@ -650,6 +650,17 @@ const Itineraries = () => {
                       value={activityForm.cost}
                       onChange={(e) => setActivityForm({ ...activityForm, cost: e.target.value })} />
                   </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Reminder</label>
+                    <select className="aurora-input" value={activityForm.reminder}
+                      onChange={(e) => setActivityForm({ ...activityForm, reminder: e.target.value })}>
+                      <option value="NONE" style={{ background: "#0d1529" }}>No reminder</option>
+                      <option value="THIRTY_MINUTES" style={{ background: "#0d1529" }}>30 minutes before</option>
+                      <option value="ONE_HOUR" style={{ background: "#0d1529" }}>1 hour before</option>
+                      <option value="TWO_HOURS" style={{ background: "#0d1529" }}>2 hours before</option>
+                      <option value="ONE_DAY" style={{ background: "#0d1529" }}>1 day before</option>
+                    </select>
+                  </div>
                   <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
                     <label style={styles.label}>Description</label>
                     <textarea className="aurora-input" placeholder="Activity description..." rows={3}
@@ -722,6 +733,9 @@ const Itineraries = () => {
                                 {activity.startTime && activity.endTime && `${activity.startTime} - ${activity.endTime}`}
                                 {activity.location && ` • ${activity.location}`}
                               </p>
+                              {activity.reminder && activity.reminder !== "NONE" && (
+                                <p style={styles.activityReminder}>🔔 {activity.reminder.replace(/_/g, ' ').toLowerCase()}</p>
+                              )}
                               {activity.description && <p style={styles.activityDesc}>{activity.description}</p>}
                             </div>
                             {activity.cost && (
@@ -803,6 +817,7 @@ const styles = {
   activityInfo: { flex: 1 },
   activityTitle: { color: "#f1f5f9", fontSize: "14px", fontWeight: "600", marginBottom: "4px" },
   activityMeta: { color: "#64748b", fontSize: "12px", marginBottom: "4px" },
+  activityReminder: { color: "#8b5cf6", fontSize: "11px", marginBottom: "4px" },
   activityDesc: { color: "#94a3b8", fontSize: "13px", lineHeight: "1.4" },
   activityCost: { color: "#10b981", fontSize: "13px", fontWeight: "600" },
 };

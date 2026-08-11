@@ -34,19 +34,16 @@ public class ItineraryService {
     @Autowired
     private TripShareService tripShareService;
 
+    @Autowired
+    private TripTimelineValidator tripTimelineValidator;
+
+    @Autowired
+    private TravelUpdateNotificationService travelUpdateNotificationService;
+
     public ItineraryResponse createItinerary(ItineraryRequest request, Long userId) {
-        Trip trip = tripRepository.findById(request.getTripId())
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+        tripTimelineValidator.validateDateWithinTripTimeline(request.getTripId(), request.getDate(), userId);
 
-        boolean isOwner = trip.getUser().getId().equals(userId);
-        boolean hasEditAccess = tripShareService.hasEditAccess(request.getTripId(), userId);
-        if (!isOwner && !hasEditAccess) {
-            throw new RuntimeException("Unauthorized");
-        }
-
-        if (request.getDate().isBefore(trip.getStartDate()) || request.getDate().isAfter(trip.getEndDate())) {
-            throw new IllegalArgumentException("Itinerary date must fall within the trip duration.");
-        }
+        Trip trip = tripTimelineValidator.getTripForValidation(request.getTripId());
 
         Itinerary itinerary = new Itinerary();
         itinerary.setDate(request.getDate());
@@ -54,6 +51,10 @@ public class ItineraryService {
         itinerary.setTrip(trip);
 
         Itinerary saved = itineraryRepository.save(itinerary);
+        
+        // Notify trip members about itinerary update
+        travelUpdateNotificationService.notifyItineraryUpdated(trip.getId(), userId);
+        
         return mapToResponse(saved);
     }
 
@@ -78,20 +79,16 @@ public class ItineraryService {
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
 
         Trip trip = itinerary.getTrip();
-        boolean isOwner = trip.getUser().getId().equals(userId);
-        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
-        if (!isOwner && !hasEditAccess) {
-            throw new RuntimeException("Unauthorized");
-        }
-
-        if (request.getDate().isBefore(trip.getStartDate()) || request.getDate().isAfter(trip.getEndDate())) {
-            throw new IllegalArgumentException("Itinerary date must fall within the trip duration.");
-        }
+        tripTimelineValidator.validateDateWithinTripTimeline(trip.getId(), request.getDate(), userId);
 
         itinerary.setDate(request.getDate());
         itinerary.setNotes(request.getNotes());
 
         Itinerary updated = itineraryRepository.save(itinerary);
+        
+        // Notify trip members about itinerary update
+        travelUpdateNotificationService.notifyItineraryUpdated(trip.getId(), userId);
+        
         return mapToResponse(updated);
     }
 
@@ -155,6 +152,7 @@ public class ItineraryService {
         response.setType(activity.getType() != null ? activity.getType().name() : null);
         response.setCost(activity.getCost());
         response.setItineraryId(activity.getItinerary().getId());
+        response.setReminder(activity.getReminder() != null ? activity.getReminder().name() : null);
         response.setCreatedAt(activity.getCreatedAt());
         response.setUpdatedAt(activity.getUpdatedAt());
         return response;

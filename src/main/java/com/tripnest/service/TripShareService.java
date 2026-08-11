@@ -29,6 +29,9 @@ public class TripShareService {
     @Autowired
     private NotificationRepository notificationRepository;
 
+    @Autowired
+    private TravelUpdateNotificationService travelUpdateNotificationService;
+
     // ---------------------------------------------------------------
     // Invite a user (creates/resets a PENDING share + notification)
     // ---------------------------------------------------------------
@@ -187,7 +190,32 @@ public class TripShareService {
         TripShare share = tripShareRepository.findByTripIdAndSharedWithUserId(tripId, targetUserId)
                 .orElseThrow(() -> new RuntimeException("Share access not found"));
 
+        // Notify the removed member
+        travelUpdateNotificationService.notifyMemberRemoved(tripId, targetUserId);
+
         tripShareRepository.delete(share);
+    }
+
+    @Transactional
+    public void updatePermission(Long tripId, Long targetUserId, SharePermission newPermission, Long ownerId) {
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new RuntimeException("Trip not found"));
+
+        if (!trip.getUser().getId().equals(ownerId)) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        TripShare share = tripShareRepository.findByTripIdAndSharedWithUserId(tripId, targetUserId)
+                .orElseThrow(() -> new RuntimeException("Share access not found"));
+
+        SharePermission oldPermission = share.getPermission();
+        share.setPermission(newPermission);
+        tripShareRepository.save(share);
+
+        // Notify the affected member if permission changed
+        if (!oldPermission.equals(newPermission)) {
+            travelUpdateNotificationService.notifyPermissionChanged(tripId, targetUserId, newPermission);
+        }
     }
 
     // Only counts ACCEPTED shares for access control

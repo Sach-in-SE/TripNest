@@ -15,6 +15,7 @@ public class ActivityResponse {
     private String type;
     private Double cost;
     private Long itineraryId;
+    private String reminder;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

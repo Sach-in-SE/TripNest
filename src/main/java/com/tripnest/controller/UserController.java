@@ -200,15 +200,15 @@ public class UserController {
             // Generate new JWT token with updated username as subject
             String newToken = jwtUtils.generateJwtToken(user.getUsername());
             
-            JwtResponse response = new JwtResponse();
-            response.setToken(newToken);
-            response.setType("Bearer");
-            response.setId(user.getId());
-            response.setUsername(user.getUsername());
-            response.setEmail(user.getEmail());
-            response.setRoles(userDetails.getAuthorities().stream()
+            JwtResponse response = new JwtResponse(
+                newToken,
+                user.getId(),
+                user.getUsername(),
+                "Bearer",
+                userDetails.getAuthorities().stream()
                     .map(item -> item.getAuthority())
-                    .collect(Collectors.toList()));
+                    .collect(Collectors.toList())
+            );
             
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {

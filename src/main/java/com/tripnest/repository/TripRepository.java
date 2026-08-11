@@ -11,6 +11,9 @@ import java.util.List;
 public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findByUserId(Long userId);
     List<Trip> findByUserIdAndStatus(Long userId, TripStatus status);
-    List<Trip> findByStartDateAndReminderSentFalse(LocalDate date);
-    List<Trip> findByStartDateBetweenAndReminderSentFalse(LocalDate startDate, LocalDate endDate);
+    
+    // For trip reminders
+    List<Trip> findByStartDate(LocalDate date);
+    List<Trip> findByEndDate(LocalDate date);
+    List<Trip> findByStartDateBeforeAndEndDateAfter(LocalDate startDate, LocalDate endDate);
 }

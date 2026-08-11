@@ -57,6 +57,9 @@ public class GroupService {
     @Autowired
     private TripShareRepository tripShareRepository;
 
+    @Autowired
+    private TravelUpdateNotificationService travelUpdateNotificationService;
+
     @Transactional
     public GroupResponse createGroup(GroupRequest request, Long userId) {
         if (request.getName() == null || request.getName().isBlank()) {
@@ -479,6 +482,14 @@ public class GroupService {
                 .orElseThrow(() -> new RuntimeException("Current owner membership not found"));
         oldOwnerMembership.setRole(GroupRole.MEMBER);
         groupMemberRepository.save(oldOwnerMembership);
+
+        // Update trip ownership and notify if group is associated with a trip
+        if (group.getTrip() != null) {
+            Trip trip = group.getTrip();
+            trip.setUser(newOwner);
+            tripRepository.save(trip);
+            travelUpdateNotificationService.notifyOwnershipTransferred(trip.getId(), currentOwnerId, newOwnerId);
+        }
     }
 
     @Transactional

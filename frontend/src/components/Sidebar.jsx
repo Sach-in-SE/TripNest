@@ -17,6 +17,7 @@ const navItems = [
     { path: "/budget", icon: "💰", label: "Budget" },
     { path: "/destinations", icon: "🌍", label: "Destinations" },
     { path: "/notifications", icon: "🔔", label: "Notifications" },
+    { path: "/notification-preferences", icon: "⚙️", label: "Notification Settings" },
     { path: "/groups", icon: "👥", label: "Groups" },
     { path: "/profile", icon: "👤", label: "Profile" },
     { path: "/documents", icon: "📁", label: "Documents" },
@@ -76,7 +77,8 @@ const navItems = [
 const styles = {
   sidebar: {
     width: "260px",
-    minHeight: "100vh",
+    height: "100vh",
+    boxSizing: "border-box",
     background: "rgba(13, 21, 41, 0.95)",
     backdropFilter: "blur(20px)",
     borderRight: "1px solid rgba(255,255,255,0.08)",
@@ -137,6 +139,8 @@ const styles = {
     flexDirection: "column",
     gap: "4px",
     flex: 1,
+    overflowY: "auto",
+    minHeight: 0,
   },
   navItem: {
     display: "flex",
@@ -171,6 +175,7 @@ const styles = {
     transition: "all 0.2s ease",
     marginTop: "16px",
     width: "100%",
+    flexShrink: 0,
   },
 };
 

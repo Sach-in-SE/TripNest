@@ -4,6 +4,8 @@ import com.tripnest.dto.MessageResponse;
 import com.tripnest.dto.RespondRequest;
 import com.tripnest.dto.TripShareRequest;
 import com.tripnest.dto.TripShareResponse;
+import com.tripnest.dto.UpdateMemberPermissionRequest;
+import com.tripnest.entity.SharePermission;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.TripShareService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,6 +81,15 @@ public class TripShareController {
         UserDetailsImpl userDetails = getCurrentUser();
         tripShareService.removeShare(tripId, userId, userDetails.getId());
         return ResponseEntity.ok(new MessageResponse("Share access removed successfully!"));
+    }
+
+    @PutMapping("/trip/{tripId}/user/{userId}/permission")
+    public ResponseEntity<?> updatePermission(@PathVariable Long tripId, @PathVariable Long userId, @RequestBody UpdateMemberPermissionRequest request) {
+        UserDetailsImpl userDetails = getCurrentUser();
+        tripShareService.updatePermission(tripId, userId, 
+            request.getTripPermission() != null ? SharePermission.valueOf(request.getTripPermission()) : SharePermission.VIEW, 
+            userDetails.getId());
+        return ResponseEntity.ok(new MessageResponse("Permission updated successfully!"));
     }
 
     private UserDetailsImpl getCurrentUser() {

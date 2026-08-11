@@ -32,7 +32,13 @@ public class Trip {
 
     private Integer numberOfTravelers;
     private Double budget;
-    private Boolean reminderSent = false;
+    
+    // Individual reminder flags for duplicate prevention
+    private Boolean reminder7DaySent = false;
+    private Boolean reminder3DaySent = false;
+    private Boolean reminder24HourSent = false;
+    private Boolean tripStartedSent = false;
+    private Boolean tripCompletedSent = false;
 
     @Enumerated(EnumType.STRING)
     private TripStatus status = TripStatus.PLANNING;

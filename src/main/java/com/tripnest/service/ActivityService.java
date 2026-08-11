@@ -4,6 +4,7 @@ import com.tripnest.dto.ActivityRequest;
 import com.tripnest.dto.ActivityResponse;
 import com.tripnest.dto.ExpenseRequest;
 import com.tripnest.entity.Activity;
+import com.tripnest.entity.ActivityReminder;
 import com.tripnest.entity.ActivityType;
 import com.tripnest.entity.ExpenseCategory;
 import com.tripnest.entity.Itinerary;
@@ -32,13 +33,23 @@ public class ActivityService {
     private ExpenseService expenseService;
 
     @Autowired
+    private TripTimelineValidator tripTimelineValidator;
+
+    @Autowired
     private TripShareService tripShareService;
+
+    @Autowired
+    private TravelUpdateNotificationService travelUpdateNotificationService;
 
     public ActivityResponse createActivity(ActivityRequest request, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(request.getItineraryId())
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
 
         Trip trip = itinerary.getTrip();
+        
+        // Validate activity date is within trip timeline
+        tripTimelineValidator.validateDateWithinTripTimeline(trip.getId(), itinerary.getDate(), userId);
+        
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
         if (!isOwner && !hasEditAccess) {
@@ -58,6 +69,10 @@ public class ActivityService {
             activity.setType(ActivityType.valueOf(request.getType()));
         }
 
+        if (request.getReminder() != null) {
+            activity.setReminder(ActivityReminder.valueOf(request.getReminder()));
+        }
+
         Activity saved = activityRepository.save(activity);
 
         if (request.getCost() != null && request.getCost() > 0) {
@@ -74,6 +89,9 @@ public class ActivityService {
             saved.setLinkedExpenseId(expenseResponse.getId());
             activityRepository.save(saved);
         }
+
+        // Notify trip members about activity addition
+        travelUpdateNotificationService.notifyActivityAdded(trip.getId(), activity.getTitle(), userId);
 
         return mapToResponse(saved);
     }
@@ -100,6 +118,10 @@ public class ActivityService {
                 .orElseThrow(() -> new RuntimeException("Activity not found"));
 
         Trip trip = activity.getItinerary().getTrip();
+        
+        // Validate activity date is within trip timeline
+        tripTimelineValidator.validateDateWithinTripTimeline(trip.getId(), activity.getItinerary().getDate(), userId);
+        
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
         if (!isOwner && !hasEditAccess) {
@@ -117,6 +139,12 @@ public class ActivityService {
 
         if (request.getType() != null) {
             activity.setType(ActivityType.valueOf(request.getType()));
+        }
+
+        if (request.getReminder() != null) {
+            activity.setReminder(ActivityReminder.valueOf(request.getReminder()));
+            // Reset reminderSent flag when reminder configuration changes
+            activity.setReminderSent(false);
         }
 
         Activity updated = activityRepository.save(activity);
@@ -143,6 +171,9 @@ public class ActivityService {
             }
         }
 
+        // Notify trip members about activity update
+        travelUpdateNotificationService.notifyActivityUpdated(trip.getId(), activity.getTitle(), userId);
+
         return mapToResponse(updated);
     }
 
@@ -157,6 +188,8 @@ public class ActivityService {
             throw new RuntimeException("Unauthorized");
         }
 
+        String activityTitle = activity.getTitle();
+
         if (activity.getLinkedExpenseId() != null) {
             expenseRepository.findById(activity.getLinkedExpenseId()).ifPresent(expense -> {
                 expenseRepository.delete(expense);
@@ -164,6 +197,9 @@ public class ActivityService {
         }
 
         activityRepository.delete(activity);
+
+        // Notify trip members about activity deletion
+        travelUpdateNotificationService.notifyActivityDeleted(trip.getId(), activityTitle, userId);
     }
 
     private ActivityResponse mapToResponse(Activity activity) {
@@ -177,6 +213,7 @@ public class ActivityService {
         response.setType(activity.getType() != null ? activity.getType().name() : null);
         response.setCost(activity.getCost());
         response.setItineraryId(activity.getItinerary().getId());
+        response.setReminder(activity.getReminder() != null ? activity.getReminder().name() : null);
         response.setCreatedAt(activity.getCreatedAt());
         response.setUpdatedAt(activity.getUpdatedAt());
         return response;

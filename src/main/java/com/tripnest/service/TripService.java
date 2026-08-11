@@ -58,7 +58,13 @@ public class TripService {
     private GroupRepository groupRepository;
 
     @Autowired
+    private GroupMemberRepository groupMemberRepository;
+
+    @Autowired
     private BudgetService budgetService;
+
+    @Autowired
+    private TravelUpdateNotificationService travelUpdateNotificationService;
 
     public TripResponse createTrip(TripRequest request, Long userId) {
         User user = userRepository.findById(userId)
@@ -101,28 +107,28 @@ public class TripService {
     }
 
     public List<TripResponse> getUserTrips(Long userId) {
-        List<TripResponse> ownedTrips = tripRepository.findByUserId(userId)
-                .stream()
-                .map(trip -> {
+        Map<Long, TripResponse> tripsMap = new java.util.LinkedHashMap<>();
+
+        tripRepository.findByUserId(userId)
+                .forEach(trip -> {
                     TripResponse r = mapToResponse(trip);
                     r.setPermission("OWNER");
-                    return r;
-                })
-                .collect(Collectors.toList());
+                    tripsMap.put(trip.getId(), r);
+                });
 
-        // Only include shared trips where the invitation has been ACCEPTED
-        List<TripResponse> sharedTrips = tripShareRepository
+        // Only include shared trips where invitation is ACCEPTED and not already present
+        tripShareRepository
                 .findBySharedWithUserIdAndStatus(userId, com.tripnest.entity.ShareStatus.ACCEPTED)
-                .stream()
-                .map(share -> {
-                    TripResponse r = mapToResponse(share.getTrip());
-                    r.setPermission(share.getPermission().name());
-                    return r;
-                })
-                .collect(Collectors.toList());
+                .forEach(share -> {
+                    Long tripId = share.getTrip().getId();
+                    if (!tripsMap.containsKey(tripId)) {
+                        TripResponse r = mapToResponse(share.getTrip());
+                        r.setPermission(share.getPermission().name());
+                        tripsMap.put(tripId, r);
+                    }
+                });
 
-        ownedTrips.addAll(sharedTrips);
-        return ownedTrips;
+        return new ArrayList<>(tripsMap.values());
     }
 
     public TripResponse getTripById(Long tripId, Long userId) {
@@ -158,6 +164,16 @@ public class TripService {
             }
         }
 
+        // Track if meaningful details changed for notification
+        boolean detailsChanged = false;
+        if (!trip.getTitle().equals(request.getTitle()) ||
+            !trip.getDestination().equals(request.getDestination()) ||
+            (trip.getStartDate() != null && !trip.getStartDate().equals(request.getStartDate())) ||
+            (trip.getEndDate() != null && !trip.getEndDate().equals(request.getEndDate())) ||
+            (trip.getStatus() != null && !trip.getStatus().name().equals(request.getStatus()))) {
+            detailsChanged = true;
+        }
+
         trip.setTitle(request.getTitle());
         trip.setDescription(request.getDescription());
         trip.setDestination(request.getDestination());
@@ -172,6 +188,11 @@ public class TripService {
 
         Trip updated = tripRepository.save(trip);
 
+        // Send notification if trip details changed
+        if (detailsChanged) {
+            travelUpdateNotificationService.notifyTripDetailsUpdated(tripId, userId);
+        }
+
         budgetRepository.findByTripId(tripId).ifPresentOrElse(
             budget -> {
                 if (request.getBudget() != null && request.getBudget() > 0 && !request.getBudget().equals(budget.getTotalAmount())) {
@@ -180,6 +201,8 @@ public class TripService {
                     budgetRequest.setTripId(tripId);
                     budgetRequest.setCurrency(budget.getCurrency());
                     budgetService.createOrUpdateBudget(budgetRequest, userId);
+                    // Send budget update notification
+                    travelUpdateNotificationService.notifyBudgetUpdated(tripId, userId);
                 }
             },
             () -> {
@@ -189,6 +212,8 @@ public class TripService {
                     budgetRequest.setTripId(tripId);
                     budgetRequest.setCurrency("INR");
                     budgetService.createOrUpdateBudget(budgetRequest, userId);
+                    // Send budget update notification
+                    travelUpdateNotificationService.notifyBudgetUpdated(tripId, userId);
                 }
             }
         );
@@ -245,8 +270,11 @@ public class TripService {
         }
         documentRepository.deleteAll(documents);
 
-        // 7. Delete travel groups
+        // 7. Delete travel groups (and their members first to prevent FK constraint violations)
         List<TravelGroup> groups = groupRepository.findByTripId(tripId);
+        for (TravelGroup group : groups) {
+            groupMemberRepository.deleteByTravelGroupId(group.getId());
+        }
         groupRepository.deleteAll(groups);
 
         // 8. Delete the trip itself

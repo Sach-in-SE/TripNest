@@ -13,4 +13,5 @@ public class ActivityRequest {
     private String type;
     private Double cost;
     private Long itineraryId;
+    private String reminder; // NONE, THIRTY_MINUTES, ONE_HOUR, TWO_HOURS, ONE_DAY
 }

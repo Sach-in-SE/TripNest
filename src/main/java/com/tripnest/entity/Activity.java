@@ -35,6 +35,9 @@ public class Activity {
     private Long linkedExpenseId;
     private Boolean reminderSent = false;
 
+    @Enumerated(EnumType.STRING)
+    private ActivityReminder reminder = ActivityReminder.THIRTY_MINUTES;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "itinerary_id")
     private Itinerary itinerary;

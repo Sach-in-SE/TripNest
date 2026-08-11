@@ -15,6 +15,7 @@ import DestinationDetails from "./pages/DestinationDetails";
 import Profile from "./pages/Profile";
 import Budget from "./pages/Budget";
 import Notifications from "./pages/Notifications";
+import NotificationPreferences from "./pages/NotificationPreferences";
 import Groups from "./pages/Groups";
 import GroupDetails from "./pages/GroupDetails";
 import Documents from "./pages/Documents";
@@ -47,6 +48,7 @@ function App() {
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/budget" element={<PrivateRoute><Budget /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+          <Route path="/notification-preferences" element={<PrivateRoute><NotificationPreferences /></PrivateRoute>} />
           <Route path="/groups" element={<PrivateRoute><Groups /></PrivateRoute>} />
           <Route path="/groups/:id" element={<PrivateRoute><GroupDetails /></PrivateRoute>} />
           <Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
