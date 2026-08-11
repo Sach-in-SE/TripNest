@@ -6,6 +6,7 @@ import com.tripnest.dto.MessageResponse;
 import com.tripnest.service.DestinationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -18,6 +19,7 @@ public class DestinationController {
     private DestinationService destinationService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createDestination(@RequestBody DestinationRequest request) {
         DestinationResponse response = destinationService.createDestination(request);
         return ResponseEntity.ok(response);
@@ -54,6 +56,7 @@ public class DestinationController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateDestination(@PathVariable Long id,
             @RequestBody DestinationRequest request) {
         DestinationResponse response = destinationService.updateDestination(id, request);
@@ -61,6 +64,7 @@ public class DestinationController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteDestination(@PathVariable Long id) {
         destinationService.deleteDestination(id);
         return ResponseEntity.ok(new MessageResponse("Destination deleted successfully!"));

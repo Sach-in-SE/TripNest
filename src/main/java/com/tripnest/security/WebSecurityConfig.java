@@ -77,6 +77,11 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/admin/auth/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/destinations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/destinations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/destinations/**").hasRole("ADMIN")
                         .requestMatchers("/api/destinations/**").permitAll()
                         .requestMatchers("/api/documents/download/**").permitAll()
                     .requestMatchers("/api/groups", "/api/groups/**").authenticated()

@@ -56,6 +56,16 @@ public class AuthController {
 
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        User user = userRepository.findByUsername(loginRequest.getUsername())
+                .orElseGet(() -> userRepository.findByEmail(loginRequest.getUsername()).orElse(null));
+
+        if (user != null && user.isPasswordChangeRequired() && user.getTemporaryPasswordExpiry() != null) {
+            if (java.time.LocalDateTime.now().isAfter(user.getTemporaryPasswordExpiry())) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                        .body(new MessageResponse("Error: Temporary password has expired. Please request a new password reset."));
+            }
+        }
+
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.getUsername(),
@@ -69,11 +79,14 @@ public class AuthController {
                 .map(item -> item.getAuthority())
                 .collect(Collectors.toList());
 
+        boolean passwordChangeRequired = (user != null) && user.isPasswordChangeRequired();
+
         return ResponseEntity.ok(new JwtResponse(jwt,
                 userDetails.getId(),
                 userDetails.getUsername(),
                 userDetails.getEmail(),
-                roles));
+                roles,
+                passwordChangeRequired));
     }
 
     @PostMapping("/signup")
@@ -112,11 +125,6 @@ public class AuthController {
         } else {
             strRoles.forEach(role -> {
                 switch (role) {
-                    case "admin":
-                        Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
-                                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                        roles.add(adminRole);
-                        break;
                     case "group_admin":
                         Role groupAdminRole = roleRepository.findByName(ERole.ROLE_GROUP_ADMIN)
                                 .orElseThrow(() -> new RuntimeException("Error: Role is not found."));

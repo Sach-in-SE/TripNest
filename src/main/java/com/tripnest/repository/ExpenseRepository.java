@@ -15,4 +15,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     @Query("SELECT SUM(e.amount) FROM Expense e WHERE e.trip.id = ?1")
     Double getTotalExpenseByTripId(Long tripId);
+
+    @Query("SELECT COALESCE(SUM(e.amount), 0.0) FROM Expense e")
+    Double getTotalSystemExpenses();
 }

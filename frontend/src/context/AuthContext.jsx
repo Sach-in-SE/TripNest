@@ -19,7 +19,6 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const handleStorageChange = (e) => {
             if (e.key === 'token' || e.key === 'user') {
-                // Token or user changed in another tab
                 const currentUser = AuthService.getCurrentUser();
                 setUser(currentUser);
             }
@@ -29,19 +28,23 @@ export const AuthProvider = ({ children }) => {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
-    // Method to refresh user from localStorage (useful after OAuth2 redirect)
     const refreshUser = () => {
         const currentUser = AuthService.getCurrentUser();
         setUser(currentUser);
     };
 
-    // Method to update user data in context (useful after username change)
     const updateUser = (userData) => {
         setUser(userData);
     };
 
     const login = async (credentials) => {
         const data = await AuthService.signin(credentials);
+        setUser(data);
+        return data;
+    };
+
+    const adminLogin = async (credentials) => {
+        const data = await AuthService.adminSignin(credentials);
         setUser(data);
         return data;
     };
@@ -57,7 +60,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, signup, logout, loading, refreshUser, updateUser }}>
+        <AuthContext.Provider value={{ user, login, adminLogin, signup, logout, loading, refreshUser, updateUser }}>
             {children}
         </AuthContext.Provider>
     );
