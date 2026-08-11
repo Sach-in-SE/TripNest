@@ -206,6 +206,9 @@ function AdminUserManagement() {
           <Link to="/admin/destinations" className="admin-nav-item">
             📍 Destinations
           </Link>
+          <Link to="/admin/reports" className="admin-nav-item">
+            📈 Analytics & Reports
+          </Link>
         </nav>
       </aside>
 

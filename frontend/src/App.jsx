@@ -25,6 +25,7 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUserManagement from "./pages/admin/AdminUserManagement";
 import AdminDestinationManagement from "./pages/admin/AdminDestinationManagement";
+import AdminReports from "./pages/admin/AdminReports";
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem("token");
@@ -90,6 +91,7 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminPrivateRoute><AdminDashboard /></AdminPrivateRoute>} />
           <Route path="/admin/users" element={<AdminPrivateRoute><AdminUserManagement /></AdminPrivateRoute>} />
           <Route path="/admin/destinations" element={<AdminPrivateRoute><AdminDestinationManagement /></AdminPrivateRoute>} />
+          <Route path="/admin/reports" element={<AdminPrivateRoute><AdminReports /></AdminPrivateRoute>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
