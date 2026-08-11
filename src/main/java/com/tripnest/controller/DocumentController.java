@@ -6,19 +6,17 @@ import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import java.nio.file.Files;
-import java.io.IOException;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.nio.file.Files;
 import java.util.List;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -36,87 +34,87 @@ public class DocumentController {
             @RequestParam(value = "documentType", required = false) String documentType) {
         try {
             UserDetailsImpl userDetails = getCurrentUser();
+            if (userDetails == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("Authentication required"));
+            }
             DocumentResponse response = documentService.uploadDocument(file, tripId, documentType, userDetails.getId());
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(e.getMessage()));
+        } catch (SecurityException | AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
         } catch (IOException e) {
-            return ResponseEntity.internalServerError().body(new MessageResponse("File upload failed: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("File upload storage failure: " + e.getMessage()));
         }
     }
 
     @GetMapping("/trip/{tripId}")
     public ResponseEntity<?> getTripDocuments(@PathVariable Long tripId) {
-        UserDetailsImpl userDetails = getCurrentUser();
-        List<DocumentResponse> documents = documentService.getTripDocuments(tripId, userDetails.getId());
-        return ResponseEntity.ok(documents);
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            if (userDetails == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("Authentication required"));
+            }
+            List<DocumentResponse> documents = documentService.getTripDocuments(tripId, userDetails.getId());
+            return ResponseEntity.ok(documents);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(e.getMessage()));
+        } catch (SecurityException | AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
+        }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteDocument(@PathVariable Long id) {
         try {
             UserDetailsImpl userDetails = getCurrentUser();
+            if (userDetails == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("Authentication required"));
+            }
             documentService.deleteDocument(id, userDetails.getId());
             return ResponseEntity.ok(new MessageResponse("Document deleted successfully!"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(e.getMessage()));
+        } catch (SecurityException | AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
         } catch (IOException e) {
-            return ResponseEntity.internalServerError().body(new MessageResponse("Delete failed: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Delete operation failed: " + e.getMessage()));
         }
     }
 
- @GetMapping("/download/{fileName}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName) {
+    @GetMapping("/download/{fileName}")
+    public ResponseEntity<?> downloadFile(@PathVariable String fileName) {
         try {
-            Resource resource = new UrlResource(documentService.getFilePath(fileName).toUri());
-            if (!resource.exists()) {
+            UserDetailsImpl userDetails = getCurrentUser();
+            if (userDetails == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("Authentication required"));
+            }
+            Resource resource = documentService.getDocumentResource(fileName, userDetails.getId());
+            if (!resource.exists() || !resource.isReadable()) {
                 return ResponseEntity.notFound().build();
             }
 
-            String contentType = null;
-            try {
-                contentType = Files.probeContentType(documentService.getFilePath(fileName));
-            } catch (IOException e) {
-                // fall through to default below
-            }
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-
+            String contentType = "application/octet-stream";
             return ResponseEntity.ok()
-                    .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
                     .body(resource);
-        } catch (MalformedURLException e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    @GetMapping("/download/profile-pictures/{fileName}")
-    public ResponseEntity<Resource> downloadProfilePicture(@PathVariable String fileName) {
-        try {
-            Resource resource = new UrlResource(documentService.getProfilePicturePath(fileName).toUri());
-            if (!resource.exists()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            String contentType = null;
-            try {
-                contentType = Files.probeContentType(documentService.getProfilePicturePath(fileName));
-            } catch (IOException e) {
-                contentType = "image/jpeg";
-            }
-            if (contentType == null) {
-                contentType = "image/jpeg";
-            }
-
-            return ResponseEntity.ok()
-                    .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
-                    .body(resource);
-        } catch (MalformedURLException e) {
-            return ResponseEntity.badRequest().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(e.getMessage()));
+        } catch (SecurityException | AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse("Resource not found"));
         }
     }
 
     private UserDetailsImpl getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (UserDetailsImpl) authentication.getPrincipal();
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+            return (UserDetailsImpl) authentication.getPrincipal();
+        }
+        return null;
     }
 }
