@@ -7,7 +7,9 @@ import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "destinations")
+@Table(name = "destinations", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_destination_name_state_country", columnNames = {"name", "state", "country"})
+})
 public class Destination {
 
     @Id
@@ -16,7 +18,6 @@ public class Destination {
 
     @NotBlank
     @Size(max = 100)
-    @Column(unique = true)
     private String name;
 
     @Size(max = 100)
@@ -46,4 +47,7 @@ public class Destination {
     private Double longitude;
 
     private Double rating;
+
+    @Column(columnDefinition = "boolean default false")
+    private Boolean popular = false;
 }

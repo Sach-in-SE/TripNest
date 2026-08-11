@@ -10,6 +10,7 @@ import com.tripnest.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,14 +30,16 @@ public class ActivityReminderScheduler {
     private NotificationPreferenceRepository notificationPreferenceRepository;
 
     @Scheduled(fixedRate = 300000) // Check every 5 minutes for time-based reminders
+    @Transactional
     public void sendConfigurableActivityReminders() {
         LocalDate today = LocalDate.now();
-        List<Activity> activitiesToday = activityRepository.findByItinerary_Date(today);
+        List<Activity> activitiesToday = new java.util.ArrayList<>(activityRepository.findByItinerary_Date(today));
+        activitiesToday.addAll(activityRepository.findByItinerary_Date(today.plusDays(1)));
 
         LocalDateTime now = LocalDateTime.now();
 
         for (Activity activity : activitiesToday) {
-            if (activity.getStartTime() == null) {
+            if (activity.getStartTime() == null || activity.getItinerary() == null || activity.getItinerary().getDate() == null) {
                 continue;
             }
 
@@ -50,7 +53,7 @@ public class ActivityReminderScheduler {
                 continue;
             }
 
-            LocalDateTime activityDateTime = LocalDateTime.of(today, activity.getStartTime());
+            LocalDateTime activityDateTime = LocalDateTime.of(activity.getItinerary().getDate(), activity.getStartTime());
             long minutesUntil = java.time.Duration.between(now, activityDateTime).toMinutes();
 
             // Only send reminder if time has not already passed

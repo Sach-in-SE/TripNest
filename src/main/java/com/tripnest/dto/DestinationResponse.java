@@ -17,4 +17,6 @@ public class DestinationResponse {
     private Double latitude;
     private Double longitude;
     private Double rating;
+    private Double distanceKm;
+    private Boolean popular;
 }
