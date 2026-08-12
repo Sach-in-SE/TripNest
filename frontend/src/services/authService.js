@@ -15,6 +15,15 @@ const AuthService = {
         return response.data;
     },
 
+    adminSignin: async (credentials) => {
+        const response = await api.post('/admin/auth/login', credentials);
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('user', JSON.stringify(response.data));
+        }
+        return response.data;
+    },
+
     signout: () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');

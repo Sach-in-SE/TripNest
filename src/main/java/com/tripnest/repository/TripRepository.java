@@ -11,6 +11,7 @@ import java.util.List;
 public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findByUserId(Long userId);
     List<Trip> findByUserIdAndStatus(Long userId, TripStatus status);
+    long countByStatus(TripStatus status);
     
     // For trip reminders
     List<Trip> findByStartDate(LocalDate date);

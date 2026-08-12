@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -22,7 +23,8 @@ public class DestinationController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> createDestination(@Valid @RequestBody DestinationRequest request) {
+    public ResponseEntity<?> createDestination(
+            @Valid @RequestBody DestinationRequest request) {
         DestinationResponse response = destinationService.createDestination(request);
         return ResponseEntity.ok(response);
     }
@@ -64,7 +66,8 @@ public class DestinationController {
     }
 
     @GetMapping("/{id}/nearby")
-    public ResponseEntity<?> getNearbyDestinations(@PathVariable Long id,
+    public ResponseEntity<?> getNearbyDestinations(
+            @PathVariable Long id,
             @RequestParam(defaultValue = "4") int limit) {
         List<DestinationResponse> nearby = destinationService.getNearbyDestinations(id, limit);
         return ResponseEntity.ok(nearby);
@@ -78,7 +81,8 @@ public class DestinationController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<?> updateDestination(@PathVariable Long id,
+    public ResponseEntity<?> updateDestination(
+            @PathVariable Long id,
             @Valid @RequestBody DestinationRequest request) {
         DestinationResponse response = destinationService.updateDestination(id, request);
         return ResponseEntity.ok(response);

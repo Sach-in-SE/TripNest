@@ -117,6 +117,9 @@ public class User {
     private Set<Role> roles = new HashSet<>();
 
     private boolean enabled = true;
+    private boolean passwordChangeRequired = false;
+    private LocalDateTime temporaryPasswordExpiry;
+
     @Enumerated(EnumType.STRING)
     private AuthProvider provider = AuthProvider.LOCAL;
 

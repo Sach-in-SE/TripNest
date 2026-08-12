@@ -22,9 +22,38 @@ import GroupDiscussion from "./pages/GroupDiscussion";
 import Documents from "./pages/Documents";
 import OAuth2Redirect from "./pages/OAuth2Redirect";
 
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUserManagement from "./pages/admin/AdminUserManagement";
+import AdminDestinationManagement from "./pages/admin/AdminDestinationManagement";
+import AdminReports from "./pages/admin/AdminReports";
+
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem("token");
-  return token ? children : <Navigate to="/login" />;
+  return token ? children : <Navigate to="/login" replace />;
+};
+
+const AdminPrivateRoute = ({ children }) => {
+  const token = localStorage.getItem("token");
+  const userStr = localStorage.getItem("user");
+  let isAdmin = false;
+
+  if (token && userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user && user.roles && (user.roles.includes("ROLE_ADMIN") || user.roles.includes("ADMIN"))) {
+        isAdmin = true;
+      }
+    } catch (e) {
+      isAdmin = false;
+    }
+  }
+
+  if (!token || !isAdmin) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  return children;
 };
 
 function App() {
@@ -32,11 +61,14 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
+          {/* Public Traveler Routes */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Protected Traveler Routes */}
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
           <Route path="/trips/new" element={<PrivateRoute><CreateTrip /></PrivateRoute>} />
@@ -55,6 +87,13 @@ function App() {
           <Route path="/groups/:id/discussion" element={<PrivateRoute><GroupDiscussion /></PrivateRoute>} />
           <Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
           <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
+
+          {/* Dedicated Admin Portal Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminPrivateRoute><AdminDashboard /></AdminPrivateRoute>} />
+          <Route path="/admin/users" element={<AdminPrivateRoute><AdminUserManagement /></AdminPrivateRoute>} />
+          <Route path="/admin/destinations" element={<AdminPrivateRoute><AdminDestinationManagement /></AdminPrivateRoute>} />
+          <Route path="/admin/reports" element={<AdminPrivateRoute><AdminReports /></AdminPrivateRoute>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

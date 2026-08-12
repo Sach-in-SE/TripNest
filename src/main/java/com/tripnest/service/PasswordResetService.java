@@ -57,6 +57,8 @@ public class PasswordResetService {
 
         User user = resetToken.getUser();
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordChangeRequired(false);
+        user.setTemporaryPasswordExpiry(null);
         userRepository.save(user);
 
         resetToken.setUsed(true);

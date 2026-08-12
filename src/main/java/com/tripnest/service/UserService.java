@@ -90,6 +90,8 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordChangeRequired(false);
+        user.setTemporaryPasswordExpiry(null);
         userRepository.save(user);
     }
 
