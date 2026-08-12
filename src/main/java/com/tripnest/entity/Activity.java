@@ -42,6 +42,10 @@ public class Activity {
     @JoinColumn(name = "itinerary_id")
     private Itinerary itinerary;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

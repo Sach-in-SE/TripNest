@@ -48,6 +48,9 @@ class TripServiceTest {
     @Mock
     private GroupMemberRepository groupMemberRepository;
 
+    @Mock
+    private GroupMessageRepository groupMessageRepository;
+
     @InjectMocks
     private TripService tripService;
 
@@ -81,6 +84,7 @@ class TripServiceTest {
 
         tripService.deleteTrip(10L, 1L);
 
+        verify(groupMessageRepository).deleteByTravelGroupId(100L);
         verify(groupMemberRepository).deleteByTravelGroupId(100L);
         verify(groupRepository).deleteAll(List.of(group));
         verify(tripRepository).delete(trip);

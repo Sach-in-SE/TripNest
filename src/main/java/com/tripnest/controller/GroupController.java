@@ -4,6 +4,8 @@ import com.tripnest.dto.EditGroupRequest;
 import com.tripnest.dto.GroupDetailsResponse;
 import com.tripnest.dto.GroupInvitationRequest;
 import com.tripnest.dto.GroupMemberResponse;
+import com.tripnest.dto.GroupMessageRequest;
+import com.tripnest.dto.GroupMessageResponse;
 import com.tripnest.dto.GroupRequest;
 import com.tripnest.dto.GroupResponse;
 import com.tripnest.dto.MessageResponse;
@@ -219,6 +221,28 @@ public class GroupController {
             UserDetailsImpl userDetails = getCurrentUser();
             groupService.removeTripShare(groupId, memberId, userDetails.getId());
             return ResponseEntity.ok(new MessageResponse("Trip share removed successfully!"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{groupId}/messages")
+    public ResponseEntity<?> getGroupMessages(@PathVariable Long groupId) {
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            List<GroupMessageResponse> messages = groupService.getGroupMessages(groupId, userDetails.getId());
+            return ResponseEntity.ok(messages);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{groupId}/messages")
+    public ResponseEntity<?> sendGroupMessage(@PathVariable Long groupId, @Valid @RequestBody GroupMessageRequest request) {
+        try {
+            UserDetailsImpl userDetails = getCurrentUser();
+            GroupMessageResponse response = groupService.sendGroupMessage(groupId, request, userDetails.getId());
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }

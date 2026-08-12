@@ -9,9 +9,11 @@ import com.tripnest.entity.ActivityType;
 import com.tripnest.entity.ExpenseCategory;
 import com.tripnest.entity.Itinerary;
 import com.tripnest.entity.Trip;
+import com.tripnest.entity.User;
 import com.tripnest.repository.ActivityRepository;
 import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.ItineraryRepository;
+import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -28,6 +30,9 @@ public class ActivityService {
 
     @Autowired
     private ExpenseRepository expenseRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private ExpenseService expenseService;
@@ -56,6 +61,9 @@ public class ActivityService {
             throw new RuntimeException("Unauthorized");
         }
 
+        User creator = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
         Activity activity = new Activity();
         activity.setTitle(request.getTitle());
         activity.setDescription(request.getDescription());
@@ -64,6 +72,7 @@ public class ActivityService {
         activity.setLocation(request.getLocation());
         activity.setCost(request.getCost());
         activity.setItinerary(itinerary);
+        activity.setUser(creator);
 
         if (request.getType() != null) {
             activity.setType(ActivityType.valueOf(request.getType()));
@@ -214,6 +223,8 @@ public class ActivityService {
         response.setCost(activity.getCost());
         response.setItineraryId(activity.getItinerary().getId());
         response.setReminder(activity.getReminder() != null ? activity.getReminder().name() : null);
+        response.setUserId(activity.getUser() != null ? activity.getUser().getId() : null);
+        response.setUsername(activity.getUser() != null ? activity.getUser().getUsername() : null);
         response.setCreatedAt(activity.getCreatedAt());
         response.setUpdatedAt(activity.getUpdatedAt());
         return response;

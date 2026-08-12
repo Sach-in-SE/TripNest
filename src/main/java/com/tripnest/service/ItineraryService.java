@@ -7,10 +7,12 @@ import com.tripnest.entity.Activity;
 import com.tripnest.entity.Expense;
 import com.tripnest.entity.Itinerary;
 import com.tripnest.entity.Trip;
+import com.tripnest.entity.User;
 import com.tripnest.repository.ActivityRepository;
 import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.ItineraryRepository;
 import com.tripnest.repository.TripRepository;
+import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -32,6 +34,9 @@ public class ItineraryService {
     private ExpenseRepository expenseRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private TripShareService tripShareService;
 
     @Autowired
@@ -44,11 +49,14 @@ public class ItineraryService {
         tripTimelineValidator.validateDateWithinTripTimeline(request.getTripId(), request.getDate(), userId);
 
         Trip trip = tripTimelineValidator.getTripForValidation(request.getTripId());
+        User creator = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         Itinerary itinerary = new Itinerary();
         itinerary.setDate(request.getDate());
         itinerary.setNotes(request.getNotes());
         itinerary.setTrip(trip);
+        itinerary.setUser(creator);
 
         Itinerary saved = itineraryRepository.save(itinerary);
         
@@ -128,6 +136,8 @@ public class ItineraryService {
         response.setNotes(itinerary.getNotes());
         response.setTripId(itinerary.getTrip().getId());
         response.setTripTitle(itinerary.getTrip().getTitle());
+        response.setUserId(itinerary.getUser() != null ? itinerary.getUser().getId() : null);
+        response.setUsername(itinerary.getUser() != null ? itinerary.getUser().getUsername() : null);
         response.setCreatedAt(itinerary.getCreatedAt());
         response.setUpdatedAt(itinerary.getUpdatedAt());
 
@@ -153,6 +163,8 @@ public class ItineraryService {
         response.setCost(activity.getCost());
         response.setItineraryId(activity.getItinerary().getId());
         response.setReminder(activity.getReminder() != null ? activity.getReminder().name() : null);
+        response.setUserId(activity.getUser() != null ? activity.getUser().getId() : null);
+        response.setUsername(activity.getUser() != null ? activity.getUser().getUsername() : null);
         response.setCreatedAt(activity.getCreatedAt());
         response.setUpdatedAt(activity.getUpdatedAt());
         return response;

@@ -305,6 +305,7 @@ const GroupDetails = () => {
           </div>
           <div style={styles.headerActions}>
             <button className="btn-compact" onClick={() => navigate("/groups")}>← Back</button>
+            <button className="btn-compact" onClick={() => navigate(`/groups/${id}/discussion`)}>💬 Discussion</button>
             {isOwner && !editMode && <button className="btn-compact" onClick={startEditGroup}>✏️ Edit</button>}
             {canInvite && <button className="btn-compact primary" onClick={() => setInviteOpen(true)}>+ Invite</button>}
             {canLeave && <button className="btn-compact primary" onClick={handleLeaveGroup}>🚪 Leave</button>}
