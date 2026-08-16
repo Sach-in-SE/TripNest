@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PublicLayout from "../components/layout/PublicLayout";
+import Sidebar from "../components/Sidebar";
 import DestinationMap from "../components/DestinationMap";
+import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
 const DestinationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -67,36 +70,63 @@ const DestinationDetails = () => {
     return trimmed.startsWith("http://") || trimmed.startsWith("https://");
   };
 
-  if (loading) return (
-    <PublicLayout>
+  if (loading) {
+    const loadingView = (
       <div style={styles.loadingState}>
         <p style={{ color: "#94a3b8" }}>Loading destination details...</p>
       </div>
-    </PublicLayout>
-  );
+    );
+    if (user) {
+      return (
+        <div className="tn-user-layout-container">
+          <Sidebar />
+          <main className="tn-user-main">{loadingView}</main>
+        </div>
+      );
+    }
+    return <PublicLayout>{loadingView}</PublicLayout>;
+  }
 
-  if (error) return (
-    <PublicLayout>
+  if (error) {
+    const errorView = (
       <div style={styles.loadingState}>
         <div style={{ color: "#ef4444", marginBottom: "16px" }}>{error}</div>
         <button className="btn-ghost" onClick={() => navigate("/destinations")}>← Back to Destinations</button>
       </div>
-    </PublicLayout>
-  );
+    );
+    if (user) {
+      return (
+        <div className="tn-user-layout-container">
+          <Sidebar />
+          <main className="tn-user-main">{errorView}</main>
+        </div>
+      );
+    }
+    return <PublicLayout>{errorView}</PublicLayout>;
+  }
 
   const destination = details?.destination || details;
   const weather = details?.weather;
   const wikipedia = details?.wikipedia;
   const nearbyDestinations = details?.nearbyDestinations || [];
 
-  if (!destination) return (
-    <PublicLayout>
+  if (!destination) {
+    const notFoundView = (
       <div style={styles.loadingState}>
         <div style={{ color: "#94a3b8", marginBottom: "16px" }}>Destination not found</div>
         <button className="btn-ghost" onClick={() => navigate("/destinations")}>← Back to Destinations</button>
       </div>
-    </PublicLayout>
-  );
+    );
+    if (user) {
+      return (
+        <div className="tn-user-layout-container">
+          <Sidebar />
+          <main className="tn-user-main">{notFoundView}</main>
+        </div>
+      );
+    }
+    return <PublicLayout>{notFoundView}</PublicLayout>;
+  }
 
   // Image resolution priority: Admin imageUrl -> Wikipedia imageUrl -> Fallback
   const heroImage = isValidImageUrl(destination.imageUrl)
@@ -105,17 +135,16 @@ const DestinationDetails = () => {
     ? wikipedia.imageUrl
     : null;
 
-  return (
-    <PublicLayout>
-      <div style={styles.contentWrapper}>
-        {/* Top Back Navigation */}
-        <button
-          className="btn-ghost"
-          onClick={() => navigate("/destinations")}
-          style={{ marginBottom: "20px", fontSize: "13px" }}
-        >
-          ← Back to Destinations
-        </button>
+  const mainContent = (
+    <div style={user ? styles.userContentWrapper : styles.contentWrapper}>
+      {/* Top Back Navigation */}
+      <button
+        className="btn-ghost"
+        onClick={() => navigate("/destinations")}
+        style={{ marginBottom: "20px", fontSize: "13px" }}
+      >
+        ← Back to Destinations
+      </button>
 
         {/* Two-Column Responsive Layout */}
         <div style={styles.layoutColumns}>
@@ -345,11 +374,28 @@ const DestinationDetails = () => {
           </div>
         </div>
       </div>
+  );
+
+  if (user) {
+    return (
+      <div className="tn-user-layout-container">
+        <Sidebar />
+        <main className="tn-user-main">
+          {mainContent}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <PublicLayout>
+      {mainContent}
     </PublicLayout>
   );
 };
 
 const styles = {
+  userContentWrapper: { width: "100%", maxWidth: "1280px", margin: "0 auto", boxSizing: "border-box" },
   contentWrapper: { maxWidth: "1280px", margin: "0 auto", padding: "32px 24px", width: "100%", boxSizing: "border-box" },
   loadingState: { maxWidth: "1280px", margin: "0 auto", padding: "48px 24px", textAlign: "center" },
   layoutColumns: { display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" },

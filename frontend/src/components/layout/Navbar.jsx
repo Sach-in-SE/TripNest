@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import UserMenu from './UserMenu';
 import MobileDrawer from './MobileDrawer';
 import Button from '../ui/Button';
 import ThemeToggle from '../ui/ThemeToggle';
@@ -47,56 +46,34 @@ export const Navbar = () => {
         {/* Desktop Navbar Navigation */}
         <nav aria-label="Primary Navigation">
           <ul className="tn-navbar-nav">
-            {user ? (
-              <>
-                <li>
-                  <NavLink to="/destinations" className={({ isActive }) => `tn-nav-link ${isActive ? 'active' : ''}`}>
-                    <span>🌍</span> Destinations
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink to="/groups" className={({ isActive }) => `tn-nav-link ${isActive ? 'active' : ''}`}>
-                    <span>👥</span> Groups
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink to="/notifications" className={({ isActive }) => `tn-nav-link ${isActive ? 'active' : ''}`}>
-                    <span>🔔</span> Notifications
-                  </NavLink>
-                </li>
-              </>
-            ) : (
-              <>
-                <li>
-                  <NavLink to="/" end className={({ isActive }) => `tn-nav-link ${isActive ? 'active' : ''}`}>
-                    Home
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink to="/destinations" className={({ isActive }) => `tn-nav-link ${isActive ? 'active' : ''}`}>
-                    Destinations
-                  </NavLink>
-                </li>
-                <li>
-                  <a
-                    href="/#features"
-                    onClick={(e) => handleSectionScroll(e, 'features')}
-                    className="tn-nav-link"
-                  >
-                    Features
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="/#how-it-works"
-                    onClick={(e) => handleSectionScroll(e, 'how-it-works')}
-                    className="tn-nav-link"
-                  >
-                    How It Works
-                  </a>
-                </li>
-              </>
-            )}
+            <li>
+              <NavLink to="/" end className={({ isActive }) => `tn-nav-link ${isActive ? 'active' : ''}`}>
+                Home
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/destinations" className={({ isActive }) => `tn-nav-link ${isActive ? 'active' : ''}`}>
+                Destinations
+              </NavLink>
+            </li>
+            <li>
+              <a
+                href="/#features"
+                onClick={(e) => handleSectionScroll(e, 'features')}
+                className="tn-nav-link"
+              >
+                Features
+              </a>
+            </li>
+            <li>
+              <a
+                href="/#how-it-works"
+                onClick={(e) => handleSectionScroll(e, 'how-it-works')}
+                className="tn-nav-link"
+              >
+                How It Works
+              </a>
+            </li>
           </ul>
         </nav>
 
@@ -104,7 +81,9 @@ export const Navbar = () => {
         <div className="tn-navbar-actions">
           <ThemeToggle />
           {user ? (
-            <UserMenu />
+            <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+              <Button variant="primary" size="sm">Go to Dashboard ➔</Button>
+            </Link>
           ) : (
             <>
               <Link to="/login" style={{ textDecoration: 'none' }}>

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import AdminLayout from "../../components/layout/AdminLayout";
 import api from "../../services/api";
 import "./AdminLayout.css";
 
@@ -30,9 +29,6 @@ const INITIAL_FORM_STATE = {
 };
 
 function AdminDestinationManagement() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -76,11 +72,6 @@ function AdminDestinationManagement() {
   useEffect(() => {
     fetchDestinations();
   }, [fetchDestinations]);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/admin/login");
-  };
 
   const showToast = (type, text) => {
     setToastMessage({ type, text });
@@ -181,56 +172,12 @@ function AdminDestinationManagement() {
   };
 
   return (
-    <div className="admin-portal-layout">
-      {/* Admin Sidebar Navigation */}
-      <aside className="admin-sidebar">
-        <div className="admin-sidebar-header">
-          <div className="admin-brand">
-            <span>🛡️ TripNest</span>
-            <span className="admin-brand-tag">ADMIN</span>
-          </div>
+    <AdminLayout pageTitle="Destination Catalog Management">
+      <div className="admin-dashboard-header">
+        <div>
+          <h2>Destination Catalog</h2>
+          <p>Manage public travel destinations, categories, imagery, and recommendations</p>
         </div>
-
-        <nav className="admin-nav">
-          <Link to="/admin/dashboard" className="admin-nav-item">
-            📊 Overview
-          </Link>
-          <Link to="/admin/users" className="admin-nav-item">
-            👥 User Management
-          </Link>
-          <Link to="/admin/destinations" className="admin-nav-item active">
-            📍 Destinations
-          </Link>
-          <Link to="/admin/reports" className="admin-nav-item">
-            📈 Analytics & Reports
-          </Link>
-        </nav>
-      </aside>
-
-      {/* Main Content Area */}
-      <div className="admin-main-wrapper">
-        {/* Top Header */}
-        <header className="admin-topbar">
-          <div className="admin-page-title">Destination Catalog Management</div>
-
-          <div className="admin-user-profile">
-            <div className="admin-user-info">
-              <div className="admin-username">{user?.username || "Admin"}</div>
-              <div className="admin-role-badge">System Administrator</div>
-            </div>
-            <button onClick={handleLogout} className="admin-logout-btn">
-              Sign Out
-            </button>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main className="admin-content-area">
-          <div className="admin-dashboard-header">
-            <div>
-              <h2>Destination Catalog</h2>
-              <p>Manage public travel destinations, categories, imagery, and recommendations</p>
-            </div>
             <div style={{ display: "flex", gap: "0.75rem" }}>
               <button onClick={fetchDestinations} disabled={loading} className="admin-refresh-btn">
                 🔄 Refresh Catalog
@@ -388,8 +335,6 @@ function AdminDestinationManagement() {
               </div>
             </div>
           )}
-        </main>
-      </div>
 
       {/* --- MODAL 1: CREATE / EDIT DESTINATION --- */}
       {showModal && (
@@ -704,7 +649,7 @@ function AdminDestinationManagement() {
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }
 

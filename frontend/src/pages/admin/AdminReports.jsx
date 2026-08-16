@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import AdminLayout from "../../components/layout/AdminLayout";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { loadPdfUnicodeFont } from "../../utils/pdfFontLoader";
 import "./AdminLayout.css";
 
 function AdminReports() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [destinations, setDestinations] = useState([]);
@@ -46,11 +45,6 @@ function AdminReports() {
     fetchReportData();
   }, [fetchReportData]);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/admin/login");
-  };
-
   const showToast = (type, text) => {
     setToastMessage({ type, text });
     setTimeout(() => setToastMessage(null), 4000);
@@ -86,10 +80,11 @@ function AdminReports() {
   };
 
   // --- REPORT 1: SYSTEM EXECUTIVE SUMMARY REPORT ---
-  const exportExecutiveSummaryPDF = () => {
+  const exportExecutiveSummaryPDF = async () => {
     setGenerating("exec-pdf");
     try {
       const doc = new jsPDF();
+      const fontName = await loadPdfUnicodeFont(doc);
       const generatedAt = new Date().toLocaleString();
 
       doc.setFontSize(18);
@@ -110,13 +105,13 @@ function AdminReports() {
           ["Disabled / Restricted Users", String(stats?.disabledUsers || 0)],
         ],
         theme: "grid",
-        headStyles: { fillColor: [99, 102, 241], fontStyle: "bold" },
-        styles: { fontSize: 9.5, cellPadding: 4 },
+        headStyles: { font: fontName, fillColor: [99, 102, 241], fontStyle: "bold" },
+        styles: { font: fontName, fontSize: 9.5, cellPadding: 4 },
       });
 
       // Section 2: Trip Metrics
       autoTable(doc, {
-        startY: doc.lastAutoTable.finalY + 8,
+        startY: (doc.lastAutoTable?.finalY || 80) + 8,
         head: [["Trip Operational Metric", "Count"]],
         body: [
           ["Total Trips Platform-wide", String(stats?.totalTrips || 0)],
@@ -128,13 +123,13 @@ function AdminReports() {
           ["Cancelled Trips", String(stats?.cancelledTrips || 0)],
         ],
         theme: "grid",
-        headStyles: { fillColor: [14, 165, 233], fontStyle: "bold" },
-        styles: { fontSize: 9.5, cellPadding: 4 },
+        headStyles: { font: fontName, fillColor: [14, 165, 233], fontStyle: "bold" },
+        styles: { font: fontName, fontSize: 9.5, cellPadding: 4 },
       });
 
       // Section 3: Catalog & Financial Overview
       autoTable(doc, {
-        startY: doc.lastAutoTable.finalY + 8,
+        startY: (doc.lastAutoTable?.finalY || 160) + 8,
         head: [["Catalog & Financial Metric", "Value"]],
         body: [
           ["Total Destinations Cataloged", String(stats?.totalDestinations || 0)],
@@ -143,8 +138,8 @@ function AdminReports() {
           ["Total Expense Entries Logged", String(stats?.totalExpensesCount || 0)],
         ],
         theme: "grid",
-        headStyles: { fillColor: [34, 197, 94], fontStyle: "bold" },
-        styles: { fontSize: 9.5, cellPadding: 4 },
+        headStyles: { font: fontName, fillColor: [34, 197, 94], fontStyle: "bold" },
+        styles: { font: fontName, fontSize: 9.5, cellPadding: 4 },
       });
 
       // Footer
@@ -274,10 +269,11 @@ function AdminReports() {
   };
 
   // --- REPORT 3: DESTINATION CATALOG SUMMARY REPORT ---
-  const exportDestinationCatalogPDF = () => {
+  const exportDestinationCatalogPDF = async () => {
     setGenerating("dest-pdf");
     try {
       const doc = new jsPDF();
+      const fontName = await loadPdfUnicodeFont(doc);
       const generatedAt = new Date().toLocaleString();
 
       doc.setFontSize(16);
@@ -303,8 +299,8 @@ function AdminReports() {
         head: [["ID", "Destination Name", "Location", "Category", "Est. Budget", "Stay Days", "Rating"]],
         body: tableRows,
         theme: "striped",
-        headStyles: { fillColor: [236, 72, 153], fontStyle: "bold" },
-        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { font: fontName, fillColor: [236, 72, 153], fontStyle: "bold" },
+        styles: { font: fontName, fontSize: 8, cellPadding: 3 },
       });
 
       doc.save(`TripNest_Destination_Catalog_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -354,56 +350,12 @@ function AdminReports() {
   };
 
   return (
-    <div className="admin-portal-layout">
-      {/* Admin Sidebar Navigation */}
-      <aside className="admin-sidebar">
-        <div className="admin-sidebar-header">
-          <div className="admin-brand">
-            <span>🛡️ TripNest</span>
-            <span className="admin-brand-tag">ADMIN</span>
-          </div>
+    <AdminLayout pageTitle="Analytics & Reports">
+      <div className="admin-dashboard-header">
+        <div>
+          <h2>Administrative Report Center</h2>
+          <p>Generate, preview, and export platform audit summaries in PDF and CSV formats</p>
         </div>
-
-        <nav className="admin-nav">
-          <Link to="/admin/dashboard" className="admin-nav-item">
-            📊 Overview
-          </Link>
-          <Link to="/admin/users" className="admin-nav-item">
-            👥 User Management
-          </Link>
-          <Link to="/admin/destinations" className="admin-nav-item">
-            📍 Destinations
-          </Link>
-          <Link to="/admin/reports" className="admin-nav-item active">
-            📈 Analytics & Reports
-          </Link>
-        </nav>
-      </aside>
-
-      {/* Main Content Wrapper */}
-      <div className="admin-main-wrapper">
-        {/* Top Header */}
-        <header className="admin-topbar">
-          <div className="admin-page-title">Analytics & Reports</div>
-
-          <div className="admin-user-profile">
-            <div className="admin-user-info">
-              <div className="admin-username">{user?.username || "Admin"}</div>
-              <div className="admin-role-badge">System Administrator</div>
-            </div>
-            <button onClick={handleLogout} className="admin-logout-btn">
-              Sign Out
-            </button>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main className="admin-content-area">
-          <div className="admin-dashboard-header">
-            <div>
-              <h2>Administrative Report Center</h2>
-              <p>Generate, preview, and export platform audit summaries in PDF and CSV formats</p>
-            </div>
             <button
               onClick={fetchReportData}
               disabled={loading}
@@ -563,9 +515,7 @@ function AdminReports() {
               </div>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+    </AdminLayout>
   );
 }
 

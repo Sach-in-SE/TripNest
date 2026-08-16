@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PublicLayout from "../components/layout/PublicLayout";
+import Sidebar from "../components/Sidebar";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
@@ -316,20 +317,19 @@ const Destinations = () => {
     </div>
   );
 
-  return (
-    <PublicLayout>
-      <div style={styles.contentWrapper}>
-        <div style={styles.header}>
-          <div>
-            <h1 style={styles.title}>Destinations 🌍</h1>
-            <p style={styles.subtitle}>Discover your next adventure</p>
-          </div>
-          {isAdmin && (
-            <button className="btn-aurora" onClick={handleOpenAddModal} style={styles.adminAddBtn}>
-              + Add Destination (Admin)
-            </button>
-          )}
+  const pageContent = (
+    <>
+      <div style={styles.header}>
+        <div>
+          <h1 style={styles.title}>Destinations 🌍</h1>
+          <p style={styles.subtitle}>Discover your next adventure</p>
         </div>
+        {isAdmin && (
+          <button className="btn-aurora" onClick={handleOpenAddModal} style={styles.adminAddBtn}>
+            + Add Destination (Admin)
+          </button>
+        )}
+      </div>
 
         {/* Search & Sort Controls */}
         <div style={styles.searchRow}>
@@ -483,182 +483,195 @@ const Destinations = () => {
             })}
           </div>
         )}
-      </div>
+    </>
+  );
 
-      {/* Admin Add/Edit Modal */}
-      {showAdminModal && (
-        <div style={styles.modalBackdrop}>
-          <div style={styles.modalContent} className="glass-card">
-            <div style={styles.modalHeader}>
-              <h2 style={{ fontSize: "20px", color: "#f1f5f9" }}>
-                {editingDest ? `Edit Destination: ${editingDest.name}` : "Add New Destination"}
-              </h2>
-              <button
-                className="btn-ghost"
-                onClick={() => setShowAdminModal(false)}
-                style={{ fontSize: "18px" }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {formError && (
-              <div style={styles.formErrorBanner}>
-                <span>⚠️ {formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveDestination} style={styles.adminForm}>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Destination Name *</label>
-                  <input
-                    className="aurora-input"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. Goa"
-                    required
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Category *</label>
-                  <select
-                    className="aurora-input"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  >
-                    {categories.map((c) => (
-                      <option key={c} value={c} style={{ background: "#0f172a" }}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>State</label>
-                  <input
-                    className="aurora-input"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    placeholder="e.g. Goa"
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Country</label>
-                  <input
-                    className="aurora-input"
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    placeholder="e.g. India"
-                  />
-                </div>
-
-                <div style={{ ...styles.formGroup, gridColumn: "1 / -1" }}>
-                  <label style={styles.formLabel}>Cover Image URL</label>
-                  <input
-                    className="aurora-input"
-                    value={formData.imageUrl}
-                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                    placeholder="https://images.unsplash.com/..."
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Latitude * (-90 to 90)</label>
-                  <input
-                    className="aurora-input"
-                    type="number"
-                    step="any"
-                    value={formData.latitude}
-                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                    placeholder="e.g. 15.2993"
-                    required
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Longitude * (-180 to 180)</label>
-                  <input
-                    className="aurora-input"
-                    type="number"
-                    step="any"
-                    value={formData.longitude}
-                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                    placeholder="e.g. 74.1240"
-                    required
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Estimated Budget (₹)</label>
-                  <input
-                    className="aurora-input"
-                    type="number"
-                    value={formData.estimatedBudget}
-                    onChange={(e) => setFormData({ ...formData, estimatedBudget: e.target.value })}
-                    placeholder="e.g. 25000"
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Recommended Stay (Days)</label>
-                  <input
-                    className="aurora-input"
-                    type="number"
-                    min="1"
-                    value={formData.recommendedDays}
-                    onChange={(e) => setFormData({ ...formData, recommendedDays: e.target.value })}
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Best Season</label>
-                  <input
-                    className="aurora-input"
-                    value={formData.bestSeason}
-                    onChange={(e) => setFormData({ ...formData, bestSeason: e.target.value })}
-                    placeholder="e.g. November to February"
-                  />
-                </div>
-
-                <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Rating (0.0 to 5.0)</label>
-                  <input
-                    className="aurora-input"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="5"
-                    value={formData.rating}
-                    onChange={(e) => setFormData({ ...formData, rating: e.target.value })}
-                  />
-                </div>
-
-                <div style={{ ...styles.formGroup, gridColumn: "1 / -1" }}>
-                  <label style={styles.formLabel}>Description</label>
-                  <textarea
-                    className="aurora-input"
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Destination details..."
-                  />
-                </div>
-              </div>
-
-              <div style={styles.modalActions}>
-                <button type="button" className="btn-ghost" onClick={() => setShowAdminModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-aurora">
-                  {editingDest ? "Save Changes" : "Create Destination"}
-                </button>
-              </div>
-            </form>
-          </div>
+  const adminModal = showAdminModal && (
+    <div style={styles.modalBackdrop}>
+      <div style={styles.modalContent} className="glass-card">
+        <div style={styles.modalHeader}>
+          <h2 style={{ fontSize: "20px", color: "#f1f5f9" }}>
+            {editingDest ? `Edit Destination: ${editingDest.name}` : "Add New Destination"}
+          </h2>
+          <button
+            className="btn-ghost"
+            onClick={() => setShowAdminModal(false)}
+            style={{ fontSize: "18px" }}
+          >
+            ✕
+          </button>
         </div>
-      )}
+
+        {formError && (
+          <div style={styles.formErrorBanner}>
+            <span>⚠️ {formError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSaveDestination} style={styles.adminForm}>
+          <div style={styles.formGrid}>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Destination Name *</label>
+              <input
+                className="aurora-input"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g. Goa"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>State *</label>
+              <input
+                className="aurora-input"
+                required
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                placeholder="e.g. Goa"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Country</label>
+              <input
+                className="aurora-input"
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                placeholder="India"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Category</label>
+              <select
+                className="aurora-input"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                style={{ background: "#0f172a" }}
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Direct Image URL</label>
+              <input
+                className="aurora-input"
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                placeholder="https://images.unsplash.com/..."
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Latitude * (-90 to 90)</label>
+              <input
+                className="aurora-input"
+                type="number"
+                step="any"
+                required
+                value={formData.latitude}
+                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                placeholder="e.g. 15.2993"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Longitude * (-180 to 180)</label>
+              <input
+                className="aurora-input"
+                type="number"
+                step="any"
+                required
+                value={formData.longitude}
+                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                placeholder="e.g. 74.1240"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Estimated Budget (₹/person)</label>
+              <input
+                className="aurora-input"
+                type="number"
+                value={formData.estimatedBudget}
+                onChange={(e) => setFormData({ ...formData, estimatedBudget: e.target.value })}
+                placeholder="15000"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Recommended Days</label>
+              <input
+                className="aurora-input"
+                type="number"
+                value={formData.recommendedDays}
+                onChange={(e) => setFormData({ ...formData, recommendedDays: e.target.value })}
+                placeholder="4"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Best Season to Visit</label>
+              <input
+                className="aurora-input"
+                value={formData.bestSeason}
+                onChange={(e) => setFormData({ ...formData, bestSeason: e.target.value })}
+                placeholder="e.g. Oct - Mar"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Rating (0 - 5)</label>
+              <input
+                className="aurora-input"
+                type="number"
+                step="0.1"
+                min="0"
+                max="5"
+                value={formData.rating}
+                onChange={(e) => setFormData({ ...formData, rating: e.target.value })}
+                placeholder="4.5"
+              />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Description</label>
+              <textarea
+                className="aurora-input"
+                rows={3}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Destination details..."
+              />
+            </div>
+          </div>
+
+          <div style={styles.modalActions}>
+            <button type="button" className="btn-ghost" onClick={() => setShowAdminModal(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-aurora">
+              {editingDest ? "Save Changes" : "Create Destination"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  if (user) {
+    return (
+      <div className="tn-user-layout-container">
+        <Sidebar />
+        <main className="tn-user-main">
+          {pageContent}
+        </main>
+        {adminModal}
+      </div>
+    );
+  }
+
+  return (
+    <PublicLayout>
+      <div style={styles.contentWrapper}>
+        {pageContent}
+      </div>
+      {adminModal}
     </PublicLayout>
   );
 };

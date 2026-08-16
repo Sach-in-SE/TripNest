@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import AdminLayout from "../../components/layout/AdminLayout";
 import api from "../../services/api";
 import "./AdminLayout.css";
 
@@ -11,8 +10,6 @@ const ALL_ROLES = [
 ];
 
 function AdminUserManagement() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,11 +56,6 @@ function AdminUserManagement() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/admin/login");
-  };
 
   const showToast = (type, text) => {
     setToastMessage({ type, text });
@@ -186,56 +178,12 @@ function AdminUserManagement() {
   };
 
   return (
-    <div className="admin-portal-layout">
-      {/* Admin Sidebar Navigation */}
-      <aside className="admin-sidebar">
-        <div className="admin-sidebar-header">
-          <div className="admin-brand">
-            <span>🛡️ TripNest</span>
-            <span className="admin-brand-tag">ADMIN</span>
-          </div>
+    <AdminLayout pageTitle="User Management">
+      <div className="admin-dashboard-header">
+        <div>
+          <h2>User Directory & Access Control</h2>
+          <p>Search, manage roles, toggle statuses, and handle security credentials</p>
         </div>
-
-        <nav className="admin-nav">
-          <Link to="/admin/dashboard" className="admin-nav-item">
-            📊 Overview
-          </Link>
-          <Link to="/admin/users" className="admin-nav-item active">
-            👥 User Management
-          </Link>
-          <Link to="/admin/destinations" className="admin-nav-item">
-            📍 Destinations
-          </Link>
-          <Link to="/admin/reports" className="admin-nav-item">
-            📈 Analytics & Reports
-          </Link>
-        </nav>
-      </aside>
-
-      {/* Main Content Wrapper */}
-      <div className="admin-main-wrapper">
-        {/* Top Header */}
-        <header className="admin-topbar">
-          <div className="admin-page-title">User Management</div>
-
-          <div className="admin-user-profile">
-            <div className="admin-user-info">
-              <div className="admin-username">{user?.username || "Admin"}</div>
-              <div className="admin-role-badge">System Administrator</div>
-            </div>
-            <button onClick={handleLogout} className="admin-logout-btn">
-              Sign Out
-            </button>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main className="admin-content-area">
-          <div className="admin-dashboard-header">
-            <div>
-              <h2>User Directory & Access Control</h2>
-              <p>Search, manage roles, toggle statuses, and handle security credentials</p>
-            </div>
             <button
               onClick={fetchUsers}
               disabled={loading || actionLoading}
@@ -407,8 +355,6 @@ function AdminUserManagement() {
               </div>
             </div>
           )}
-        </main>
-      </div>
 
       {/* --- MODAL 1: VIEW USER DETAILS --- */}
       {viewingUser && (
@@ -591,7 +537,7 @@ function AdminUserManagement() {
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }
 
