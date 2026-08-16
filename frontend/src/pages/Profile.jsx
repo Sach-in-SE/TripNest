@@ -398,8 +398,9 @@ const Profile = () => {
   return (
     <div className="tn-user-layout-container">
       <Sidebar />
-      <main className="tn-user-main profile-main" style={{ maxWidth: "1200px" }}>
-        <h1 style={styles.title}>My Profile</h1>
+      <main className="tn-user-main">
+        <div className="tn-profile-container">
+          <h1 style={styles.title}>My Profile</h1>
 
         {message && <div style={styles.successBox}>✅ {message}</div>}
         {error && <div style={styles.errorBox}>❌ {error}</div>}
@@ -827,6 +828,7 @@ const Profile = () => {
               )}
             </div>
           )}
+        </div>
         </div>
       </main>
     </div>

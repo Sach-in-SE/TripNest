@@ -1,11 +1,14 @@
-/* Profile Page Responsive Styles */
+/* ==========================================================================
+   TripNest — Traveler Profile Page Styles
+   ========================================================================== */
+
+.tn-profile-container {
+  max-width: 1200px;
+  width: 100%;
+  box-sizing: border-box;
+}
 
 @media (max-width: 1024px) {
-  .profile-main {
-    margin-left: 0 !important;
-    padding: 24px !important;
-  }
-  
   .profile-hero-content {
     flex-direction: column;
     align-items: center;
@@ -34,10 +37,6 @@
 }
 
 @media (max-width: 768px) {
-  .profile-main {
-    padding: 16px !important;
-  }
-  
   .profile-hero-card {
     padding: 24px !important;
   }
