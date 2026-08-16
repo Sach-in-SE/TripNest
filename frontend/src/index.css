@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import './styles/tokens.css';
+@import './styles/primitives.css';
+@import './styles/layout.css';
+@import './styles/landing.css';
 
 * {
   margin: 0;
@@ -7,24 +10,25 @@
 }
 
 :root {
-  --bg-primary: #0a0f1e;
-  --bg-secondary: #0d1529;
-  --bg-card: rgba(255, 255, 255, 0.05);
-  --bg-card-hover: rgba(255, 255, 255, 0.08);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(124, 58, 237, 0.5);
+  /* Dynamic Bridge from Design Tokens to Legacy Aliases */
+  --bg-primary: var(--tn-surface-base, #0a0f1e);
+  --bg-secondary: var(--tn-surface-1, #0d1529);
+  --bg-card: var(--tn-surface-card, rgba(255, 255, 255, 0.05));
+  --bg-card-hover: var(--tn-surface-card-hover, rgba(255, 255, 255, 0.08));
+  --border: var(--tn-border, rgba(255, 255, 255, 0.08));
+  --border-hover: var(--tn-border-focus, rgba(124, 58, 237, 0.5));
 
-  --aurora-1: #7c3aed;
-  --aurora-2: #2563eb;
-  --aurora-3: #06b6d4;
-  --aurora-4: #8b5cf6;
+  --aurora-1: var(--tn-brand-primary, #7c3aed);
+  --aurora-2: var(--tn-brand-secondary, #2563eb);
+  --aurora-3: var(--tn-brand-accent, #06b6d4);
+  --aurora-4: var(--tn-purple-500, #8b5cf6);
 
-  --gradient-aurora: linear-gradient(135deg, #7c3aed, #2563eb, #06b6d4);
-  --gradient-card: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(6, 182, 212, 0.05));
+  --gradient-aurora: var(--tn-brand-gradient, linear-gradient(135deg, #7c3aed, #2563eb, #06b6d4));
+  --gradient-card: var(--tn-gradient-subtle, linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(6, 182, 212, 0.05)));
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: var(--tn-text-primary, #f1f5f9);
+  --text-secondary: var(--tn-text-secondary, #94a3b8);
+  --text-muted: var(--tn-text-muted, #64748b);
 
   --success: #10b981;
   --warning: #f59e0b;
@@ -34,10 +38,10 @@
   --sidebar-width: 260px;
   --header-height: 64px;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
-  --shadow-aurora: 0 0 30px rgba(124, 58, 237, 0.2);
+  --shadow-sm: var(--tn-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.3));
+  --shadow-md: var(--tn-shadow-md, 0 4px 20px rgba(0, 0, 0, 0.4));
+  --shadow-lg: var(--tn-shadow-lg, 0 8px 40px rgba(0, 0, 0, 0.5));
+  --shadow-aurora: var(--tn-brand-glow, 0 0 30px rgba(124, 58, 237, 0.2));
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -47,7 +51,7 @@
   --transition: all 0.2s ease;
   --transition-slow: all 0.4s ease;
 
-  font-family: 'Inter', sans-serif;
+  font-family: var(--tn-font-sans, 'Inter', sans-serif);
   font-size: 16px;
   color: var(--text-primary);
   background: var(--bg-primary);
@@ -57,6 +61,8 @@ body {
   background: var(--bg-primary);
   min-height: 100vh;
   overflow-x: hidden;
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 body::before {
@@ -72,12 +78,26 @@ body::before {
     radial-gradient(ellipse at 50% 50%, rgba(37, 99, 235, 0.04) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
+  transition: background 0.5s ease;
+}
+
+[data-theme="premium"] body::before {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(13, 148, 136, 0.04) 0%, transparent 70%);
 }
 
 #root {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+}
+
+/* Accessibility Focus Visible */
+:focus-visible {
+  outline: 2px solid var(--tn-brand-primary, #7c3aed);
+  outline-offset: 2px;
 }
 
 /* Scrollbar */
@@ -91,8 +111,11 @@ body::before {
   background: rgba(124, 58, 237, 0.4);
   border-radius: 3px;
 }
+[data-theme="premium"] ::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.4);
+}
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(124, 58, 237, 0.7);
+  background: var(--tn-brand-primary, rgba(124, 58, 237, 0.7));
 }
 
 /* Glass Card */
@@ -119,7 +142,7 @@ body::before {
   border: none;
   padding: 10px 24px;
   border-radius: var(--radius-sm);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--tn-font-sans, 'Inter', sans-serif);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -142,7 +165,7 @@ body::before {
 }
 
 .btn-aurora:hover {
-  box-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
+  box-shadow: var(--tn-brand-glow, 0 0 20px rgba(124, 58, 237, 0.5));
   transform: translateY(-1px);
 }
 
@@ -153,7 +176,7 @@ body::before {
   border: 1px solid var(--border);
   padding: 10px 24px;
   border-radius: var(--radius-sm);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--tn-font-sans, 'Inter', sans-serif);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -172,7 +195,7 @@ body::before {
   border: 1px solid var(--border);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--tn-font-sans, 'Inter', sans-serif);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -222,7 +245,7 @@ body::before {
   border-radius: var(--radius-sm);
   padding: 12px 16px;
   color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--tn-font-sans, 'Inter', sans-serif);
   font-size: 14px;
   outline: none;
   transition: var(--transition);
@@ -238,9 +261,9 @@ body::before {
   background: rgba(124, 58, 237, 0.05);
 }
 
-/* Select Dropdown Fix */
+/* Select Dropdown */
 select.aurora-input {
-  background: #1e2433;
+  background: var(--tn-surface-2, #1e2433);
   color: #ffffff;
   appearance: none;
   -webkit-appearance: none;
@@ -253,7 +276,7 @@ select.aurora-input {
 }
 
 select.aurora-input option {
-  background: #1e2433;
+  background: var(--tn-surface-2, #1e2433);
   color: #ffffff;
 }
 
@@ -297,11 +320,6 @@ select.aurora-input option:checked {
 @keyframes aurora-pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 @keyframes spin {

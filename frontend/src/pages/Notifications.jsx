@@ -97,9 +97,9 @@ const Notifications = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={styles.main}>
+      <main className="tn-user-main">
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>Notifications 🔔</h1>
@@ -201,8 +201,6 @@ const Notifications = () => {
 };
 
 const styles = {
-  container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" },
   title: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },
   subtitle: { color: "#94a3b8", fontSize: "14px", marginTop: "4px" },

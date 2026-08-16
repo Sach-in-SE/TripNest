@@ -247,9 +247,9 @@ const GroupDetails = () => {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div className="tn-user-layout-container">
         <Sidebar />
-        <main style={styles.main}>
+        <main className="tn-user-main">
           <div style={styles.loadingContainer}>
             <div style={styles.spinner}></div>
             <p style={styles.loadingText}>Loading group details...</p>
@@ -270,9 +270,9 @@ const GroupDetails = () => {
   const canLeave = group.canLeaveGroup || false;
 
   return (
-    <div style={styles.container}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={styles.main}>
+      <main className="tn-user-main">
         <div style={styles.header}>
           <div>
             {editMode ? (
@@ -562,8 +562,6 @@ const GroupDetails = () => {
 };
 
 const styles = {
-  container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" },
   headerActions: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" },
   title: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },

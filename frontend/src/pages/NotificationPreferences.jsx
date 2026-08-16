@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
 
@@ -62,10 +63,13 @@ const NotificationPreferences = () => {
   ];
 
   return (
-    <div style={styles.container}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={styles.main}>
+      <main className="tn-user-main">
         <div style={styles.header}>
+          <Link to="/settings" style={styles.backLink}>
+            ← Back to Settings
+          </Link>
           <h1 style={styles.title}>Notification Preferences</h1>
           <p style={styles.subtitle}>Manage which notifications you receive</p>
         </div>
@@ -120,9 +124,17 @@ const NotificationPreferences = () => {
 };
 
 const styles = {
-  container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px" },
   header: { marginBottom: "32px" },
+  backLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    color: "#94a3b8",
+    fontSize: "13px",
+    textDecoration: "none",
+    marginBottom: "12px",
+    transition: "color 0.2s ease",
+  },
   title: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },
   subtitle: { color: "#94a3b8", fontSize: "14px", marginTop: "4px" },
   content: { display: "flex", flexDirection: "column", gap: "16px" },

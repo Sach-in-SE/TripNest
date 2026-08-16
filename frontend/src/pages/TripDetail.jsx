@@ -117,12 +117,12 @@ const TripDetail = () => {
     modalActions: { display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "20px" },
   };
 
-  if (loading) return <div style={styles.container}><Sidebar /><div style={styles.main}><p style={{ color: "#fff" }}>Loading...</p></div></div>;
+  if (loading) return <div className="tn-user-layout-container"><Sidebar /><main className="tn-user-main"><p style={{ color: "#fff" }}>Loading...</p></main></div>;
 
   return (
-    <div style={styles.container}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <div style={styles.main}>
+      <main className="tn-user-main">
         <div style={styles.header}>
           <div>
             <h1 style={styles.headerTitle}>Trip Details</h1>
@@ -310,7 +310,7 @@ const TripDetail = () => {
             onShare={fetchTripData}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 };

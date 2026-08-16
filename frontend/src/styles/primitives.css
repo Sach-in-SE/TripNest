@@ -1,0 +1,435 @@
+/* ==========================================================================
+   TripNest — UI Primitives Component Styles
+   ========================================================================== */
+
+/* ------------------------------------------------------------------------
+   1. Button
+   ------------------------------------------------------------------------ */
+.tn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tn-space-2);
+  font-family: var(--tn-font-sans);
+  font-weight: var(--tn-weight-medium);
+  border-radius: var(--tn-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: var(--tn-transition-fast);
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.tn-btn:disabled, .tn-btn--loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Button Variants */
+.tn-btn--primary {
+  background: var(--tn-gradient-primary);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+}
+
+.tn-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);
+  transform: translateY(-1px);
+}
+
+.tn-btn--secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--tn-text-primary);
+  border-color: var(--tn-border-medium);
+}
+
+.tn-btn--secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--tn-purple-400);
+}
+
+.tn-btn--outline {
+  background: transparent;
+  color: var(--tn-text-primary);
+  border-color: var(--tn-border-medium);
+}
+
+.tn-btn--outline:hover:not(:disabled) {
+  border-color: var(--tn-purple-500);
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--tn-purple-400);
+}
+
+.tn-btn--ghost {
+  background: transparent;
+  color: var(--tn-text-secondary);
+}
+
+.tn-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--tn-text-primary);
+}
+
+.tn-btn--danger {
+  background: var(--tn-danger-bg);
+  color: var(--tn-danger-text);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.tn-btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--tn-danger-text);
+}
+
+/* Button Sizes */
+.tn-btn--sm {
+  padding: 6px 12px;
+  font-size: var(--tn-text-xs);
+  height: 32px;
+}
+
+.tn-btn--md {
+  padding: 8px 16px;
+  font-size: var(--tn-text-sm);
+  height: 40px;
+}
+
+.tn-btn--lg {
+  padding: 12px 24px;
+  font-size: var(--tn-text-base);
+  height: 48px;
+}
+
+.tn-btn--full {
+  width: 100%;
+}
+
+/* ------------------------------------------------------------------------
+   2. Card
+   ------------------------------------------------------------------------ */
+.tn-card {
+  background: var(--tn-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--tn-border-subtle);
+  border-radius: var(--tn-radius-lg);
+  padding: var(--tn-space-6);
+  transition: var(--tn-transition-normal);
+  display: flex;
+  flex-direction: column;
+}
+
+.tn-card--interactive:hover {
+  background: var(--tn-bg-card-hover);
+  border-color: var(--tn-border-focus);
+  box-shadow: var(--tn-shadow-glow);
+  transform: translateY(-2px);
+}
+
+.tn-card-header {
+  margin-bottom: var(--tn-space-4);
+}
+
+.tn-card-title {
+  font-family: var(--tn-font-display);
+  font-size: var(--tn-text-xl);
+  font-weight: var(--tn-weight-bold);
+  color: var(--tn-text-primary);
+  margin-bottom: var(--tn-space-1);
+}
+
+.tn-card-description {
+  font-size: var(--tn-text-sm);
+  color: var(--tn-text-muted);
+}
+
+.tn-card-content {
+  flex: 1;
+}
+
+.tn-card-footer {
+  margin-top: var(--tn-space-4);
+  padding-top: var(--tn-space-4);
+  border-top: 1px solid var(--tn-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ------------------------------------------------------------------------
+   3. Input & Select
+   ------------------------------------------------------------------------ */
+.tn-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tn-space-2);
+  width: 100%;
+}
+
+.tn-input-label {
+  font-size: var(--tn-text-sm);
+  font-weight: var(--tn-weight-medium);
+  color: var(--tn-text-secondary);
+}
+
+.tn-input {
+  width: 100%;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--tn-border-subtle);
+  border-radius: var(--tn-radius-md);
+  padding: 0 var(--tn-space-4);
+  color: var(--tn-text-primary);
+  font-family: var(--tn-font-sans);
+  font-size: var(--tn-text-sm);
+  outline: none;
+  transition: var(--tn-transition-fast);
+}
+
+.tn-input::placeholder {
+  color: var(--tn-text-dim);
+}
+
+.tn-input:focus {
+  border-color: var(--tn-purple-500);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+  background: rgba(124, 58, 237, 0.04);
+}
+
+.tn-input--error {
+  border-color: #ef4444;
+}
+
+.tn-input-helper {
+  font-size: var(--tn-text-xs);
+  color: var(--tn-text-muted);
+}
+
+.tn-input-helper--error {
+  color: #fca5a5;
+}
+
+/* Select */
+.tn-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: var(--tn-space-10);
+  cursor: pointer;
+}
+
+.tn-select option {
+  background: var(--tn-bg-surface-2);
+  color: var(--tn-text-primary);
+}
+
+/* ------------------------------------------------------------------------
+   4. Modal
+   ------------------------------------------------------------------------ */
+.tn-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 18, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: var(--tn-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--tn-space-4);
+  animation: tnFadeIn var(--tn-transition-fast);
+}
+
+.tn-modal-container {
+  background: var(--tn-bg-surface-2);
+  border: 1px solid var(--tn-border-medium);
+  border-radius: var(--tn-radius-xl);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--tn-shadow-lg);
+  display: flex;
+  flex-direction: column;
+  animation: tnSlideUp var(--tn-transition-fast);
+}
+
+.tn-modal-header {
+  padding: var(--tn-space-5) var(--tn-space-6);
+  border-bottom: 1px solid var(--tn-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tn-modal-title {
+  font-family: var(--tn-font-display);
+  font-size: var(--tn-text-xl);
+  font-weight: var(--tn-weight-bold);
+  color: var(--tn-text-primary);
+}
+
+.tn-modal-body {
+  padding: var(--tn-space-6);
+  flex: 1;
+}
+
+.tn-modal-footer {
+  padding: var(--tn-space-4) var(--tn-space-6);
+  border-top: 1px solid var(--tn-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--tn-space-3);
+}
+
+/* ------------------------------------------------------------------------
+   5. Badge & Avatar
+   ------------------------------------------------------------------------ */
+.tn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tn-space-1);
+  padding: 4px 10px;
+  border-radius: var(--tn-radius-full);
+  font-size: var(--tn-text-xs);
+  font-weight: var(--tn-weight-medium);
+  line-height: 1;
+}
+
+.tn-badge--neutral { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+.tn-badge--primary { background: rgba(124, 58, 237, 0.2); color: var(--tn-purple-400); }
+.tn-badge--success { background: var(--tn-success-bg); color: var(--tn-success-text); }
+.tn-badge--warning { background: var(--tn-warning-bg); color: var(--tn-warning-text); }
+.tn-badge--danger { background: var(--tn-danger-bg); color: var(--tn-danger-text); }
+.tn-badge--info { background: var(--tn-info-bg); color: var(--tn-info-text); }
+
+.tn-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--tn-radius-full);
+  background: var(--tn-gradient-primary);
+  color: #ffffff;
+  font-weight: var(--tn-weight-bold);
+  overflow: hidden;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.tn-avatar--sm { width: 32px; height: 32px; font-size: 13px; }
+.tn-avatar--md { width: 40px; height: 40px; font-size: 15px; }
+.tn-avatar--lg { width: 52px; height: 52px; font-size: 18px; }
+
+/* ------------------------------------------------------------------------
+   6. IconButton & PageHeader
+   ------------------------------------------------------------------------ */
+.tn-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--tn-radius-md);
+  border: 1px solid var(--tn-border-subtle);
+  background: transparent;
+  color: var(--tn-text-secondary);
+  cursor: pointer;
+  transition: var(--tn-transition-fast);
+}
+
+.tn-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--tn-text-primary);
+  border-color: var(--tn-border-medium);
+}
+
+.tn-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tn-space-2);
+  margin-bottom: var(--tn-space-6);
+}
+
+@media (min-width: 640px) {
+  .tn-page-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.tn-page-header-title {
+  font-family: var(--tn-font-display);
+  font-size: var(--tn-text-3xl);
+  font-weight: var(--tn-weight-bold);
+  color: var(--tn-text-primary);
+  line-height: var(--tn-leading-tight);
+}
+
+.tn-page-header-subtitle {
+  font-size: var(--tn-text-sm);
+  color: var(--tn-text-muted);
+}
+
+/* ------------------------------------------------------------------------
+   7. Loading Skeleton, Empty & Error States
+   ------------------------------------------------------------------------ */
+.tn-skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: tnSkeletonShimmer 1.5s infinite;
+  border-radius: var(--tn-radius-sm);
+}
+
+@keyframes tnSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.tn-empty-state, .tn-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--tn-space-10) var(--tn-space-6);
+  background: var(--tn-bg-card);
+  border: 1px dashed var(--tn-border-medium);
+  border-radius: var(--tn-radius-lg);
+  gap: var(--tn-space-3);
+}
+
+.tn-empty-icon, .tn-error-icon {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.tn-empty-title, .tn-error-title {
+  font-family: var(--tn-font-display);
+  font-size: var(--tn-text-xl);
+  font-weight: var(--tn-weight-bold);
+  color: var(--tn-text-primary);
+}
+
+.tn-empty-description, .tn-error-description {
+  font-size: var(--tn-text-sm);
+  color: var(--tn-text-muted);
+  max-width: 420px;
+}
+
+/* Keyframe animations */
+@keyframes tnFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tnSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}

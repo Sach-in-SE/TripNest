@@ -101,9 +101,9 @@ const GroupDiscussion = () => {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div className="tn-user-layout-container" style={{ height: "100vh", overflow: "hidden" }}>
         <Sidebar />
-        <main style={styles.main}>
+        <main className="tn-user-main" style={{ display: "flex", flexDirection: "column", height: "100vh", boxSizing: "border-box" }}>
           <div style={styles.loadingContainer}>
             <div style={styles.spinner}></div>
             <p style={styles.loadingText}>Loading discussion...</p>
@@ -114,9 +114,9 @@ const GroupDiscussion = () => {
   }
 
   return (
-    <div style={styles.container}>
+    <div className="tn-user-layout-container" style={{ height: "100vh", overflow: "hidden" }}>
       <Sidebar />
-      <main style={styles.main}>
+      <main className="tn-user-main" style={{ display: "flex", flexDirection: "column", height: "100vh", boxSizing: "border-box" }}>
         <div style={styles.header}>
           <div style={styles.headerTitleGroup}>
             <button className="btn-compact" onClick={() => navigate(`/groups/${id}`)}>
@@ -196,8 +196,6 @@ const GroupDiscussion = () => {
 };
 
 const styles = {
-  container: { display: "flex", height: "100vh", background: "#0a0f1e", overflow: "hidden" },
-  main: { marginLeft: "260px", flex: 1, padding: "24px 32px", display: "flex", flexDirection: "column", height: "100vh", boxSizing: "border-box" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexShrink: 0 },
   headerTitleGroup: { display: "flex", alignItems: "center", gap: "16px" },
   title: { fontSize: "24px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },

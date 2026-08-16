@@ -1,0 +1,306 @@
+/* ==========================================================================
+   TripNest — Traveler Settings Hub Styles
+   ========================================================================== */
+
+.tn-settings-container {
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.tn-settings-header {
+  margin-bottom: 28px;
+}
+
+.tn-settings-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--tn-text-primary, #f8fafc);
+  font-family: var(--tn-font-display, 'Space Grotesk', sans-serif);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.tn-settings-subtitle {
+  color: var(--tn-text-muted, #94a3b8);
+  font-size: 14px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* Settings Category List */
+.tn-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Settings Item (Link & Button) */
+.tn-settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: var(--tn-surface-card, rgba(255, 255, 255, 0.04));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--tn-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--tn-radius-lg, 14px);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  font-family: inherit;
+}
+
+.tn-settings-item:hover {
+  background: var(--tn-surface-card-hover, rgba(255, 255, 255, 0.07));
+  border-color: var(--tn-border-focus, rgba(124, 58, 237, 0.5));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 15px rgba(124, 58, 237, 0.15);
+}
+
+.tn-settings-item:focus-visible {
+  outline: 2px solid var(--tn-brand-primary, #7c3aed);
+  outline-offset: 2px;
+}
+
+.tn-settings-item:active {
+  transform: translateY(0);
+}
+
+/* Left Grouping: Icon + Text */
+.tn-settings-item-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tn-settings-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--tn-radius-md, 12px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.tn-settings-item:hover .tn-settings-icon-wrapper {
+  transform: scale(1.06);
+  background: rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.3);
+}
+
+.tn-settings-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tn-settings-item-title {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--tn-text-primary, #f8fafc);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.tn-settings-item-desc {
+  font-size: 13px;
+  color: var(--tn-text-muted, #94a3b8);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Right Grouping: Badge + Chevron */
+.tn-settings-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.tn-settings-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--tn-radius-full, 9999px);
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+
+.tn-settings-badge--available {
+  background: rgba(16, 185, 129, 0.14);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.tn-settings-badge--coming-soon {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.tn-settings-chevron {
+  font-size: 22px;
+  color: var(--tn-text-dim, #64748b);
+  font-weight: 300;
+  line-height: 1;
+  transition: transform 0.2s ease, color 0.2s ease;
+  display: inline-block;
+}
+
+.tn-settings-item:hover .tn-settings-chevron {
+  color: var(--tn-text-primary, #f8fafc);
+  transform: translateX(3px);
+}
+
+/* Toast Banner */
+.tn-settings-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: var(--tn-z-toast, 600);
+  background: rgba(19, 29, 53, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  border-radius: var(--tn-radius-md, 12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(124, 58, 237, 0.2);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 420px;
+  animation: tnToastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.tn-settings-toast-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tn-settings-toast-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.tn-settings-toast-message {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #f8fafc;
+  line-height: 1.4;
+}
+
+.tn-settings-toast-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tn-settings-toast-close:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@keyframes tnToastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 639px) {
+  .tn-settings-header {
+    margin-bottom: 20px;
+  }
+
+  .tn-settings-title {
+    font-size: 22px;
+  }
+
+  .tn-settings-subtitle {
+    font-size: 13px;
+  }
+
+  .tn-settings-list {
+    gap: 10px;
+  }
+
+  .tn-settings-item {
+    padding: 14px 14px;
+    gap: 12px;
+  }
+
+  .tn-settings-icon-wrapper {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+    border-radius: 10px;
+  }
+
+  .tn-settings-item-title {
+    font-size: 14.5px;
+  }
+
+  .tn-settings-item-desc {
+    font-size: 12px;
+  }
+
+  .tn-settings-item-meta {
+    gap: 8px;
+  }
+
+  .tn-settings-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+  }
+
+  .tn-settings-chevron {
+    font-size: 18px;
+  }
+
+  .tn-settings-toast {
+    left: 16px;
+    right: 16px;
+    bottom: 20px;
+    max-width: calc(100% - 32px);
+  }
+}

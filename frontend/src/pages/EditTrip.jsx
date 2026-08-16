@@ -36,9 +36,9 @@ const EditTrip = () => {
 
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div className="tn-user-layout-container">
         <Sidebar />
-        <main style={styles.main}>
+        <main className="tn-user-main">
           <p style={{ color: "#94a3b8" }}>Loading trip...</p>
         </main>
       </div>
@@ -46,9 +46,9 @@ const EditTrip = () => {
   }
 
   return (
-    <div style={styles.container}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={styles.main}>
+      <main className="tn-user-main">
         {showSuccess ? (
           <div style={styles.successContainer} className="glass-card">
             <span style={styles.successIcon}>✅</span>
@@ -73,8 +73,6 @@ const EditTrip = () => {
 };
 
 const styles = {
-  container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px" },
   successContainer: {
     display: "flex",
     flexDirection: "column",

@@ -103,16 +103,16 @@ const Itineraries = () => {
   };
 
   if (loading) return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#0a0f1e" }}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={{ marginLeft: "260px", padding: "32px", color: "#94a3b8" }}>Loading...</main>
+      <main className="tn-user-main"><p style={{ color: "#94a3b8" }}>Loading...</p></main>
     </div>
   );
 
   if (error) return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#0a0f1e" }}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={{ marginLeft: "260px", padding: "32px" }}>
+      <main className="tn-user-main">
         <div style={{ color: "#ef4444", marginBottom: "16px" }}>{error}</div>
         <button className="btn-ghost" onClick={() => navigate("/trips")}>← Back to My Trips</button>
       </main>
@@ -120,9 +120,9 @@ const Itineraries = () => {
   );
 
   if (!trip) return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#0a0f1e" }}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={{ marginLeft: "260px", padding: "32px", color: "#94a3b8" }}>
+      <main className="tn-user-main">
         <div>Trip not found</div>
         <button className="btn-ghost" onClick={() => navigate("/trips")} style={{ marginTop: "16px" }}>← Back to My Trips</button>
       </main>
@@ -130,9 +130,9 @@ const Itineraries = () => {
   );
 
   return (
-    <div style={styles.container}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={styles.main}>
+      <main className="tn-user-main">
         {/* Back Button */}
         <button className="btn-ghost" onClick={() => navigate("/trips")}
           style={{ marginBottom: "24px", fontSize: "13px" }}>
@@ -389,8 +389,6 @@ const Itineraries = () => {
 };
 
 const styles = {
-  container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px" },
   tripHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px", padding: "24px" },
   tripHeaderLeft: { display: "flex", gap: "16px", alignItems: "flex-start" },
   tripTitle: { fontSize: "24px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },

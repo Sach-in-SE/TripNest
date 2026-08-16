@@ -393,12 +393,12 @@ const Profile = () => {
     return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   };
 
-  if (loading) return <div style={{ display: "flex", minHeight: "100vh" }}><Sidebar /><main style={{ marginLeft: "260px", padding: "32px", color: "#94a3b8" }}>Loading...</main></div>;
+  if (loading) return <div className="tn-user-layout-container"><Sidebar /><main className="tn-user-main"><p style={{ color: "#94a3b8" }}>Loading...</p></main></div>;
 
   return (
-    <div style={styles.container}>
+    <div className="tn-user-layout-container">
       <Sidebar />
-      <main style={styles.main} className="profile-main">
+      <main className="tn-user-main profile-main" style={{ maxWidth: "1200px" }}>
         <h1 style={styles.title}>My Profile</h1>
 
         {message && <div style={styles.successBox}>✅ {message}</div>}
@@ -834,8 +834,6 @@ const Profile = () => {
 };
 
 const styles = {
-  container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px", maxWidth: "1200px" },
   title: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "24px" },
   successBox: { background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: "8px", padding: "12px 16px", color: "#6ee7b7", fontSize: "14px", marginBottom: "20px" },
   errorBox: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", padding: "12px 16px", color: "#f87171", fontSize: "14px", marginBottom: "20px" },

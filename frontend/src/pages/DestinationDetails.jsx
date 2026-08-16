@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
+import PublicLayout from "../components/layout/PublicLayout";
 import DestinationMap from "../components/DestinationMap";
 import api from "../services/api";
 
@@ -68,20 +68,20 @@ const DestinationDetails = () => {
   };
 
   if (loading) return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#0a0f1e" }}>
-      <Sidebar />
-      <main style={{ marginLeft: "260px", padding: "32px", color: "#94a3b8" }}>Loading destination details...</main>
-    </div>
+    <PublicLayout>
+      <div style={styles.loadingState}>
+        <p style={{ color: "#94a3b8" }}>Loading destination details...</p>
+      </div>
+    </PublicLayout>
   );
 
   if (error) return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#0a0f1e" }}>
-      <Sidebar />
-      <main style={{ marginLeft: "260px", padding: "32px" }}>
+    <PublicLayout>
+      <div style={styles.loadingState}>
         <div style={{ color: "#ef4444", marginBottom: "16px" }}>{error}</div>
         <button className="btn-ghost" onClick={() => navigate("/destinations")}>← Back to Destinations</button>
-      </main>
-    </div>
+      </div>
+    </PublicLayout>
   );
 
   const destination = details?.destination || details;
@@ -90,13 +90,12 @@ const DestinationDetails = () => {
   const nearbyDestinations = details?.nearbyDestinations || [];
 
   if (!destination) return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#0a0f1e" }}>
-      <Sidebar />
-      <main style={{ marginLeft: "260px", padding: "32px", color: "#94a3b8" }}>
-        <div>Destination not found</div>
-        <button className="btn-ghost" onClick={() => navigate("/destinations")} style={{ marginTop: "16px" }}>← Back to Destinations</button>
-      </main>
-    </div>
+    <PublicLayout>
+      <div style={styles.loadingState}>
+        <div style={{ color: "#94a3b8", marginBottom: "16px" }}>Destination not found</div>
+        <button className="btn-ghost" onClick={() => navigate("/destinations")}>← Back to Destinations</button>
+      </div>
+    </PublicLayout>
   );
 
   // Image resolution priority: Admin imageUrl -> Wikipedia imageUrl -> Fallback
@@ -107,9 +106,8 @@ const DestinationDetails = () => {
     : null;
 
   return (
-    <div style={styles.container}>
-      <Sidebar />
-      <main style={styles.main}>
+    <PublicLayout>
+      <div style={styles.contentWrapper}>
         {/* Top Back Navigation */}
         <button
           className="btn-ghost"
@@ -317,7 +315,13 @@ const DestinationDetails = () => {
               <div style={styles.actionButtonsCol}>
                 <button
                   className="btn-aurora"
-                  onClick={() => navigate("/trips/new", { state: { destination: destination } })}
+                  onClick={() => {
+                    if (!localStorage.getItem("token")) {
+                      navigate("/login");
+                    } else {
+                      navigate("/trips/new", { state: { destination: destination } });
+                    }
+                  }}
                   style={{ width: "100%", padding: "12px", fontSize: "14px" }}
                 >
                   🚀 Plan Trip to {destination.name}
@@ -340,14 +344,14 @@ const DestinationDetails = () => {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </PublicLayout>
   );
 };
 
 const styles = {
-  container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px" },
+  contentWrapper: { maxWidth: "1280px", margin: "0 auto", padding: "32px 24px", width: "100%", boxSizing: "border-box" },
+  loadingState: { maxWidth: "1280px", margin: "0 auto", padding: "48px 24px", textAlign: "center" },
   layoutColumns: { display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" },
   leftColumn: { flex: "1 1 58%", minWidth: "320px", display: "flex", flexDirection: "column", gap: "20px" },
   rightColumn: { flex: "1 1 36%", minWidth: "300px", display: "flex", flexDirection: "column", gap: "20px" },

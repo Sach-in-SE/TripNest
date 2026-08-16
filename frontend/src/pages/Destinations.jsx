@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
+import PublicLayout from "../components/layout/PublicLayout";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
@@ -317,9 +317,8 @@ const Destinations = () => {
   );
 
   return (
-    <div style={styles.container}>
-      <Sidebar />
-      <main style={styles.main}>
+    <PublicLayout>
+      <div style={styles.contentWrapper}>
         <div style={styles.header}>
           <div>
             <h1 style={styles.title}>Destinations 🌍</h1>
@@ -447,7 +446,13 @@ const Destinations = () => {
                       </button>
                       <button
                         className="btn-ghost"
-                        onClick={() => navigate("/trips/new", { state: { destination: dest } })}
+                        onClick={() => {
+                          if (!user) {
+                            navigate("/login");
+                          } else {
+                            navigate("/trips/new", { state: { destination: dest } });
+                          }
+                        }}
                         style={styles.planTripButton}
                       >
                         Plan Trip
@@ -478,7 +483,7 @@ const Destinations = () => {
             })}
           </div>
         )}
-      </main>
+      </div>
 
       {/* Admin Add/Edit Modal */}
       {showAdminModal && (
@@ -654,13 +659,12 @@ const Destinations = () => {
           </div>
         </div>
       )}
-    </div>
+    </PublicLayout>
   );
 };
 
 const styles = {
-  container: { display: "flex", minHeight: "100vh", background: "#0a0f1e" },
-  main: { marginLeft: "260px", flex: 1, padding: "32px" },
+  contentWrapper: { maxWidth: "1280px", margin: "0 auto", padding: "32px 24px", width: "100%", boxSizing: "border-box" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" },
   title: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },
   subtitle: { color: "#94a3b8", fontSize: "14px", marginTop: "4px" },
