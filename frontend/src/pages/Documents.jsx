@@ -125,25 +125,38 @@ const Documents = () => {
     }
   };
 
-  const handleViewOrDownload = async (doc) => {
+  const handleViewOrDownload = async (doc, mode = "download") => {
     setErrorMessage(null);
     try {
-      const response = await api.get(doc.fileUrl, { responseType: "blob" });
-      const blob = new Blob([response.data], {
-        type: doc.fileType || "application/octet-stream",
-      });
+      // Resolve endpoint relative to api baseURL (/api)
+      let endpoint = doc.fileUrl;
+      if (endpoint?.startsWith("/api/")) {
+        endpoint = endpoint.substring(4);
+      } else if (!endpoint) {
+        endpoint = `/documents/download/${encodeURIComponent(doc.fileName)}`;
+      }
+
+      const response = await api.get(endpoint, { responseType: "blob" });
+      const contentType = doc.fileType || response.headers["content-type"] || "application/octet-stream";
+      const blob = new Blob([response.data], { type: contentType });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", doc.fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+
+      if (mode === "view") {
+        window.open(url, "_blank", "noopener,noreferrer");
+        setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      } else {
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", doc.fileName || "download");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+      }
     } catch (err) {
-      console.error("Failed to download document:", err);
+      console.error(`Failed to ${mode} document:`, err);
       setErrorMessage(
-        err.response?.data?.message || "Failed to download document. Access denied."
+        err.response?.data?.message || `Failed to ${mode} document. Access denied or file not found.`
       );
     }
   };
@@ -297,8 +310,17 @@ const Documents = () => {
                         <div style={styles.cardActions}>
                           <button
                             className="btn-ghost"
-                            onClick={() => handleViewOrDownload(doc)}
-                            style={{ fontSize: "12px", flex: 1 }}
+                            onClick={() => handleViewOrDownload(doc, "view")}
+                            style={{ fontSize: "12px", flex: 1, padding: "6px 8px" }}
+                            title="View document in new tab"
+                          >
+                            👁️ View
+                          </button>
+                          <button
+                            className="btn-aurora"
+                            onClick={() => handleViewOrDownload(doc, "download")}
+                            style={{ fontSize: "12px", flex: 1, padding: "6px 8px" }}
+                            title="Download document"
                           >
                             ⬇️ Download
                           </button>
@@ -306,6 +328,7 @@ const Documents = () => {
                             onClick={() => handleDelete(doc.id)}
                             style={styles.deleteBtn}
                             title="Delete document"
+                            aria-label="Delete document"
                           >
                             🗑️
                           </button>

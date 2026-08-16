@@ -193,7 +193,7 @@ body::before {
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--border);
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: var(--radius-sm);
   font-family: var(--tn-font-sans, 'Inter', sans-serif);
   font-size: 13px;
@@ -203,8 +203,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 70px;
-  max-width: 100px;
+  min-width: 60px;
   justify-content: center;
   white-space: nowrap;
 }

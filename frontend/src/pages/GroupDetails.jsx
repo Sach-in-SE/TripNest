@@ -18,8 +18,6 @@ const GroupDetails = () => {
   const [editMode, setEditMode] = useState(false);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [transferOwnershipOpen, setTransferOwnershipOpen] = useState(false);
-  const [newOwnerId, setNewOwnerId] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -81,17 +79,6 @@ const GroupDetails = () => {
     }
   };
 
-  const removeMember = async (memberId) => {
-    try {
-      setError(null);
-      await api.delete(`/groups/${id}/members/${memberId}`);
-      fetchData();
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to remove member");
-      console.error(err);
-    }
-  };
-
   const handleRemoveMember = (memberId) => {
     setConfirmRemove(memberId);
   };
@@ -104,18 +91,6 @@ const GroupDetails = () => {
       fetchData();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to remove member");
-      console.error(err);
-    }
-  };
-
-  const deleteGroup = async () => {
-    if (!window.confirm("Delete this group?")) return;
-    try {
-      setError(null);
-      await api.delete(`/groups/${id}`);
-      navigate("/groups");
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to delete group");
       console.error(err);
     }
   };
@@ -175,7 +150,6 @@ const GroupDetails = () => {
   };
 
   const handleTransferOwnership = (memberId) => {
-    setNewOwnerId(memberId);
     setConfirmTransfer(memberId);
   };
 
@@ -184,7 +158,6 @@ const GroupDetails = () => {
       setError(null);
       await api.post(`/groups/${id}/transfer-ownership`, { newOwnerId: confirmTransfer });
       setConfirmTransfer(null);
-      setTransferOwnershipOpen(false);
       fetchData();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to transfer ownership");
@@ -210,15 +183,6 @@ const GroupDetails = () => {
       fetchData();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to remove trip share");
-      console.error(err);
-    }
-  };
-
-  const respondToInvitation = async (invitationId, action) => {
-    try {
-      await api.post(`/groups/invitations/${invitationId}/respond`, { action });
-      fetchData();
-    } catch (err) {
       console.error(err);
     }
   };
@@ -424,7 +388,7 @@ const GroupDetails = () => {
                       </button>
                     </div>
                   )}
-                  {isOwner && member.role !== "OWNER" && (
+                  {(isOwner || canRemove) && member.role !== "OWNER" && (
                     <button className="btn-ghost" style={styles.removeBtn} onClick={() => handleRemoveMember(member.userId)}>
                       Remove
                     </button>
@@ -575,7 +539,6 @@ const styles = {
   memberName: { color: "#f1f5f9", fontSize: "15px", fontWeight: "600" },
   memberMeta: { color: "#94a3b8", fontSize: "12px", marginTop: "4px" },
   memberActions: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" },
-  roleBadge: { color: "#7dd3fc", border: "1px solid rgba(125,211,252,0.2)", background: "rgba(125,211,252,0.08)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", letterSpacing: "0.08em" },
   pendingBadge: { color: "#fbbf24", border: "1px solid rgba(251, 191, 36, 0.3)", background: "rgba(251, 191, 36, 0.1)", padding: "4px 10px", borderRadius: "999px", fontSize: "11px", letterSpacing: "0.08em" },
   modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
   modalCard: { width: "420px", maxWidth: "90vw", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" },

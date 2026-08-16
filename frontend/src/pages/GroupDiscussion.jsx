@@ -118,17 +118,21 @@ const GroupDiscussion = () => {
       <Sidebar />
       <main className="tn-user-main" style={{ display: "flex", flexDirection: "column", height: "100vh", boxSizing: "border-box" }}>
         <div style={styles.header}>
-          <div style={styles.headerTitleGroup}>
-            <button className="btn-compact" onClick={() => navigate(`/groups/${id}`)}>
+          <div style={styles.headerTop}>
+            <button 
+              className="btn-ghost" 
+              onClick={() => navigate(`/groups/${id}`)}
+              style={styles.backBtn}
+            >
               ← Back to Group Details
             </button>
-            <div>
-              <h1 style={styles.title}>💬 {group?.name ? `${group.name} Discussion` : "Group Discussion"}</h1>
-              <p style={styles.subtitle}>
-                {group?.tripTitle ? `Trip: ${group.tripTitle}` : "Persistent Group Chat"}
-                {group?.memberCount ? ` • ${group.memberCount} members` : ""}
-              </p>
-            </div>
+          </div>
+          <div style={styles.headerTitleGroup}>
+            <h1 style={styles.title}>💬 {group?.name ? `${group.name} Discussion` : "Group Discussion"}</h1>
+            <p style={styles.subtitle}>
+              {group?.tripTitle ? `Trip: ${group.tripTitle}` : "Persistent Group Chat"}
+              {group?.memberCount ? ` • ${group.memberCount} members` : ""}
+            </p>
           </div>
         </div>
 
@@ -196,10 +200,12 @@ const GroupDiscussion = () => {
 };
 
 const styles = {
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexShrink: 0 },
-  headerTitleGroup: { display: "flex", alignItems: "center", gap: "16px" },
-  title: { fontSize: "24px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },
-  subtitle: { color: "#94a3b8", fontSize: "13px", marginTop: "2px" },
+  header: { display: "flex", flexDirection: "column", gap: "12px", marginBottom: "16px", flexShrink: 0 },
+  headerTop: { display: "flex", alignItems: "center", justifyContent: "flex-start" },
+  backBtn: { fontSize: "13px", padding: "6px 14px", display: "inline-flex", alignItems: "center", gap: "6px" },
+  headerTitleGroup: { display: "flex", flexDirection: "column", gap: "2px" },
+  title: { fontSize: "24px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", margin: 0 },
+  subtitle: { color: "#94a3b8", fontSize: "13px", margin: 0 },
   chatCard: { flex: 1, padding: "20px", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 },
   messageList: { flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", paddingRight: "8px", marginBottom: "16px" },
   emptyChat: { color: "#94a3b8", fontSize: "14px", fontStyle: "italic", margin: "auto", textAlign: "center" },
