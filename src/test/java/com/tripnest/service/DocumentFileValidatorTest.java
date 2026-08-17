@@ -78,4 +78,24 @@ public class DocumentFileValidatorTest {
         MockMultipartFile file = new MockMultipartFile("file", "malicious.pdf", "application/pdf", exeBytes);
         assertThrows(IllegalArgumentException.class, () -> validator.validateFile(file));
     }
+
+    @Test
+    @DisplayName("Valid image formats pass validateImageFile")
+    void testValidateImageFile_Success() {
+        byte[] jpegBytes = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
+        MockMultipartFile jpegFile = new MockMultipartFile("photo", "sunset.jpg", "image/jpeg", jpegBytes);
+        assertDoesNotThrow(() -> validator.validateImageFile(jpegFile));
+
+        byte[] pngBytes = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+        MockMultipartFile pngFile = new MockMultipartFile("photo", "peaks.png", "image/png", pngBytes);
+        assertDoesNotThrow(() -> validator.validateImageFile(pngFile));
+    }
+
+    @Test
+    @DisplayName("Non-image formats (PDF, DOCX) fail validateImageFile")
+    void testValidateImageFile_RejectsNonImages() {
+        byte[] pdfBytes = "%PDF-1.4 sample content".getBytes();
+        MockMultipartFile pdfFile = new MockMultipartFile("photo", "doc.pdf", "application/pdf", pdfBytes);
+        assertThrows(IllegalArgumentException.class, () -> validator.validateImageFile(pdfFile));
+    }
 }

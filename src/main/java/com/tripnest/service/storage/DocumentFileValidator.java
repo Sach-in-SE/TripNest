@@ -67,6 +67,48 @@ public class DocumentFileValidator {
         }
     }
 
+    public void validateImageFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Invalid upload: Photo file is empty or missing.");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new IllegalArgumentException("Photo file size exceeds maximum allowed limit of 10MB.");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename != null) {
+            String sanitizedName = originalFilename.trim();
+            if (sanitizedName.contains("..") || sanitizedName.contains("/") || sanitizedName.contains("\\") || sanitizedName.contains("\0")) {
+                throw new SecurityException("Illegal filename or path traversal detected.");
+            }
+
+            String ext = extractExtension(sanitizedName).toLowerCase();
+            if (!Arrays.asList("jpg", "jpeg", "png", "webp").contains(ext)) {
+                throw new IllegalArgumentException("Unsupported image format: ." + ext + ". Allowed formats: JPEG, PNG, WEBP.");
+            }
+        }
+
+        String contentType = file.getContentType();
+        if (contentType != null && !Arrays.asList("image/jpeg", "image/jpg", "image/png", "image/webp").contains(contentType.toLowerCase().trim())) {
+            throw new IllegalArgumentException("Unsupported image MIME type: " + contentType + ". Allowed formats: JPEG, PNG, WEBP.");
+        }
+
+        try (InputStream inputStream = file.getInputStream()) {
+            byte[] header = new byte[16];
+            int bytesRead = inputStream.read(header, 0, header.length);
+            if (bytesRead > 0) {
+                String ext = extractExtension(originalFilename).toLowerCase();
+                if ("pdf".equals(ext) || "docx".equals(ext) || "txt".equals(ext)) {
+                    throw new IllegalArgumentException("Invalid file format: Only JPEG, PNG, and WEBP images are allowed for travel memories.");
+                }
+                verifyMagicBytes(header, bytesRead, ext);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to inspect photo contents for security validation.", e);
+        }
+    }
+
     private void verifyMagicBytes(byte[] header, int length, String extension) {
         String ext = extension.toLowerCase();
 

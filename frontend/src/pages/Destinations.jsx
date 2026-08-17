@@ -17,6 +17,8 @@ const Destinations = () => {
   const [sortBy, setSortBy] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [favoriteSet, setFavoriteSet] = useState(new Set());
+  const [togglingFavId, setTogglingFavId] = useState(null);
 
   // Admin Modal & Form state
   const [showAdminModal, setShowAdminModal] = useState(false);
@@ -39,8 +41,20 @@ const Destinations = () => {
 
   const categories = ["Beach", "Mountains", "Historical", "Adventure", "Spiritual", "Wildlife", "City"];
 
+  const fetchUserFavorites = async () => {
+    if (!localStorage.getItem("token")) return;
+    try {
+      const res = await api.get("/favorites");
+      const favIds = new Set((res.data || []).map((f) => f.destinationId));
+      setFavoriteSet(favIds);
+    } catch {
+      // Non-blocking fallback for favorites
+    }
+  };
+
   useEffect(() => {
     fetchDestinations();
+    fetchUserFavorites();
   }, []);
 
   useEffect(() => {
@@ -181,6 +195,37 @@ const Destinations = () => {
 
   const handleExplore = (destination) => {
     navigate(`/destinations/${destination.id}`);
+  };
+
+  const handleToggleFavorite = async (dest, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!localStorage.getItem("token") || !user) {
+      navigate("/login");
+      return;
+    }
+    if (togglingFavId === dest.id) return;
+
+    setTogglingFavId(dest.id);
+    const isFav = favoriteSet.has(dest.id);
+    try {
+      if (isFav) {
+        await api.delete(`/favorites/${dest.id}`);
+        setFavoriteSet((prev) => {
+          const next = new Set(prev);
+          next.delete(dest.id);
+          return next;
+        });
+      } else {
+        await api.post("/favorites", { destinationId: dest.id });
+        setFavoriteSet((prev) => new Set(prev).add(dest.id));
+      }
+    } catch (err) {
+      console.error("Failed to update favorites:", err);
+      alert(err.response?.data?.message || "Failed to update favorites.");
+    } finally {
+      setTogglingFavId(null);
+    }
   };
 
   // Admin Modal Handlers
@@ -417,6 +462,31 @@ const Destinations = () => {
                     )}
                     <span style={styles.cardCategoryBadge}>{dest.category}</span>
                     <span style={styles.cardRatingBadge}>⭐ {dest.rating?.toFixed(1) || "4.0"}</span>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.favoriteBtn,
+                        ...(favoriteSet.has(dest.id) ? styles.favoriteBtnActive : {}),
+                      }}
+                      onClick={(e) => handleToggleFavorite(dest, e)}
+                      disabled={togglingFavId === dest.id}
+                      aria-label={favoriteSet.has(dest.id) ? `Remove ${dest.name} from favorites` : `Add ${dest.name} to favorites`}
+                      aria-pressed={favoriteSet.has(dest.id)}
+                      title={favoriteSet.has(dest.id) ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill={favoriteSet.has(dest.id) ? "#ef4444" : "none"}
+                        stroke={favoriteSet.has(dest.id) ? "#ef4444" : "#ffffff"}
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ width: "17px", height: "17px" }}
+                        aria-hidden="true"
+                      >
+                        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                      </svg>
+                    </button>
                   </div>
 
                   <div style={styles.cardContent}>
@@ -697,7 +767,9 @@ const styles = {
   cardImage: { width: "100%", height: "100%", objectFit: "cover" },
   cardImagePlaceholder: { width: "100%", height: "100%", background: "linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(6,182,212,0.15) 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" },
   cardCategoryBadge: { position: "absolute", top: "12px", left: "12px", background: "rgba(15, 23, 42, 0.85)", backdropFilter: "blur(6px)", color: "#38bdf8", fontSize: "11px", fontWeight: "600", padding: "4px 10px", borderRadius: "20px", border: "1px solid rgba(56, 189, 248, 0.2)" },
-  cardRatingBadge: { position: "absolute", top: "12px", right: "12px", background: "rgba(15, 23, 42, 0.85)", backdropFilter: "blur(6px)", color: "#fcd34d", fontSize: "11px", fontWeight: "600", padding: "4px 10px", borderRadius: "20px", border: "1px solid rgba(252, 211, 77, 0.2)" },
+  cardRatingBadge: { position: "absolute", top: "12px", right: "52px", background: "rgba(15, 23, 42, 0.85)", backdropFilter: "blur(6px)", color: "#fcd34d", fontSize: "11px", fontWeight: "600", padding: "4px 10px", borderRadius: "20px", border: "1px solid rgba(252, 211, 77, 0.2)" },
+  favoriteBtn: { position: "absolute", top: "10px", right: "10px", width: "34px", height: "34px", borderRadius: "50%", background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", border: "1px solid rgba(255, 255, 255, 0.2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5, padding: 0, outline: "none" },
+  favoriteBtnActive: { background: "rgba(239, 68, 68, 0.22)", borderColor: "rgba(239, 68, 68, 0.6)" },
   cardContent: { padding: "18px", flex: 1, display: "flex", flexDirection: "column" },
   destName: { fontSize: "18px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
   destLocation: { color: "#94a3b8", fontSize: "13px", marginBottom: "10px" },

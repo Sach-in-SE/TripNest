@@ -40,6 +40,8 @@ export const MobileDrawer = ({ isOpen, onClose }) => {
     { path: '/itineraries', label: 'Itineraries', icon: '📅' },
     { path: '/budget', label: 'Budget', icon: '💰' },
     { path: '/destinations', label: 'Destinations', icon: '🌍' },
+    { path: '/favorites', label: 'Favorites', icon: '❤️' },
+    { path: '/memories', label: 'Memories', icon: '📸' },
     { path: '/groups', label: 'Groups', icon: '👥' },
     { path: '/documents', label: 'Documents', icon: '📁' },
   ];

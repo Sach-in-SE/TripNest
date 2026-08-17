@@ -10,6 +10,8 @@ const PRIMARY_TRAVELER_NAV = [
   { path: "/itineraries", icon: "📅", label: "Itineraries" },
   { path: "/budget", icon: "💰", label: "Budget" },
   { path: "/destinations", icon: "🌍", label: "Destinations" },
+  { path: "/favorites", icon: "❤️", label: "Favorites" },
+  { path: "/memories", icon: "📸", label: "Memories" },
   { path: "/groups", icon: "👥", label: "Groups" },
   { path: "/documents", icon: "📁", label: "Documents" },
 ];
@@ -98,6 +100,8 @@ const Sidebar = () => {
     if (pathname.startsWith("/itineraries")) return { title: "Trip Itineraries", icon: "📅" };
     if (pathname.startsWith("/budget")) return { title: "Budget Tracker", icon: "💰" };
     if (pathname.startsWith("/destinations")) return { title: "Destinations Catalog", icon: "🌍" };
+    if (pathname.startsWith("/favorites")) return { title: "Favorite Destinations", icon: "❤️" };
+    if (pathname.startsWith("/memories")) return { title: "Travel Memories", icon: "📸" };
     if (pathname.startsWith("/groups")) return { title: "Group Travel", icon: "👥" };
     if (pathname.startsWith("/documents")) return { title: "Travel Documents", icon: "📁" };
     if (pathname.startsWith("/notifications")) return { title: "Notifications", icon: "🔔" };

@@ -132,6 +132,10 @@ public class WebSecurityConfig {
                                 "/api/notifications/**")
                         .authenticated()
 
+                        // Travel Memories public gallery and photo serving
+                        .requestMatchers(HttpMethod.GET, "/api/memories/public", "/api/memories/photo/**").permitAll()
+                        .requestMatchers("/api/memories", "/api/memories/**").authenticated()
+
                         // Everything else requires authentication
                         .anyRequest().authenticated())
 

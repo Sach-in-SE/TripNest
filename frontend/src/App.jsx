@@ -15,6 +15,8 @@ import EditTrip from "./pages/EditTrip";
 import Itineraries from "./pages/Itineraries";
 import Destinations from "./pages/Destinations";
 import DestinationDetails from "./pages/DestinationDetails";
+import Favorites from "./pages/Favorites";
+import Memories from "./pages/Memories";
 import Profile from "./pages/Profile";
 import Budget from "./pages/Budget";
 import Notifications from "./pages/Notifications";
@@ -75,6 +77,7 @@ function App() {
             <Route path="/oauth2/redirect" element={<OAuth2Redirect />} />
             <Route path="/destinations" element={<Destinations />} />
             <Route path="/destinations/:id" element={<DestinationDetails />} />
+            <Route path="/favorites" element={<PrivateRoute><Favorites /></PrivateRoute>} />
 
             {/* Protected Traveler Routes */}
             <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -94,6 +97,7 @@ function App() {
             <Route path="/groups/:id" element={<PrivateRoute><GroupDetails /></PrivateRoute>} />
             <Route path="/groups/:id/discussion" element={<PrivateRoute><GroupDiscussion /></PrivateRoute>} />
             <Route path="/documents" element={<PrivateRoute><Documents /></PrivateRoute>} />
+            <Route path="/memories" element={<PrivateRoute><Memories /></PrivateRoute>} />
 
             {/* Dedicated Admin Portal Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
