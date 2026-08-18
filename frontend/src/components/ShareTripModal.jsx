@@ -29,7 +29,7 @@ const ShareTripModal = ({ tripId, canManageShares = false, onClose }) => {
       setPermission("VIEW");
       fetchShares();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to share trip. Check the email.");
+      setError(err.response?.data?.message || "Unable to share trip. Please check the email and try again.");
     } finally {
       setSubmitting(false);
     }

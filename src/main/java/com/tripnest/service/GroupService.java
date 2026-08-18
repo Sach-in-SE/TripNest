@@ -172,7 +172,7 @@ public class GroupService {
         }
 
         User invitedUser = userRepository.findByEmailIgnoreCase(request.getEmail().trim())
-                .orElseThrow(() -> new RuntimeException("No registered user found with that email"));
+                .orElseThrow(() -> new RuntimeException("No registered user found with that email. Please ask them to register first."));
 
         if (invitedUser.getId().equals(userId)) {
             throw new RuntimeException("You cannot invite yourself");

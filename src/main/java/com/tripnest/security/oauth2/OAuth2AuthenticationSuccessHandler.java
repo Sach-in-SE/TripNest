@@ -23,7 +23,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     @Autowired
     private UserRepository userRepository;
 
-    private static final String FRONTEND_REDIRECT_URL = "http://localhost:5173/oauth2/redirect";
+    @org.springframework.beans.factory.annotation.Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -39,8 +40,11 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         // Generate JWT token using username to match existing JWT authentication system
         String token = jwtUtils.generateJwtToken(user.getUsername());
 
-        // Redirect to frontend with token in URL parameter
-        String targetUrl = FRONTEND_REDIRECT_URL + "?token=" + token;
+        // Redirect to frontend with token in URL parameter, normalizing trailing slashes
+        String base = (frontendUrl != null && !frontendUrl.trim().isEmpty())
+                ? frontendUrl.trim().replaceAll("/+$", "")
+                : "http://localhost:5173";
+        String targetUrl = base + "/oauth2/redirect?token=" + token;
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 }

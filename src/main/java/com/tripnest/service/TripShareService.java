@@ -8,6 +8,7 @@ import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.TripShareRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,21 +39,25 @@ public class TripShareService {
     @Transactional
     public TripShareResponse inviteUser(TripShareRequest request, Long ownerId) {
         Trip trip = tripRepository.findById(request.getTripId())
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Trip not found"));
 
         if (!trip.getUser().getId().equals(ownerId)) {
-            throw new RuntimeException("Only the trip owner can share this trip");
+            throw new AccessDeniedException("Only the trip owner can share this trip");
         }
 
-        User targetUser = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("No user found with this email"));
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("Email is required");
+        }
+
+        User targetUser = userRepository.findByEmail(request.getEmail().trim())
+                .orElseThrow(() -> new IllegalArgumentException("No registered user found with that email. Please ask them to register first."));
 
         if (targetUser.getId().equals(ownerId)) {
-            throw new RuntimeException("You cannot share a trip with yourself");
+            throw new IllegalArgumentException("You cannot share a trip with yourself");
         }
 
         User owner = userRepository.findById(ownerId)
-                .orElseThrow(() -> new RuntimeException("Owner not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Owner not found"));
 
         // Create or reset an existing share record
         TripShare share = tripShareRepository

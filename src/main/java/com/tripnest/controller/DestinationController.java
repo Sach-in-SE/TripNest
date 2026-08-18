@@ -83,6 +83,7 @@ public class DestinationController {
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<?> updateDestination(
             @PathVariable Long id,
+            
             @Valid @RequestBody DestinationRequest request) {
         DestinationResponse response = destinationService.updateDestination(id, request);
         return ResponseEntity.ok(response);

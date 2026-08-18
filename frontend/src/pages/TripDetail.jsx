@@ -66,14 +66,21 @@ const TripDetail = () => {
 
   const handleCreateActivity = async () => {
     try {
-      await TripService.createActivity({ ...activityForm, itineraryId: selectedItineraryId });
+      await TripService.createActivity({
+        ...activityForm,
+        itineraryId: selectedItineraryId,
+        cost: activityForm.cost ? parseFloat(activityForm.cost) : null,
+      });
       setShowActivityForm(false);
       setActivityForm({
         title: "", description: "", startTime: "", endTime: "",
         location: "", type: "SIGHTSEEING", cost: "",
       });
       fetchTripData();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to add activity. Please check input values.");
+    }
   };
 
   const handleDeleteActivity = async (activityId) => {
@@ -282,8 +289,16 @@ const TripDetail = () => {
                   <label style={styles.label}>Type</label>
                   <select className="aurora-input" value={activityForm.type}
                     onChange={(e) => setActivityForm({ ...activityForm, type: e.target.value })}>
-                    {["SIGHTSEEING", "FOOD", "TRANSPORT", "SHOPPING", "ENTERTAINMENT", "OTHER"].map(t => (
-                      <option key={t} value={t} style={{ background: "#0d1529" }}>{t}</option>
+                    {[
+                      { value: "SIGHTSEEING", label: "Sightseeing" },
+                      { value: "TRANSPORTATION", label: "Transportation" },
+                      { value: "ACCOMMODATION", label: "Accommodation" },
+                      { value: "DINING", label: "Dining" },
+                      { value: "ADVENTURE", label: "Adventure" },
+                      { value: "SHOPPING", label: "Shopping" },
+                      { value: "OTHER", label: "Other" }
+                    ].map(t => (
+                      <option key={t.value} value={t.value} style={{ background: "#0d1529" }}>{t.label}</option>
                     ))}
                   </select>
                 </div>

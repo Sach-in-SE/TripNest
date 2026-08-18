@@ -35,6 +35,9 @@ public class WebSecurityConfig {
     @Autowired
     private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
 
+    @org.springframework.beans.factory.annotation.Value("${tripnest.cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
+    private String allowedOrigins;
+
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
         return new AuthTokenFilter();
@@ -59,12 +62,23 @@ public class WebSecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
 
+                .headers(headers -> headers
+                        .contentTypeOptions(org.springframework.security.config.Customizer.withDefaults())
+                        .frameOptions(frame -> frame.deny())
+                        .referrerPolicy(referrer -> referrer.policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31536000)))
+
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfig = new org.springframework.web.cors.CorsConfiguration();
 
-                    corsConfig.setAllowedOrigins(java.util.List.of(
-                            "http://localhost:5173",
-                            "http://localhost:5174"));
+                    java.util.List<String> origins = java.util.Arrays.stream(allowedOrigins.split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .collect(java.util.stream.Collectors.toList());
+
+                    corsConfig.setAllowedOrigins(origins.isEmpty() ? java.util.List.of("http://localhost:5173", "http://localhost:5174") : origins);
 
                     corsConfig.setAllowedMethods(java.util.List.of(
                             "GET",
@@ -92,6 +106,9 @@ public class WebSecurityConfig {
 
                         // CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Actuator health & info probes
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
 
                         // Public authentication APIs
                         .requestMatchers("/api/auth/**").permitAll()

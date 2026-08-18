@@ -9,6 +9,7 @@ import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.TripRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BudgetService {
@@ -25,6 +26,7 @@ public class BudgetService {
     @Autowired
     private TripShareService tripShareService;
 
+    @Transactional
     public BudgetResponse createOrUpdateBudget(BudgetRequest request, Long userId) {
         Trip trip = tripRepository.findById(request.getTripId())
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
@@ -53,6 +55,11 @@ public class BudgetService {
         budget.setRemainingAmount(budget.getTotalAmount() - budget.getSpentAmount());
 
         Budget saved = budgetRepository.save(budget);
+
+        // Synchronize trip.budget for consistency with dashboard queries
+        trip.setBudget(request.getTotalAmount());
+        tripRepository.save(trip);
+
         return mapToResponse(saved);
     }
 

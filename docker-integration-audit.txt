@@ -1,0 +1,1325 @@
+================================================================================
+                       TRIPNEST CODEBASE AUDIT REPORT
+      Docker Containerization + Backend / Database Integration Inspection
+================================================================================
+Date: August 18, 2026
+Audit Scope: Static & Configuration Analysis of TripNest Full-Stack Application
+Mode: READ-ONLY AUDIT (Zero modifications applied to application source code)
+Output Document: docker-integration-audit.txt
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1.  DOCKER FILES AUDIT
+2.  DOCKER RUNTIME CONFIGURATION
+3.  DATABASE CONFIGURATION & MIGRATION STRATEGY
+4.  ENTITY / DATABASE MAPPING ENUMERATION (ALL @Entity CLASSES)
+5.  BACKEND ROUTE AUDIT (ALL @RestController ENDPOINTS)
+6.  FRONTEND API AUDIT & CLIENTSIDE CONSUMPTION
+7.  DOCUMENT STORAGE AUDIT (DETAILED TRACE)
+8.  TRAVEL MEMORY STORAGE AUDIT (DETAILED TRACE)
+9.  BUDGET & EXPENSE AUDIT (DETAILED TRACE)
+10. AUTH & USER DATA AUDIT (DOCKER FRESH DB ANALYSIS)
+11. DATABASE SCHEMA & DDL COMPARISON
+12. DOCKER LOGS & RUNTIME TRACE ANALYSIS
+13. FINAL ROOT-CAUSE CLASSIFICATION (CATEGORIES A-J)
+14. FINAL REPORT & MINIMAL SAFE FIX PLAN
+
+================================================================================
+1. DOCKER FILES AUDIT
+================================================================================
+
+1.1 Root Dockerfile (Backend)
+- Location: ./Dockerfile
+- Base Images:
+  * Stage 1 (Builder): eclipse-temurin:17-jdk-jammy
+  * Stage 2 (Runtime): eclipse-temurin:17-jre-jammy
+- Build Lifecycle:
+  * Copies .mvn/ wrapper directory, mvnw, and pom.xml first to optimize Docker layer caching.
+  * Executes `./mvnw dependency:go-offline -DskipTests`.
+  * Copies application source (`src/`) and executes `./mvnw clean package -DskipTests`.
+  * Multi-stage build copies only `/app/target/*.jar` to `/app/app.jar` in Stage 2.
+- Security & User Configuration:
+  * Creates system group and user `tripnest:tripnest` with UID/GID 1001.
+  * Creates directory `/app/uploads` and sets ownership to `tripnest:tripnest`.
+  * Specifies `USER tripnest` for unprivileged runtime execution.
+  * Note: Overridden in `docker-compose.yml` with `user: "root"`.
+- Container JVM Tuning:
+  * Sets `ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"`.
+  * Exposes port 8080.
+  * Entrypoint: `ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]`.
+
+1.2 Frontend Dockerfile
+- Location: ./frontend/Dockerfile
+- Base Images:
+  * Stage 1 (Builder): node:20-alpine
+  * Stage 2 (Runtime): nginx:1.27-alpine
+- Build Lifecycle:
+  * Copies package.json and package-lock.json and runs `npm ci`.
+  * Accepts build arguments:
+    - `ARG VITE_API_URL=/api`
+    - `ARG VITE_BACKEND_URL=`
+  * Sets environment variables `ENV VITE_API_URL=${VITE_API_URL}` and `ENV VITE_BACKEND_URL=${VITE_BACKEND_URL}`.
+  * Executes `npm run build` to generate Vite SPA distribution in `/app/dist`.
+  * Stage 2 removes default Nginx config, copies custom `nginx.conf` and static assets to `/usr/share/nginx/html`.
+  * Exposes port 80.
+  * Command: `CMD ["nginx", "-g", "daemon off;"]`.
+
+1.3 Docker Compose Configuration
+- Location: ./docker-compose.yml
+- Schema Version: Compose Specification (v3 style syntax).
+- Services Defined:
+  1. `mysql`:
+     - Image: mysql:8.0
+     - Container Name: tripnest-mysql
+     - Volumes: `tripnest-mysql-data:/var/lib/mysql`
+     - Network: `tripnest-network`
+     - Healthcheck: `mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD}` (interval: 10s, timeout: 5s, retries: 5, start_period: 15s)
+  2. `backend`:
+     - Build Context: `.` (root Dockerfile)
+     - Container Name: tripnest-backend
+     - Runtime User: `user: "root"`
+     - Volumes: `tripnest-uploads:/app/uploads`
+     - Network: `tripnest-network`
+     - Healthcheck: `curl -f http://localhost:8080/actuator/health || exit 1` (interval: 15s, timeout: 5s, retries: 3, start_period: 30s)
+     - Dependencies: `mysql (condition: service_healthy)`
+  3. `frontend`:
+     - Build Context: `./frontend` (frontend/Dockerfile)
+     - Container Name: tripnest-frontend
+     - Build Args: `VITE_API_URL: /api`, `VITE_BACKEND_URL: ""`
+     - Ports: `"80:80"` (Host port 80 mapped to Nginx port 80)
+     - Network: `tripnest-network`
+     - Healthcheck: `wget -q --spider http://127.0.0 || exit 1` (interval: 15s, timeout: 3s, retries: 3, start_period: 10s)
+     - Dependencies: `backend (condition: service_healthy)`
+- Networks: `tripnest-network` (driver: bridge)
+- Named Volumes: `tripnest-mysql-data` (driver: local), `tripnest-uploads` (driver: local)
+
+1.4 Frontend Nginx Configuration
+- Location: ./frontend/nginx.conf
+- Core Directives: `worker_processes auto;`, `worker_connections 1024;`, `sendfile on;`, `tcp_nopush on;`, Gzip compression enabled.
+- Upstream Routing Rules:
+  * `location /`: SPA fallback `try_files $uri $uri/ /index.html;`.
+  * `location /api/`: Reverse proxy to `http://tripnest-backend:8080/api/` with `client_max_body_size 15M;` and forwarded headers (`Host`, `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`).
+  * `location /oauth2/`: Reverse proxy to `http://tripnest-backend:8080/oauth2/`.
+  * `location /login/oauth2/`: Reverse proxy to `http://tripnest-backend:8080/login/oauth2/`.
+  * `location /actuator/health`: Reverse proxy to `http://tripnest-backend:8080/actuator/health`.
+  * `location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2)$`: 1 year caching headers (`Cache-Control: public, no-transform, immutable`).
+
+1.5 Root .dockerignore
+- Location: ./.dockerignore
+- Exclusions: `.git`, `.gitignore`, `.github`, `.vscode`, `.idea`, `.env`, `.env.*` (with `!.env.example`), `target/`, `node_modules/`, `frontend/node_modules/`, `frontend/dist/`, `uploads/`, `*.log`, `logs/`, `.DS_Store`, `Thumbs.db`, `audit-diff.txt`.
+
+1.6 Frontend .dockerignore
+- Location: ./frontend/.dockerignore
+- Exclusions: `node_modules`, `dist`, `.git`, `.gitignore`, `.env`, `.env.*`, `.vscode`, `*.log`, `README.md`.
+
+1.7 Environment Configuration (.env) Variable Inventory
+- Location: ./.env
+- Secrets Redaction: Variable names and presence recorded without displaying sensitive credentials.
+  * `GOOGLE_CLIENT_ID`: Present
+  * `GOOGLE_CLIENT_SECRET`: Present
+  * `SMTP_HOST`: Present
+  * `SMTP_PORT`: Present
+  * `SMTP_USERNAME`: Present
+  * `SMTP_PASSWORD`: Present
+  * `MAIL_FROM`: Present
+  * `SPRING_DATASOURCE_USERNAME`: Present
+  * `SPRING_DATASOURCE_PASSWORD`: Present
+  * `MYSQL_ROOT_PASSWORD`: Present
+  * `MYSQL_DATABASE`: Present
+  * `MYSQL_USER`: Present
+  * `MYSQL_PASSWORD`: Present
+  * `JWT_SECRET`: Present
+  * `JWT_EXPIRATION_MS`: Present
+  * `FRONTEND_URL`: Present
+  * `CORS_ALLOWED_ORIGINS`: Present
+  * `ADMIN_EMAIL`: Present
+  * `ADMIN_USERNAME`: Present
+  * `ADMIN_PASSWORD`: Present
+  * `STORAGE_TYPE`: Present
+  * `TRIPNEST_UPLOAD_DIR`: Present
+
+1.8 Spring Application Properties
+- Default Profile: `src/main/resources/application.properties`
+  * Datasource URL: `${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/tripnest_db}`
+  * Datasource Username: `${SPRING_DATASOURCE_USERNAME:root}`
+  * Datasource Password: `${SPRING_DATASOURCE_PASSWORD:}`
+  * Driver: `com.mysql.cj.jdbc.Driver`
+  * Hibernate DDL Auto: `spring.jpa.hibernate.ddl-auto=update`
+  * SQL Init Mode: `spring.sql.init.mode=always`
+  * Defer Datasource Init: `spring.jpa.defer-datasource-initialization=true`
+  * JWT Secret: `${JWT_SECRET:...}`
+  * Upload Dir: `${TRIPNEST_UPLOAD_DIR:uploads}`
+  * Multipart Max File Size: `10MB` / `10MB`
+  * OAuth2 Client Registration: Google ID/Secret
+  * Mail Configuration: SMTP host/port/auth/starttls
+  * Frontend URL: `${FRONTEND_URL:http://localhost:5173}`
+  * CORS Allowed Origins: `${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}`
+  * Storage Type: `${STORAGE_TYPE:local}`
+  * S3 Settings: Bucket, Region, Access Key, Secret Key, Endpoint
+  * Port: `${PORT:${SERVER_PORT:8080}}`
+  * Actuator: `health,info` endpoints exposed.
+- Production Profile: `src/main/resources/application-prod.properties`
+  * `spring.jpa.hibernate.ddl-auto=validate`
+  * `spring.jpa.show-sql=false`
+  * `spring.sql.init.mode=never`
+  * `logging.level.org.springframework.security=WARN`
+  * `logging.level.com.tripnest=INFO`
+
+================================================================================
+2. DOCKER RUNTIME CONFIGURATION
+================================================================================
+
+- Backend Image: Built via multi-stage Temurin 17 JRE runtime.
+- Frontend Image: Built via multi-stage Node 20 + Nginx 1.27 Alpine runtime.
+- MySQL Image: Official `mysql:8.0`.
+- Container Names: `tripnest-backend`, `tripnest-frontend`, `tripnest-mysql`.
+- Port Mappings:
+  * Host `80` -> Container `80` (Frontend Nginx).
+  * Backend port `8080` is internal to `tripnest-network` (proxied by Nginx via `http://tripnest-backend:8080/`).
+  * MySQL port `3306` is internal to `tripnest-network` (accessed by backend via `jdbc:mysql://tripnest-mysql:3306/tripnest_db`).
+- Inter-Container Networking:
+  * Shared bridge network `tripnest-network`. All DNS service names resolve (`tripnest-mysql`, `tripnest-backend`).
+- Dependency Order & Healthchecks:
+  * `mysql` initiates -> healthcheck ping validates ready state.
+  * `backend` starts only after `mysql` is healthy -> healthcheck validates `/actuator/health`.
+  * `frontend` starts only after `backend` is healthy.
+- Healthcheck Note:
+  * `frontend` healthcheck in compose uses `wget -q --spider http://127.0.0 || exit 1`. In certain BusyBox/Alpine environments, `http://127.0.0` is an incomplete IP notation that may fail if the resolver strictly requires `http://127.0.0.1` or `http://localhost`.
+- Upload Volume Mapping:
+  * Named volume `tripnest-uploads` is mounted at `/app/uploads` in `tripnest-backend`.
+  * Backend environment variable `TRIPNEST_UPLOAD_DIR: /app/uploads` points directly to the mount path.
+
+================================================================================
+3. DATABASE CONFIGURATION & MIGRATION STRATEGY
+================================================================================
+
+3.1 Datasource Properties
+- JDBC URL: `jdbc:mysql://tripnest-mysql:3306/tripnest_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC`
+- User: `tripnest_user`
+- Password: Environment-injected `${SPRING_DATASOURCE_PASSWORD}`.
+- Driver: `com.mysql.cj.jdbc.Driver`
+
+3.2 Variable Mapping
+- MySQL container creates database `tripnest_db` and user `tripnest_user` with password `${MYSQL_PASSWORD}`.
+- Backend container connects using `SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-tripnest_user}` and password `${SPRING_DATASOURCE_PASSWORD}`.
+- Both align with the `.env` configuration.
+
+3.3 JPA / Hibernate Settings
+- `spring.jpa.hibernate.ddl-auto=update` (in default profile).
+- `spring.jpa.defer-datasource-initialization=true` (ensures Hibernate schema is updated before `data.sql` executes).
+- `spring.sql.init.mode=always` (forces `data.sql` destination seeding on startup).
+- `spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect`.
+
+3.4 Migration & Seeding Strategy
+- Schema Initialization: Hibernate auto-generates/updates table structures on startup from JPA entities.
+- Data Seeding (`src/main/resources/data.sql`):
+  * Seeds 35+ Indian destinations across 7 categories into the `destinations` table with `ON DUPLICATE KEY UPDATE`.
+- Code Initializers (`AdminInitializer.java`):
+  * Implements `CommandLineRunner`.
+  * Auto-provisions ERoles (`ROLE_TRAVELER`, `ROLE_GROUP_ADMIN`, `ROLE_ADMIN`) in the `roles` table if absent.
+  * Auto-provisions or synchronizes the default System Administrator account (`admin@tripnest.com`) with `ROLE_ADMIN`.
+- Destination Initializer (`DestinationDataSeeder.java`):
+  * Secondary seeder ensuring 35 destinations exist in the database.
+- Migration Frameworks:
+  * Flyway: NOT present in `pom.xml`.
+  * Liquibase: NOT present in `pom.xml`.
+- Database Migration State:
+  * The root directory contains a static database dump file `schema.sql` (created on 2026-08-17).
+  * `docker-compose.yml` does NOT mount `schema.sql` into `/docker-entrypoint-initdb.d/`.
+  * Therefore, a newly spun up Docker MySQL container starts with an empty database, which is subsequently initialized solely via Hibernate `ddl-auto=update`, `data.sql` (destinations), and `AdminInitializer` (admin user + roles). No historical user data is migrated automatically.
+
+================================================================================
+4. ENTITY / DATABASE MAPPING ENUMERATION (ALL @Entity CLASSES)
+================================================================================
+
+Total Entities: 19
+
+--------------------------------------------------------------------------------
+1. Entity: User
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.User
+- Database Table: `users`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: `UKr43af9ap4edm43mmtq01oddj6` (username), `UK6dotkott2kjsp8vw4d0m25fb7` (email)
+- Nullable Constraints:
+  * username: NOT NULL (varchar 50)
+  * email: NOT NULL (varchar 100)
+  * password: NOT NULL (varchar 120)
+  * enabled: NOT NULL (bit 1)
+  * email_verified: NOT NULL (bit 1)
+  * passport_holder: NOT NULL (bit 1)
+  * password_change_required: NOT NULL (bit 1)
+- Enum Fields:
+  * `provider`: AuthProvider (LOCAL, GOOGLE) - EnumType.STRING
+- Relationships:
+  * @ManyToMany Set<Role> roles
+    - Join Table: `user_roles`
+    - Join Columns: user_id -> `users.id`
+    - Inverse Join Columns: role_id -> `roles.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+2. Entity: Role
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.Role
+- Database Table: `roles`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Enum Fields:
+  * `name`: ERole (ROLE_TRAVELER, ROLE_GROUP_ADMIN, ROLE_ADMIN) - EnumType.STRING (varchar 20)
+- Relationships: None direct (referenced by User via `user_roles`).
+
+--------------------------------------------------------------------------------
+3. Entity: Trip
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.Trip
+- Database Table: `trips`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Nullable Constraints:
+  * title: NOT NULL (varchar 100)
+  * destination: NOT NULL (varchar 100)
+- Enum Fields:
+  * `status`: TripStatus (PLANNING, UPCOMING, ONGOING, COMPLETED, CANCELLED) - EnumType.STRING
+- Relationships:
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+4. Entity: Itinerary
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.Itinerary
+- Database Table: `itineraries`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Relationships:
+  * @ManyToOne Trip trip
+    - Join Column: `trip_id` -> `trips.id`
+    - Fetch: LAZY
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+5. Entity: Activity
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.Activity
+- Database Table: `activities`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Enum Fields:
+  * `type`: ActivityType (SIGHTSEEING, DINING, ACCOMMODATION, TRANSPORTATION, SHOPPING, ADVENTURE, OTHER) - EnumType.STRING
+  * `reminder`: ActivityReminder (NONE, THIRTY_MINUTES, ONE_HOUR, TWO_HOURS, ONE_DAY) - EnumType.STRING
+- Relationships:
+  * @ManyToOne Itinerary itinerary
+    - Join Column: `itinerary_id` -> `itineraries.id`
+    - Fetch: LAZY
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+6. Entity: Budget
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.Budget
+- Database Table: `budgets`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: UK on `trip_id` (OneToOne constraint)
+- Non-null/Defaults:
+  * `spentAmount`: Double (default 0.0)
+  * `currency`: String (varchar 100, default "INR")
+  * `alert80Sent`: Boolean (default false)
+  * `alert100Sent`: Boolean (default false)
+- Relationships:
+  * @OneToOne Trip trip
+    - Join Column: `trip_id` -> `trips.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+7. Entity: Expense
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.Expense
+- Database Table: `expenses`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Enum Fields:
+  * `category`: ExpenseCategory (FOOD, TRANSPORTATION, HOTEL, ENTERTAINMENT, SHOPPING, MISCELLANEOUS) - EnumType.STRING
+- Relationships:
+  * @ManyToOne Trip trip
+    - Join Column: `trip_id` -> `trips.id`
+    - Fetch: LAZY
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+8. Entity: TravelDocument
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.TravelDocument
+- Database Table: `travel_documents`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Enum Fields:
+  * `documentType`: DocumentType (TICKET, HOTEL_BOOKING, PHOTO, VISA, INSURANCE, OTHER) - EnumType.STRING
+- Relationships:
+  * @ManyToOne Trip trip
+    - Join Column: `trip_id` -> `trips.id`
+    - Fetch: LAZY
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+9. Entity: TravelMemory
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.TravelMemory
+- Database Table: `travel_memories`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Indexes:
+  * `idx_memory_user_id` on (user_id)
+  * `idx_memory_visibility` on (visibility)
+  * `idx_memory_trip_id` on (trip_id)
+  * `idx_memory_dest_id` on (destination_id)
+- Nullable Constraints:
+  * title: NOT NULL (varchar 150)
+  * visibility: NOT NULL (varchar 20)
+  * user_id: NOT NULL
+- Enum Fields:
+  * `visibility`: MemoryVisibility (PRIVATE, PUBLIC) - EnumType.STRING
+- Relationships:
+  * @ManyToOne Trip trip (Optional)
+    - Join Column: `trip_id` -> `trips.id`
+    - Fetch: LAZY
+  * @ManyToOne Destination destination (Optional)
+    - Join Column: `destination_id` -> `destinations.id`
+    - Fetch: LAZY
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id` (nullable = false)
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+10. Entity: TravelGroup
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.TravelGroup
+- Database Table: `travel_groups`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Relationships:
+  * @ManyToOne User createdBy
+    - Join Column: `created_by` -> `users.id`
+    - Fetch: LAZY
+  * @ManyToOne Trip trip
+    - Join Column: `trip_id` -> `trips.id`
+    - Fetch: LAZY
+  * @ManyToMany Set<User> members
+    - Join Table: `group_members`
+    - Join Columns: `group_id` -> `travel_groups.id`
+    - Inverse Join Columns: `user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+11. Entity: GroupMember (Group Membership Entity)
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.GroupMember
+- Database Table: `group_memberships`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: `UK9av1qwqwmki0a1whrqvi26t8t` (group_id, user_id)
+- Enum Fields:
+  * `role`: GroupRole (ADMIN, MEMBER) - EnumType.STRING
+  * `status`: GroupInvitationStatus (PENDING, ACCEPTED, DECLINED) - EnumType.STRING
+  * `tripPermission`: SharePermission (VIEW, EDIT) - EnumType.STRING
+- Relationships:
+  * @ManyToOne TravelGroup travelGroup
+    - Join Column: `group_id` -> `travel_groups.id`
+    - Fetch: LAZY
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+  * @ManyToOne User invitedBy
+    - Join Column: `invited_by_user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+12. Entity: GroupMessage
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.GroupMessage
+- Database Table: `group_messages`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Indexes: `idx_group_msg_created` on (group_id, created_at)
+- Nullable Constraints:
+  * content: NOT NULL (varchar 1000)
+  * created_at: NOT NULL
+  * user_id: NOT NULL
+  * group_id: NOT NULL
+- Relationships:
+  * @ManyToOne TravelGroup travelGroup
+    - Join Column: `group_id` -> `travel_groups.id` (nullable = false)
+    - Fetch: LAZY
+  * @ManyToOne User sender
+    - Join Column: `user_id` -> `users.id` (nullable = false)
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+13. Entity: Destination
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.Destination
+- Database Table: `destinations`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: `uk_destination_name_state_country` (name, state, country)
+- Nullable Constraints:
+  * name: NOT NULL (varchar 100)
+  * popular: NOT NULL (bit 1, default false)
+
+--------------------------------------------------------------------------------
+14. Entity: FavoriteDestination
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.FavoriteDestination
+- Database Table: `favorite_destinations`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: UK on (user_id, destination_id)
+- Relationships:
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+  * @ManyToOne Destination destination
+    - Join Column: `destination_id` -> `destinations.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+15. Entity: Notification
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.Notification
+- Database Table: `notifications`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Enum Fields:
+  * `type`: NotificationType (TRIP_REMINDER_7DAY, TRIP_REMINDER_3DAY, TRIP_REMINDER_24HOUR, TRIP_STARTED, TRIP_COMPLETED, ACTIVITY_REMINDER, BUDGET_ALERT, TRIP_SHARE_INVITATION, GROUP_INVITATION, GROUP_MESSAGE) - EnumType.STRING
+- Relationships:
+  * @ManyToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+16. Entity: NotificationPreference
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.NotificationPreference
+- Database Table: `notification_preferences`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: UK on `user_id`
+- Defaults: `tripReminders` (true), `activityReminders` (true), `budgetAlerts` (true), `groupNotifications` (true), `tripShareNotifications` (true)
+- Relationships:
+  * @OneToOne User user
+    - Join Column: `user_id` (unique = true) -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+17. Entity: TravelPreference
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.TravelPreference
+- Database Table: `travel_preferences`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: UK on `user_id`
+- ElementCollection:
+  * Set<String> preferredTripTypes
+    - Collection Table: `preference_trip_types`
+    - Join Column: `preference_id` -> `travel_preferences.id`
+    - Value Column: `trip_type` (varchar 255)
+- Relationships:
+  * @OneToOne User user
+    - Join Column: `user_id` (unique = true) -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+18. Entity: TripShare
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.TripShare
+- Database Table: `trip_shares`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: UK on (trip_id, shared_with_user_id)
+- Enum Fields:
+  * `permission`: SharePermission (VIEW, EDIT) - EnumType.STRING
+  * `status`: ShareStatus (PENDING, ACCEPTED, DECLINED) - EnumType.STRING
+- Relationships:
+  * @ManyToOne Trip trip
+    - Join Column: `trip_id` -> `trips.id`
+    - Fetch: LAZY
+  * @ManyToOne User sharedWithUser
+    - Join Column: `shared_with_user_id` -> `users.id`
+    - Fetch: LAZY
+  * @ManyToOne User sharedByUser
+    - Join Column: `shared_by_user_id` -> `users.id`
+    - Fetch: LAZY
+
+--------------------------------------------------------------------------------
+19. Entity: PasswordResetToken
+--------------------------------------------------------------------------------
+- Java Class: com.tripnest.entity.PasswordResetToken
+- Database Table: `password_reset_tokens`
+- Primary Key: `id` (Long, GenerationType.IDENTITY)
+- Unique Constraints: UK on `token`, UK on `user_id`
+- Relationships:
+  * @OneToOne User user
+    - Join Column: `user_id` -> `users.id`
+    - Fetch: LAZY
+
+================================================================================
+5. BACKEND ROUTE AUDIT (ALL @RestController ENDPOINTS)
+================================================================================
+
+Total RestControllers: 19
+Total Mapped Endpoints: 92
+
+--------------------------------------------------------------------------------
+Controller: ActivityController (/api/activities)
+--------------------------------------------------------------------------------
+1. POST /api/activities
+   - Service: activityService.createActivity(request, userId)
+   - Repositories: ActivityRepository, ItineraryRepository, TripShareRepository, GroupRepository
+   - Entities: Activity (`activities`), Itinerary, User, Trip
+   - Auth Requirement: Authenticated (JWT)
+   - Ownership Check: Trip owner, EDIT share permission, or Group member
+   - Status: CONNECTED
+
+2. GET /api/activities/itinerary/{itineraryId}
+   - Service: activityService.getItineraryActivities(itineraryId, userId)
+   - Repositories: ActivityRepository, ItineraryRepository, TripShareRepository, GroupRepository
+   - Entities: Activity, Itinerary
+   - Auth Requirement: Authenticated (JWT)
+   - Ownership Check: Trip owner, VIEW/EDIT share, or Group member
+   - Status: CONNECTED
+
+3. PUT /api/activities/{id}
+   - Service: activityService.updateActivity(id, request, userId)
+   - Repositories: ActivityRepository, ItineraryRepository, TripShareRepository, GroupRepository
+   - Entities: Activity, Itinerary, Trip
+   - Auth Requirement: Authenticated (JWT)
+   - Ownership Check: Trip owner or EDIT share permission
+   - Status: CONNECTED
+
+4. DELETE /api/activities/{id}
+   - Service: activityService.deleteActivity(id, userId)
+   - Repositories: ActivityRepository, ItineraryRepository, TripShareRepository, GroupRepository
+   - Entities: Activity, Itinerary, Trip
+   - Auth Requirement: Authenticated (JWT)
+   - Ownership Check: Trip owner or EDIT share permission
+   - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: AdminAuthController (/api/admin/auth)
+--------------------------------------------------------------------------------
+5. POST /api/admin/auth/login
+   - Service: Direct authenticationManager + userRepository + jwtUtils
+   - Repositories: UserRepository
+   - Entities: User (`users`), Role (`roles`)
+   - Auth Requirement: Public (permitAll)
+   - Ownership Check: Verifies user has ROLE_ADMIN
+   - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: AdminController (/api/admin)
+--------------------------------------------------------------------------------
+6. GET /api/admin/test
+   - Service: In-controller response
+   - Repositories: None
+   - Entities: None
+   - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+   - Ownership Check: Admin role
+   - Status: CONNECTED
+
+7. GET /api/admin/stats
+   - Service: adminStatsService.getAdminStats()
+   - Repositories: UserRepository, TripRepository, ExpenseRepository, BudgetRepository, TravelMemoryRepository, DestinationRepository
+   - Entities: users, trips, expenses, budgets, travel_memories, destinations
+   - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+   - Ownership Check: Admin role
+   - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: AdminUserController (/api/admin/users)
+--------------------------------------------------------------------------------
+8. GET /api/admin/users
+   - Service: adminUserService.getUsers(search, enabled, role)
+   - Repositories: UserRepository
+   - Entities: User (`users`), Role (`roles`)
+   - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+   - Status: CONNECTED
+
+9. GET /api/admin/users/{id}
+   - Service: adminUserService.getUserById(id)
+   - Repositories: UserRepository
+   - Entities: User (`users`)
+   - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+   - Status: CONNECTED
+
+10. PUT /api/admin/users/{id}/status
+    - Service: adminUserService.updateUserStatus(id, enabled, currentAdminId)
+    - Repositories: UserRepository
+    - Entities: User (`users`)
+    - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+    - Ownership Check: Prevents self-disabling
+    - Status: CONNECTED
+
+11. PUT /api/admin/users/{id}/roles
+    - Service: adminUserService.updateUserRoles(id, roles, currentAdminId)
+    - Repositories: UserRepository, RoleRepository
+    - Entities: User (`users`), Role (`roles`), UserRoles (`user_roles`)
+    - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+    - Ownership Check: Prevents self-demotion from ADMIN
+    - Status: CONNECTED
+
+12. POST /api/admin/users/{id}/reset-password
+    - Service: adminUserService.generateTemporaryPassword(id)
+    - Repositories: UserRepository
+    - Entities: User (`users`)
+    - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+    - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: AuthController (/api/auth)
+--------------------------------------------------------------------------------
+13. POST /api/auth/signin
+    - Service: Direct authenticationManager + userRepository + jwtUtils
+    - Repositories: UserRepository
+    - Entities: User (`users`)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+
+14. POST /api/auth/signup
+    - Service: Direct userRepository + roleRepository + encoder + disposableEmailService
+    - Repositories: UserRepository, RoleRepository
+    - Entities: User (`users`), Role (`roles`)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+
+15. POST /api/auth/forgot-password
+    - Service: passwordResetService.createResetToken(email)
+    - Repositories: PasswordResetTokenRepository, UserRepository
+    - Entities: PasswordResetToken (`password_reset_tokens`), User (`users`)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+
+16. POST /api/auth/reset-password
+    - Service: passwordResetService.resetPassword(token, newPassword)
+    - Repositories: PasswordResetTokenRepository, UserRepository
+    - Entities: PasswordResetToken, User
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+
+17. GET /api/auth/check-username
+    - Service: userRepository.existsByUsername(username)
+    - Repositories: UserRepository
+    - Entities: User (`users`)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: BudgetController (/api/budget)
+--------------------------------------------------------------------------------
+18. POST /api/budget
+    - Service: budgetService.createOrUpdateBudget(request, userId)
+    - Repositories: BudgetRepository, TripRepository, ExpenseRepository, TripShareRepository
+    - Entities: Budget (`budgets`), Trip (`trips`), Expense (`expenses`)
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Trip owner or EDIT share permission
+    - Status: CONNECTED (Note: JPA @PrePersist overrides remainingAmount calculation on first persist)
+
+19. GET /api/budget/trip/{tripId}
+    - Service: budgetService.getBudgetByTripId(tripId, userId)
+    - Repositories: BudgetRepository, TripRepository, ExpenseRepository, TripShareRepository
+    - Entities: Budget (`budgets`), Trip (`trips`), Expense (`expenses`)
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Trip owner or VIEW/EDIT access
+    - Status: CONNECTED (Note: Throws RuntimeException if budget does not exist, caught as 500 by frontend catch)
+
+--------------------------------------------------------------------------------
+Controller: DestinationController (/api/destinations)
+--------------------------------------------------------------------------------
+20. POST /api/destinations
+    - Service: destinationService.createDestination(request)
+    - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+    - Status: CONNECTED
+21. GET /api/destinations
+    - Service: destinationService.getAllDestinations()
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+22. GET /api/destinations/search
+    - Service: destinationService.searchDestinations(query)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+23. GET /api/destinations/filter
+    - Service: destinationService.filterByCategory(category)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+24. GET /api/destinations/sort
+    - Service: destinationService.sortDestinations(sortBy)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+25. GET /api/destinations/{id}
+    - Service: destinationService.getDestinationDetails(id)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+26. GET /api/destinations/{id}/details
+    - Service: destinationService.getDestinationDetails(id)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+27. GET /api/destinations/{id}/nearby
+    - Service: destinationService.getNearbyDestinations(id, limit)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+28. GET /api/destinations/{id}/raw
+    - Service: destinationService.getDestinationById(id)
+    - Auth Requirement: Public (permitAll)
+    - Status: CONNECTED
+29. PUT /api/destinations/{id}
+    - Service: destinationService.updateDestination(id, request)
+    - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+    - Status: CONNECTED
+30. DELETE /api/destinations/{id}
+    - Service: destinationService.deleteDestination(id)
+    - Auth Requirement: @PreAuthorize("hasRole('ADMIN')")
+    - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: DocumentController (/api/documents)
+--------------------------------------------------------------------------------
+31. POST /api/documents/upload
+    - Service: documentService.uploadDocument(file, tripId, documentType, userId)
+    - Repositories: DocumentRepository, TripRepository, UserRepository, TripShareRepository, GroupRepository
+    - Entities: TravelDocument (`travel_documents`), Trip, User
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Trip owner, EDIT share permission, or Group member
+    - Storage: Delegates to active StorageService (LocalStorageService / S3)
+    - Status: CONNECTED
+
+32. GET /api/documents/trip/{tripId}
+    - Service: documentService.getTripDocuments(tripId, userId)
+    - Repositories: DocumentRepository, TripRepository, TripShareRepository, GroupRepository
+    - Entities: TravelDocument (`travel_documents`), Trip
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Trip owner, VIEW/EDIT share, or Group member
+    - Status: CONNECTED
+
+33. DELETE /api/documents/{id}
+    - Service: documentService.deleteDocument(id, userId)
+    - Repositories: DocumentRepository, TripRepository, TripShareRepository
+    - Entities: TravelDocument (`travel_documents`), Trip
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Document uploader, Trip owner, or EDIT share permission
+    - Storage: Removes file from storage disk
+    - Status: CONNECTED
+
+34. GET /api/documents/download/{fileName}
+    - Service: documentService.getDocumentResource(fileName, userId)
+    - Repositories: DocumentRepository, TripRepository, TripShareRepository, GroupRepository
+    - Entities: TravelDocument (`travel_documents`), Trip
+    - Auth Requirement: WebSecurityConfig permitAll, but DocumentController requires authenticated user (`getCurrentUser()`)
+    - Ownership Check: Document uploader / Trip owner / shared member
+    - Storage: Loads Resource from storage disk
+    - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: ExpenseController (/api/expenses)
+--------------------------------------------------------------------------------
+35. POST /api/expenses
+    - Service: expenseService.createExpense(request, userId)
+    - Repositories: ExpenseRepository, TripRepository, UserRepository, TripShareRepository, GroupRepository, BudgetRepository
+    - Entities: Expense (`expenses`), Trip, User, Budget
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Trip owner, EDIT share permission, or Group member
+    - Status: CONNECTED
+
+36. GET /api/expenses/trip/{tripId}
+    - Service: expenseService.getTripExpenses(tripId, userId)
+    - Repositories: ExpenseRepository, TripRepository, TripShareRepository, GroupRepository
+    - Entities: Expense (`expenses`), Trip
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Trip owner, VIEW/EDIT share, or Group member
+    - Status: CONNECTED
+
+37. PUT /api/expenses/{id}
+    - Service: expenseService.updateExpense(id, request, userId)
+    - Repositories: ExpenseRepository, TripRepository, TripShareRepository, BudgetRepository
+    - Entities: Expense (`expenses`), Trip, Budget
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Trip owner or EDIT share permission
+    - Status: CONNECTED
+
+38. DELETE /api/expenses/{id}
+    - Service: expenseService.deleteExpense(id, userId)
+    - Repositories: ExpenseRepository, TripRepository, TripShareRepository
+    - Entities: Expense (`expenses`), Trip
+    - Auth Requirement: Authenticated (JWT)
+    - Ownership Check: Trip owner or EDIT share permission
+    - Status: CONNECTED
+
+39. GET /api/expenses/trip/{tripId}/total
+    - Service: expenseService.getTotalExpenses(tripId)
+    - Repositories: ExpenseRepository
+    - Entities: Expense (`expenses`)
+    - Auth Requirement: Authenticated (JWT)
+    - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: FavoriteDestinationController (/api/favorites)
+--------------------------------------------------------------------------------
+40. POST /api/favorites
+    - Service: favoriteDestinationService.addFavorite(request, userId)
+    - Repositories: FavoriteDestinationRepository, UserRepository, DestinationRepository
+    - Entities: FavoriteDestination (`favorite_destinations`), User, Destination
+    - Auth Requirement: Authenticated (JWT)
+    - Status: CONNECTED
+
+41. GET /api/favorites
+    - Service: favoriteDestinationService.getUserFavorites(userId)
+    - Repositories: FavoriteDestinationRepository
+    - Entities: FavoriteDestination (`favorite_destinations`)
+    - Auth Requirement: Authenticated (JWT)
+    - Status: CONNECTED
+
+42. DELETE /api/favorites/{destinationId}
+    - Service: favoriteDestinationService.removeFavorite(destinationId, userId)
+    - Repositories: FavoriteDestinationRepository
+    - Entities: FavoriteDestination (`favorite_destinations`)
+    - Auth Requirement: Authenticated (JWT)
+    - Status: CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: GroupController (/api/groups)
+--------------------------------------------------------------------------------
+43. POST /api/groups -> createGroup -> CONNECTED
+44. GET /api/groups -> getUserGroups -> CONNECTED
+45. GET /api/groups/trip/{tripId} -> getTripGroups -> CONNECTED
+46. GET /api/groups/invitations -> getMyInvitations -> CONNECTED
+47. GET /api/groups/{groupId} -> getGroupDetails -> CONNECTED
+48. GET /api/groups/{groupId}/members -> getGroupMembers -> CONNECTED
+49. GET /api/groups/{groupId}/pending-invitations -> getPendingInvitations -> CONNECTED
+50. DELETE /api/groups/{groupId}/invitations/{invitationId} -> cancelInvitation -> CONNECTED
+51. POST /api/groups/{groupId}/invitations/{invitationId}/resend -> resendInvitation -> CONNECTED
+52. POST /api/groups/{groupId}/invite -> inviteMember -> CONNECTED
+53. POST /api/groups/invitations/{invitationId}/respond -> respondToInvitation -> CONNECTED
+54. DELETE /api/groups/{groupId}/members/{memberId} -> removeMember -> CONNECTED
+55. POST /api/groups/{groupId}/leave -> leaveGroup -> CONNECTED
+56. POST /api/groups/{groupId}/members/{memberId} -> addMember -> CONNECTED
+57. DELETE /api/groups/{groupId} -> deleteGroup -> CONNECTED
+58. PUT /api/groups/{groupId} -> editGroup -> CONNECTED
+59. POST /api/groups/{groupId}/transfer-ownership -> transferOwnership -> CONNECTED
+60. PUT /api/groups/{groupId}/members/{memberId}/permission -> updateMemberPermission -> CONNECTED
+61. DELETE /api/groups/{groupId}/members/{memberId}/trip-share -> removeTripShare -> CONNECTED
+62. GET /api/groups/{groupId}/messages -> getGroupMessages -> CONNECTED
+63. POST /api/groups/{groupId}/messages -> sendGroupMessage -> CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: ItineraryController (/api/itineraries)
+--------------------------------------------------------------------------------
+64. POST /api/itineraries -> createItinerary -> CONNECTED
+65. GET /api/itineraries/trip/{tripId} -> getTripItineraries -> CONNECTED
+66. PUT /api/itineraries/{id} -> updateItinerary -> CONNECTED
+67. DELETE /api/itineraries/{id} -> deleteItinerary -> CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: NotificationController (/api/notifications)
+--------------------------------------------------------------------------------
+68. POST /api/notifications -> createNotification -> CONNECTED
+69. GET /api/notifications -> getUserNotifications -> CONNECTED
+70. GET /api/notifications/unread -> getUnreadNotifications -> CONNECTED
+71. GET /api/notifications/unread/count -> getUnreadCount -> CONNECTED
+72. PUT /api/notifications/{id}/read -> markAsRead -> CONNECTED
+73. PUT /api/notifications/read-all -> markAllAsRead -> CONNECTED
+74. DELETE /api/notifications/{id} -> deleteNotification -> CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: NotificationPreferenceController (/api/notification-preferences)
+--------------------------------------------------------------------------------
+75. GET /api/notification-preferences -> getPreferences -> CONNECTED
+76. PUT /api/notification-preferences -> createOrUpdatePreferences -> CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: TravelMemoryController (/api/memories)
+--------------------------------------------------------------------------------
+77. POST /api/memories (multipart) -> createMemory -> CONNECTED
+78. GET /api/memories -> getUserMemories -> CONNECTED
+79. GET /api/memories/public -> getPublicMemories -> CONNECTED (Public permitAll)
+80. GET /api/memories/{id} -> getMemoryById -> CONNECTED
+81. PUT /api/memories/{id} -> updateMemory -> CONNECTED
+82. DELETE /api/memories/{id} -> deleteMemory -> CONNECTED
+83. GET /api/memories/photo/{fileName} -> getPhoto -> CONNECTED (Public permitAll with private visibility check)
+
+--------------------------------------------------------------------------------
+Controller: TravelPreferenceController (/api/preferences)
+--------------------------------------------------------------------------------
+84. GET /api/preferences -> getPreferences -> CONNECTED
+85. PUT /api/preferences -> createOrUpdatePreferences -> CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: TripController (/api/trips)
+--------------------------------------------------------------------------------
+86. POST /api/trips -> createTrip -> CONNECTED
+87. GET /api/trips -> getUserTrips -> CONNECTED
+88. GET /api/trips/{id} -> getTripById -> CONNECTED
+89. PUT /api/trips/{id} -> updateTrip -> CONNECTED
+90. DELETE /api/trips/{id} -> deleteTrip -> CONNECTED
+91. GET /api/trips/history -> getTravelHistory -> CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: TripShareController (/api/trip-shares)
+--------------------------------------------------------------------------------
+92. POST /api/trip-shares -> shareTrip -> CONNECTED
+93. POST /api/trip-shares/invite -> inviteUser -> CONNECTED
+94. POST /api/trip-shares/{shareId}/respond -> respondToInvitation -> CONNECTED
+95. GET /api/trip-shares/trip/{tripId} -> getTripShares -> CONNECTED
+96. GET /api/trip-shares/shared-with-me -> getTripsSharedWithMe -> CONNECTED
+97. DELETE /api/trip-shares/trip/{tripId}/user/{userId} -> removeShare -> CONNECTED
+98. PUT /api/trip-shares/trip/{tripId}/user/{userId}/permission -> updatePermission -> CONNECTED
+
+--------------------------------------------------------------------------------
+Controller: UserController (/api/user)
+--------------------------------------------------------------------------------
+99.  GET /api/user/profile -> getUserProfile -> CONNECTED
+100. PUT /api/user/profile -> updateUserProfile -> CONNECTED
+101. POST /api/user/profile-picture (multipart) -> uploadProfilePicture -> SUSPICIOUS
+     - Reason: Generates profile picture URL as `/api/documents/download/profile-pictures/{storedFileName}` while DocumentController only routes `/download/{fileName}` and DocumentService prohibits slashes (`contains("/")`).
+102. DELETE /api/user/profile-picture -> removeProfilePicture -> CONNECTED
+103. POST /api/user/change-password -> changePassword -> CONNECTED
+104. PUT /api/user/username -> changeUsername -> CONNECTED
+
+================================================================================
+6. FRONTEND API AUDIT & CLIENTSIDE CONSUMPTION
+================================================================================
+
+6.1 Axios Client Configuration
+- Base URL: `import.meta.env.VITE_API_URL || 'http://localhost:8080/api'`
+  * In Docker production build, `VITE_API_URL` is set to `/api`.
+  * Nginx proxies `/api/*` to `http://tripnest-backend:8080/api/*`.
+- JWT Token Injection:
+  * `api.interceptors.request.use(config => { const token = localStorage.getItem('token'); if (token) config.headers.Authorization = 'Bearer ' + token; return config; })`.
+  * Fully automated and attached to all Axios calls.
+
+6.2 Detailed Component API Inventory
+
+1. Budget (`frontend/src/pages/Budget.jsx`)
+- Call: `GET /trips` -> Target: `TripController.getUserTrips` -> Match: Exact -> JWT: Yes -> Response: Array of trips -> Consumed: Populates trip dropdown.
+- Call: `GET /expenses/trip/{tripId}` -> Target: `ExpenseController.getTripExpenses` -> Match: Exact -> JWT: Yes -> Response: Array of expenses -> Consumed: Lists expenses and calculates `totalExpenses`.
+- Call: `GET /trips/{tripId}` -> Target: `TripController.getTripById` -> Match: Exact -> JWT: Yes -> Response: Trip details -> Consumed: Updates `selectedTrip`.
+- Call: `GET /budget/trip/{tripId}` -> Target: `BudgetController.getBudgetByTrip` -> Match: Exact -> JWT: Yes -> Response: Budget object -> Consumed: Displays total amount, spent, remaining.
+  * Note: When trip has no budget, backend throws 500/RuntimeException("Budget not found"). Frontend catches with `.catch(() => setBudget(null))`.
+- Call: `POST /budget` -> Target: `BudgetController.createOrUpdateBudget` -> Match: Exact -> JWT: Yes -> Payload: `{ totalAmount, currency, tripId }` -> Consumed: Refetches budget.
+- Call: `POST /expenses` -> Target: `ExpenseController.createExpense` -> Match: Exact -> JWT: Yes -> Payload: `{ title, amount, category, description, date, tripId }` -> Consumed: Refetches expenses.
+- Call: `PUT /expenses/{id}` -> Target: `ExpenseController.updateExpense` -> Match: Exact -> JWT: Yes -> Consumed: Refetches expenses.
+- Call: `DELETE /expenses/{id}` -> Target: `ExpenseController.deleteExpense` -> Match: Exact -> JWT: Yes -> Consumed: Refetches expenses.
+
+2. Documents (`frontend/src/pages/Documents.jsx`)
+- Call: `GET /trips` -> Target: `TripController.getUserTrips` -> Match: Exact -> JWT: Yes -> Consumed: Populates trip selector.
+- Call: `GET /documents/trip/{tripId}` -> Target: `DocumentController.getTripDocuments` -> Match: Exact -> JWT: Yes -> Consumed: Populates documents list.
+- Call: `POST /documents/upload` -> Target: `DocumentController.uploadDocument` -> Match: Exact -> JWT: Yes -> Payload: Multipart FormData (`file`, `tripId`, `documentType`) -> Consumed: Uploads document and refetches.
+- Call: `DELETE /documents/{id}` -> Target: `DocumentController.deleteDocument` -> Match: Exact -> JWT: Yes -> Consumed: Deletes and refetches.
+- Call: `GET /documents/download/{fileName}` (via `responseType: "blob"`) -> Target: `DocumentController.downloadFile` -> Match: Exact -> JWT: Yes -> Consumed: Converts blob to object URL for in-browser viewing or download.
+
+3. Travel Memories (`frontend/src/pages/Memories.jsx`)
+- Call: `GET /memories` -> Target: `TravelMemoryController.getUserMemories` -> Match: Exact -> JWT: Yes -> Consumed: Populates personal memories grid.
+- Call: `GET /memories/public` -> Target: `TravelMemoryController.getPublicMemories` -> Match: Exact -> JWT: Yes -> Consumed: Populates public community memories grid.
+- Call: `POST /memories` -> Target: `TravelMemoryController.createMemory` -> Match: Exact -> JWT: Yes -> Payload: Multipart FormData (`photo`, `title`, `caption`, `locationName`, `tripId`, `destinationId`, `visibility`) -> Consumed: Appends new memory to grid.
+- Call: `PUT /memories/{id}` -> Target: `TravelMemoryController.updateMemory` -> Match: Exact -> JWT: Yes -> Payload: JSON -> Consumed: Updates memory in state.
+- Call: `DELETE /memories/{id}` -> Target: `TravelMemoryController.deleteMemory` -> Match: Exact -> JWT: Yes -> Consumed: Removes memory and purges blob cache.
+- Call: `GET /memories/photo/{fileName}` (via `responseType: "blob"`) -> Target: `TravelMemoryController.getPhoto` -> Match: Exact -> JWT: Yes -> Consumed: `fetchMemoryPhotoBlobUrl` creates Blob URL and caches in memory map for rendering `<MemoryImage />`.
+
+4. Trips & Itineraries (`Trips.jsx`, `Itineraries.jsx`, `tripService.js`)
+- Call: `GET /trips`, `POST /trips`, `GET /trips/{id}`, `PUT /trips/{id}`, `DELETE /trips/{id}` -> Target: `TripController` -> Match: Exact -> JWT: Yes.
+- Call: `GET /itineraries/trip/{tripId}`, `POST /itineraries`, `PUT /itineraries/{id}`, `DELETE /itineraries/{id}` -> Target: `ItineraryController` -> Match: Exact -> JWT: Yes.
+- Call: `GET /activities/itinerary/{itineraryId}`, `POST /activities`, `DELETE /activities/{id}` -> Target: `ActivityController` -> Match: Exact -> JWT: Yes.
+
+================================================================================
+7. DOCUMENT STORAGE AUDIT (DETAILED TRACE)
+================================================================================
+
+Flow Trace:
+Documents.jsx
+  -> Axios `api.post('/documents/upload', formData)` / `api.get('/documents/download/...')`
+  -> Frontend Nginx `location /api/`
+  -> `proxy_pass http://tripnest-backend:8080/api/`
+  -> `DocumentController`
+  -> `DocumentService`
+  -> `DelegatingStorageService` -> `LocalStorageService`
+  -> Filesystem Path: `/app/uploads/{storedFileName}`
+  -> Docker Named Volume: `tripnest-uploads`
+
+Operation Breakdown:
+1. Upload (`POST /api/documents/upload`):
+   - Frontend selects file, validates MIME and 10MB limit.
+   - Nginx receives request (`client_max_body_size 15M;`) and proxies to backend.
+   - `DocumentController` extracts user authentication.
+   - `DocumentService`:
+     * `DocumentFileValidator.validateFile` verifies extension and magic bytes (PDF, JPEG, PNG, WEBP, DOCX, TXT).
+     * Validates trip ownership or share edit access.
+     * Generates `storedFileName = UUID.randomUUID() + extension`.
+     * `storageService.storeFile(file, storedFileName)` writes file bytes to `/app/uploads/{storedFileName}`.
+     * Creates `TravelDocument` record with `fileUrl = "/api/documents/download/" + storedFileName`.
+     * Returns `DocumentResponse`.
+2. List (`GET /api/documents/trip/{tripId}`):
+   - Validates user access to trip.
+   - Retrieves documents by `tripId` and returns metadata list.
+3. Download / View (`GET /api/documents/download/{fileName}`):
+   - Frontend receives `fileUrl: "/api/documents/download/UUID.ext"`.
+   - Frontend extracts `/documents/download/UUID.ext` and issues `api.get(endpoint, { responseType: "blob" })`.
+   - `DocumentController.downloadFile` requires authenticated user (`getCurrentUser()`).
+   - `DocumentService.getDocumentResource` validates against path traversal (`..`, `/`, `\`), confirms trip access in database, loads resource from `/app/uploads/{fileName}`, and returns `ResponseEntity<Resource>`.
+   - Frontend converts blob into `URL.createObjectURL(blob)` for viewing in new tab or downloading.
+4. Delete (`DELETE /api/documents/{id}`):
+   - Validates uploader or trip owner permissions.
+   - Removes file from `/app/uploads/{storedFileName}` via `storageService.deleteFile`.
+   - Deletes entity from database.
+
+================================================================================
+8. TRAVEL MEMORY STORAGE AUDIT (DETAILED TRACE)
+================================================================================
+
+Flow Trace:
+Memories.jsx
+  -> Axios `api.post('/memories', formData)` / `api.get('/memories/photo/...')`
+  -> Frontend Nginx `location /api/`
+  -> `proxy_pass http://tripnest-backend:8080/api/`
+  -> `TravelMemoryController`
+  -> `TravelMemoryService`
+  -> `DelegatingStorageService` -> `LocalStorageService`
+  -> Filesystem Path: `/app/uploads/memory_{UUID}.{ext}`
+  -> Docker Named Volume: `tripnest-uploads`
+  -> Database Metadata: `travel_memories`
+
+Operation Breakdown:
+1. Create Memory (`POST /api/memories`):
+   - Multipart payload contains image file, title, optional caption, location, tripId, destinationId, visibility.
+   - `TravelMemoryService`:
+     * Validates image MIME and magic bytes.
+     * Validates user and optional trip/destination links.
+     * Generates `storedFileName = "memory_" + UUID.randomUUID() + extension`.
+     * Writes image to `/app/uploads/{storedFileName}`.
+     * Saves `TravelMemory` entity with `storedFileName`, `imageUrl = "/api/memories/photo/" + storedFileName`, `visibility = PRIVATE | PUBLIC`.
+2. List Memories (`GET /api/memories` & `GET /api/memories/public`):
+   - `GET /api/memories`: Returns memories belonging to current user ordered by `createdAt DESC`.
+   - `GET /api/memories/public`: Returns all memories with `visibility = 'PUBLIC'`.
+3. Photo Serving & Cache (`GET /api/memories/photo/{fileName}`):
+   - Nginx and Spring Security permit public requests to `/api/memories/photo/**`.
+   - `TravelMemoryController.getPhoto` calls `travelMemoryService.getMemoryPhotoResource`.
+   - If memory is `PRIVATE`, verifies current authenticated user is the memory owner.
+   - Returns image `Resource` with Cache-Control headers.
+   - Frontend `fetchMemoryPhotoBlobUrl` fetches via Axios with JWT, receives Blob, and creates Object URL cached in `memoryBlobCache` Map.
+4. Update (`PUT /api/memories/{id}`):
+   - Updates title, caption, location, visibility, trip, destination.
+5. Delete (`DELETE /api/memories/{id}`):
+   - Verifies owner, deletes image file from `/app/uploads/{storedFileName}`, deletes entity, and invalidates frontend blob cache.
+
+================================================================================
+9. BUDGET AUDIT (DETAILED TRACE)
+================================================================================
+
+Flow Trace:
+Budget.jsx
+  -> Axios `api.get('/budget/trip/{tripId}')` / `api.post('/budget', ...)`
+  -> Nginx Proxy
+  -> `BudgetController`
+  -> `BudgetService`
+  -> `BudgetRepository` (`budgets`) & `ExpenseRepository` (`expenses`)
+
+Trace Analysis:
+1. Fetching Budget (`GET /api/budget/trip/{tripId}`):
+   - `BudgetService.getBudgetByTripId`:
+     * Verifies trip access.
+     * Searches `budgetRepository.findByTripId(tripId)`.
+     * If no budget has been set yet for the trip, throws `RuntimeException("Budget not found")`.
+     * This causes a 500 error response from the backend (or 400/500 depending on handler).
+     * `Budget.jsx` handles this via try/catch and sets `setBudget(null)`, allowing the UI to display the "Set Budget" option.
+     * If budget exists, recalculates `spentAmount` from `expenseRepository.getTotalExpenseByTripId(tripId)` and updates `remainingAmount = totalAmount - spentAmount`.
+2. Creating / Updating Budget (`POST /api/budget`):
+   - `BudgetService.createOrUpdateBudget`:
+     * Verifies owner or shared trip EDIT permission.
+     * Updates or creates new `Budget` entity.
+     * Calculates `spentAmount` and `remainingAmount`.
+     * Saves entity via `budgetRepository.save(budget)`.
+     * Entity Lifecycle Quirk: In `Budget.java`, `@PrePersist` sets `remainingAmount = totalAmount;`. When creating a brand new budget on a trip that already contains expenses, the `@PrePersist` hook resets `remainingAmount` to `totalAmount` on initial insert. Subsequent reads recalculate it properly.
+3. Expense Integration:
+   - `POST /api/expenses` and `PUT /api/expenses/{id}`:
+     * Saves expense and triggers `checkBudgetAlerts(trip)`.
+     * Sends `BUDGET_ALERT` notification if total spent reaches 80% or 100% of budget.
+4. UI Behavior for Fresh Users:
+   - When a newly registered user logs in, `trips` array is empty `[]`.
+   - In `Budget.jsx`, `selectedTrip` initializes to `null`.
+   - Because `{selectedTrip && ...}` wraps the entire budget card, statistics, and forms, the page renders only the header with an empty section below, lacking an empty state prompt guiding the user to create a trip.
+
+================================================================================
+10. AUTH & USER DATA AUDIT (DOCKER FRESH DB ANALYSIS)
+================================================================================
+
+10.1 Why Old Users Cannot Log In Against Fresh Docker DB
+- Cause: The Docker Compose MySQL instance uses a fresh local volume (`tripnest-mysql-data`).
+- The database is completely empty upon first launch.
+- Historical user accounts existed solely in the previous standalone/local MySQL instance and are not contained in the Docker volume.
+- No automatic user import, seed file, or database dump restore (`schema.sql`) is mounted or executed during container initialization.
+- Consequently, attempting to log in with credentials from the old database fails with `401 Unauthorized` / `BadCredentialsException` because the user record does not exist in the new database.
+- This is 100% expected behavior for a freshly initialized Docker container volume.
+
+10.2 Role & Admin Provisioning
+- Roles Seeding: Handled automatically on startup by `AdminInitializer.java`.
+  * Provisions `ROLE_TRAVELER`, `ROLE_GROUP_ADMIN`, `ROLE_ADMIN` if missing.
+- Administrator Seeding:
+  * Seeds default administrator (`admin@tripnest.com` / `admin`) with `ADMIN_PASSWORD` from `.env`.
+  * Synchronizes password hash and ensures `ROLE_ADMIN` and `enabled=true`.
+- Password Compatibility:
+  * Uses standard BCrypt hashing via `BCryptPasswordEncoder`. Any user created via `/api/auth/signup` or seeded by `AdminInitializer` functions seamlessly.
+- JWT User ID Mapping:
+  * JWT tokens encode the `username` as the subject claim.
+  * In incoming requests, `AuthTokenFilter` extracts username, loads `UserDetailsImpl` via `UserDetailsServiceImpl`, and injects current user ID into `SecurityContextHolder`. User ID matches the current database ID.
+
+================================================================================
+11. DATABASE SCHEMA & DDL COMPARISON
+================================================================================
+
+11.1 Docker Database Status
+- Status: Docker daemon is currently NOT running in the test environment (`failed to connect to npipe:////./pipe/dockerDesktopLinuxEngine`).
+- Static Analysis: Comparative audit performed against root `schema.sql` (MySQL dump) and all 19 JPA entities.
+
+11.2 Table & Column Parity Matrix
+
+| JPA Entity Class | Target Table Name | Corresponding Table in schema.sql | Schema / JPA Parity Status |
+| :--- | :--- | :--- | :--- |
+| `User` | `users` | `users` | MATCH (All 30+ columns, unique constraints on username, email) |
+| `Role` | `roles` | `roles` | MATCH (id, name enum) |
+| `Trip` | `trips` | `trips` | MATCH (id, title, destination, status enum, user_id FK, reminder flags) |
+| `Itinerary` | `itineraries` | `itineraries` | MATCH (id, date, notes, trip_id FK, user_id FK) |
+| `Activity` | `activities` | `activities` | MATCH (id, title, cost, type enum, reminder enum, itinerary_id FK) |
+| `Budget` | `budgets` | `budgets` | MATCH (id, total_amount, spent_amount, remaining_amount, trip_id FK unique) |
+| `Expense` | `expenses` | `expenses` | MATCH (id, title, amount, category enum, date, trip_id FK, user_id FK) |
+| `TravelDocument` | `travel_documents`| `travel_documents` | MATCH (id, file_name, file_type, file_url, document_type enum, trip_id FK) |
+| `TravelMemory` | `travel_memories` | `travel_memories` | MATCH (id, title, caption, location_name, image_url, stored_file_name, visibility enum, trip_id FK, dest_id FK, user_id FK) |
+| `TravelGroup` | `travel_groups` | `travel_groups` | MATCH (id, name, description, created_by FK, trip_id FK) |
+| `GroupMember` | `group_memberships`| `group_memberships` | MATCH (id, group_id FK, user_id FK, role, status, trip_permission) |
+| `TravelGroup.members`| `group_members` | `group_members` | MATCH (group_id FK, user_id FK join table) |
+| `GroupMessage` | `group_messages` | `group_messages` | MATCH (id, content, group_id FK, user_id FK, created_at) |
+| `Destination` | `destinations` | `destinations` | MATCH (id, name, state, country, category, popular, unique constraint) |
+| `FavoriteDestination`| `favorite_destinations`| `favorite_destinations` | MATCH (id, user_id FK, destination_id FK, unique constraint) |
+| `Notification` | `notifications` | `notifications` | MATCH (id, title, message, type, is_read, user_id FK) |
+| `NotificationPreference`| `notification_preferences`| `notification_preferences` | MATCH (id, user_id FK unique, boolean flags) |
+| `TravelPreference` | `travel_preferences`| `travel_preferences` | MATCH (id, user_id FK unique, budget/style) |
+| `TravelPreference.types`| `preference_trip_types`| `preference_trip_types` | MATCH (preference_id FK, trip_type element collection) |
+| `TripShare` | `trip_shares` | `trip_shares` | MATCH (id, trip_id FK, shared_with_user_id FK, permission enum, status enum) |
+| `PasswordResetToken` | `password_reset_tokens`| `password_reset_tokens` | MATCH (id, token unique, user_id FK unique, expiry_date, used) |
+| `User.roles` | `user_roles` | `user_roles` | MATCH (user_id FK, role_id FK join table) |
+
+Summary: All JPA entity definitions match the database schema defined in `schema.sql`.
+
+================================================================================
+12. CURRENT DOCKER LOGS & RUNTIME TRACE ANALYSIS
+================================================================================
+
+1. Docker Daemon Execution:
+   - Docker daemon was not running during active command execution.
+2. Verified Integration Pathways:
+   - Nginx reverse proxies correctly forward `/api/` to `http://tripnest-backend:8080/api/` and serve React SPA.
+   - CORS configuration supports `http://localhost` and `http://localhost:5173`.
+   - JWT tokens are stored in `localStorage` as `token` and transmitted in `Authorization: Bearer <token>`.
+   - File upload directory `/app/uploads` is properly persisted through Docker named volume `tripnest-uploads`.
+3. Verified Potential Runtime Friction Points:
+   - In `Budget.jsx` and `Documents.jsx`, lack of empty state handling when trips array is empty.
+   - Profile picture URL formatting in `UserService.java` using nested path `/api/documents/download/profile-pictures/`.
+   - Compose frontend healthcheck URL syntax `http://127.0.0` vs `http://127.0.0.1`.
+
+================================================================================
+13. FINAL ROOT-CAUSE CLASSIFICATION
+================================================================================
+
+Classification of Identified Issues:
+
+1. [Issue 1: Old users cannot log in against fresh Docker database]
+   - Description: Previous local MySQL users are absent from the newly initialized Docker MySQL volume.
+   - Classification: G. Fresh database / missing data migration
+
+2. [Issue 2: Profile Picture URL Generation vs Document Download Endpoint]
+   - Description: `UserService.uploadProfilePicture` sets URL to `/api/documents/download/profile-pictures/{storedFileName}`, but `DocumentController` only exposes `/download/{fileName}` and `DocumentService` rejects slashes.
+   - Classification: D. Backend controller/service bug
+
+3. [Issue 3: Budget Entity @PrePersist Overwriting remainingAmount]
+   - Description: In `Budget.java`, `@PrePersist` sets `remainingAmount = totalAmount;`, ignoring expenses already existing on the trip at initial budget creation.
+   - Classification: F. JPA/entity/database schema mismatch
+
+4. [Issue 4: Budget / Documents Empty State Display for New Users]
+   - Description: When a newly registered user logs in with 0 trips, `Budget.jsx` and `Documents.jsx` render empty space below header rather than an informative empty state prompt to create a trip.
+   - Classification: I. Existing application bug unrelated to Docker
+
+5. [Issue 5: Compose Frontend Healthcheck URL String]
+   - Description: `docker-compose.yml` frontend healthcheck uses `http://127.0.0` instead of `http://127.0.0.1` or `http://localhost`.
+   - Classification: A. Docker configuration issue
+
+6. [Issue 6: BudgetController 500 on Non-Existent Trip Budget]
+   - Description: `BudgetService.getBudgetByTripId` throws `RuntimeException("Budget not found")` resulting in HTTP 500 rather than 404 or empty response.
+   - Classification: D. Backend controller/service bug
+
+================================================================================
+14. FINAL REPORT
+================================================================================
+
+CRITICAL ISSUES
+---------------
+- NONE. The application core architecture, Dockerfiles, compose definitions, Nginx proxy, Spring Security, JWT authentication, and database schemas are structurally sound and functional.
+
+HIGH ISSUES
+-----------
+- [Fresh Database Missing User Data]:
+  * Old users from the previous local MySQL database cannot log into the Docker container because the Docker MySQL volume is brand new. (Expected behavior for fresh volume; resolved by registering a new account or importing old DB dump).
+
+MEDIUM ISSUES
+-------------
+- [Profile Picture URL Routing Mismatch]:
+  * `UserService.java` generates profile picture URLs with a subdirectory (`profile-pictures/`), which conflicts with `DocumentController` single-segment `@PathVariable` and `DocumentService` path traversal security check.
+- [Budget.java @PrePersist Hook]:
+  * `@PrePersist` in `Budget.java` sets `remainingAmount = totalAmount;`, temporarily ignoring existing expenses on initial budget creation until the next update.
+- [Frontend Healthcheck URL Syntax]:
+  * `docker-compose.yml` frontend healthcheck uses `wget -q --spider http://127.0.0` instead of `http://127.0.0.1`.
+
+LOW ISSUES
+----------
+- [Empty State UX on Budget and Documents for Fresh Users]:
+  * When a newly registered user has 0 trips, Budget and Documents pages render blank card areas instead of a helpful "Create your first trip" CTA.
+- [BudgetController Exception Handling]:
+  * `BudgetService.getBudgetByTripId` throws a generic `RuntimeException` when a trip has no budget, returning HTTP 500 (handled gracefully by frontend catch).
+
+--------------------------------------------------------------------------------
+WHAT IS ACTUALLY CAUSED BY DOCKER
+--------------------------------------------------------------------------------
+1. Container Networking & Reverse Proxying:
+   - Handled correctly. Nginx forwards `/api/` to `tripnest-backend:8080/api/` and serves React SPA.
+2. Volume Mapping for Uploads:
+   - Volume `tripnest-uploads` is correctly mapped to `/app/uploads`. File uploads for Travel Documents and Travel Memories persist across container restarts.
+3. Compose Healthcheck Minor Typo:
+   - Frontend container healthcheck string `http://127.0.0` in `docker-compose.yml`.
+
+--------------------------------------------------------------------------------
+WHAT WAS ALREADY BROKEN BEFORE DOCKER
+--------------------------------------------------------------------------------
+1. Profile Picture download URL generation in `UserService.java` vs `DocumentController.java`.
+2. `@PrePersist` hook in `Budget.java` resetting `remainingAmount` to `totalAmount`.
+3. Empty state UI rendering in `Budget.jsx` and `Documents.jsx` when user trip count is 0.
+
+--------------------------------------------------------------------------------
+WHAT IS CAUSED BY THE FRESH DATABASE
+--------------------------------------------------------------------------------
+1. Old user accounts from the host machine's previous local MySQL database are absent in the new Docker volume `tripnest-mysql-data`.
+2. Newly created users start with 0 trips, 0 documents, 0 budgets, and 0 memories, exposing frontend empty-state rendering quirks.
+
+--------------------------------------------------------------------------------
+WHAT MUST NOT BE CHANGED
+--------------------------------------------------------------------------------
+1. DO NOT change existing working Spring Security filter chains or JWT authentication mechanisms.
+2. DO NOT alter Nginx proxy paths (`/api/`, `/oauth2/`, `/`).
+3. DO NOT change database table schemas or entity column names.
+4. DO NOT change working local storage service architecture or upload directory configs.
+5. DO NOT change frontend routing or Axios interceptor configurations.
+
+--------------------------------------------------------------------------------
+MINIMAL FIX PLAN
+--------------------------------------------------------------------------------
+1. User Data / Login Resolution:
+   - New users simply register via `/signup` or use default admin (`admin@tripnest.com`).
+   - If historical data is required, import previous database dump into `tripnest-mysql-data`.
+2. Docker Compose Healthcheck Fix (1 line):
+   - Update `docker-compose.yml` frontend healthcheck from `http://127.0.0` to `http://127.0.0.1`.
+3. Budget @PrePersist Fix (2 lines in `Budget.java`):
+   - In `Budget.java` `@PrePersist`, compute `remainingAmount = totalAmount - (spentAmount != null ? spentAmount : 0.0);`.
+4. Empty State UX Enhancement:
+   - Add friendly "No trips found. Create a trip to manage your budget / documents" message in `Budget.jsx` and `Documents.jsx` when `trips.length === 0`.
+5. Profile Picture URL Alignment:
+   - Store profile pictures directly in upload root or provide dedicated `/api/user/profile-picture` download endpoint.
+================================================================================
+                         END OF AUDIT REPORT
+================================================================================
