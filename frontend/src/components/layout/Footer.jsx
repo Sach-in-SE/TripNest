@@ -41,15 +41,6 @@ export const Footer = () => {
               </li>
               <li>
                 <a
-                  href="/#how-it-works"
-                  onClick={(e) => handleSectionScroll(e, 'how-it-works')}
-                  className="tn-footer-link"
-                >
-                  How It Works
-                </a>
-              </li>
-              <li>
-                <a
                   href="/#features"
                   onClick={(e) => handleSectionScroll(e, 'features')}
                   className="tn-footer-link"

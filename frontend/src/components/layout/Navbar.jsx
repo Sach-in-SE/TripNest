@@ -65,15 +65,6 @@ export const Navbar = () => {
                 Features
               </a>
             </li>
-            <li>
-              <a
-                href="/#how-it-works"
-                onClick={(e) => handleSectionScroll(e, 'how-it-works')}
-                className="tn-nav-link"
-              >
-                How It Works
-              </a>
-            </li>
           </ul>
         </nav>
 

@@ -44,7 +44,9 @@ const Login = () => {
   };
 
   const handleGoogleLogin = () => {
-    const backendBase = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8080").replace(/\/+$/, "");
+    const backendBase = import.meta.env.VITE_BACKEND_URL
+      ? import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "")
+      : "";
     window.location.href = `${backendBase}/oauth2/authorization/google`;
   };
 

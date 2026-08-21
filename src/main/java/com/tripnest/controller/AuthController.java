@@ -12,6 +12,8 @@ import com.tripnest.repository.UserRepository;
 import com.tripnest.security.JwtUtils;
 import com.tripnest.security.UserDetailsImpl;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,6 +34,8 @@ import com.tripnest.service.PasswordResetService;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @Autowired
     AuthenticationManager authenticationManager;
@@ -150,6 +154,7 @@ public class AuthController {
             passwordResetService.createResetToken(request.getEmail());
             return ResponseEntity.ok(new MessageResponse("If this email exists, a reset token has been generated. Check server logs for now."));
         } catch (RuntimeException e) {
+            logger.error("Failed to process password reset request: {}", e.getMessage(), e);
             // Security best practice: same generic message chahe email exist kare ya na kare
             return ResponseEntity.ok(new MessageResponse("If this email exists, a reset token has been generated. Check server logs for now."));
         }

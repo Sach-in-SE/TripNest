@@ -27,11 +27,17 @@ import GroupDetails from "./pages/GroupDetails";
 import GroupDiscussion from "./pages/GroupDiscussion";
 import Documents from "./pages/Documents";
 import OAuth2Redirect from "./pages/OAuth2Redirect";
+import About from "./pages/About";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
+import Contact from "./pages/Contact";
+import NotFound from "./pages/NotFound";
 
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUserManagement from "./pages/admin/AdminUserManagement";
 import AdminDestinationManagement from "./pages/admin/AdminDestinationManagement";
+import AdminContactInbox from "./pages/admin/AdminContactInbox";
 import AdminReports from "./pages/admin/AdminReports";
 
 const PrivateRoute = ({ children }) => {
@@ -70,6 +76,10 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/contact" element={<Contact />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -104,7 +114,11 @@ function App() {
             <Route path="/admin/dashboard" element={<AdminPrivateRoute><AdminDashboard /></AdminPrivateRoute>} />
             <Route path="/admin/users" element={<AdminPrivateRoute><AdminUserManagement /></AdminPrivateRoute>} />
             <Route path="/admin/destinations" element={<AdminPrivateRoute><AdminDestinationManagement /></AdminPrivateRoute>} />
+            <Route path="/admin/messages" element={<AdminPrivateRoute><AdminContactInbox /></AdminPrivateRoute>} />
             <Route path="/admin/reports" element={<AdminPrivateRoute><AdminReports /></AdminPrivateRoute>} />
+
+            {/* 404 Fallback Catch-all Route */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

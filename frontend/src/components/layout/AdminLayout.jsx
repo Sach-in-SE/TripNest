@@ -7,6 +7,7 @@ const ADMIN_NAV_ITEMS = [
   { path: "/admin/dashboard", label: "Overview", icon: "📊" },
   { path: "/admin/users", label: "User Management", icon: "👥" },
   { path: "/admin/destinations", label: "Destinations", icon: "📍" },
+  { path: "/admin/messages", label: "Support Inbox", icon: "📨" },
   { path: "/admin/reports", label: "Analytics & Reports", icon: "📈" },
 ];
 

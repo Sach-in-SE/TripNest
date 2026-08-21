@@ -113,6 +113,9 @@ public class WebSecurityConfig {
                         // Public authentication APIs
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // Public Contact submission API
+                        .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
+
                         // Admin authentication
                         .requestMatchers("/api/admin/auth/**").permitAll()
 
