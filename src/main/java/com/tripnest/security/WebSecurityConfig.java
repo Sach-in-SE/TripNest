@@ -92,7 +92,8 @@ public class WebSecurityConfig {
                     corsConfig.setAllowCredentials(true);
                     corsConfig.setExposedHeaders(java.util.List.of(
                             "Authorization",
-                            "Content-Type"));
+                            "Content-Type",
+                            "Content-Disposition"));
 
                     return corsConfig;
                 }))
@@ -129,7 +130,7 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/destinations/**").hasRole("ADMIN")
 
                         // Document download endpoint
-                        .requestMatchers("/api/documents/download/**").permitAll()
+                        .requestMatchers("/api/documents/download/**").authenticated()
 
                         // Groups
                         .requestMatchers("/api/groups", "/api/groups/**").authenticated()
@@ -155,6 +156,9 @@ public class WebSecurityConfig {
                         // Travel Memories public gallery and photo serving
                         .requestMatchers(HttpMethod.GET, "/api/memories/public", "/api/memories/photo/**").permitAll()
                         .requestMatchers("/api/memories", "/api/memories/**").authenticated()
+
+                        // User profile picture public serving
+                        .requestMatchers(HttpMethod.GET, "/api/user/profile-picture/**").permitAll()
 
                         // Everything else requires authentication
                         .anyRequest().authenticated())

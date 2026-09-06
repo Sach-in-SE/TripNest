@@ -6,6 +6,7 @@ import com.tripnest.dto.TravelHistoryResponse;
 import com.tripnest.dto.BudgetRequest;
 import com.tripnest.entity.*;
 import com.tripnest.repository.*;
+import com.tripnest.service.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,9 @@ public class TripService {
 
     @Autowired
     private DocumentRepository documentRepository;
+
+    @Autowired
+    private StorageService storageService;
 
     @Autowired
     private GroupRepository groupRepository;
@@ -260,13 +264,14 @@ public class TripService {
         List<Expense> expenses = expenseRepository.findByTripId(tripId);
         expenseRepository.deleteAll(expenses);
 
-        // 6. Delete documents and remove corresponding files from disk if possible
+        // 6. Delete documents and remove corresponding files via StorageService
         List<TravelDocument> documents = documentRepository.findByTripId(tripId);
         for (TravelDocument document : documents) {
             try {
-                String storedFileName = document.getFileUrl().substring(document.getFileUrl().lastIndexOf("/") + 1);
-                Path filePath = Paths.get("uploads").resolve(storedFileName);
-                Files.deleteIfExists(filePath);
+                if (document.getFileUrl() != null && document.getFileUrl().contains("/")) {
+                    String storedFileName = document.getFileUrl().substring(document.getFileUrl().lastIndexOf("/") + 1);
+                    storageService.deleteFile(storedFileName);
+                }
             } catch (Exception e) {
                 // Ignore file deletion error and proceed with DB deletion
             }

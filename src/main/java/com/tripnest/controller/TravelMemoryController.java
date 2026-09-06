@@ -3,6 +3,8 @@ package com.tripnest.controller;
 import com.tripnest.dto.MessageResponse;
 import com.tripnest.dto.TravelMemoryRequest;
 import com.tripnest.dto.TravelMemoryResponse;
+import com.tripnest.entity.MemoryVisibility;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.TravelMemoryService;
 import jakarta.validation.Valid;
@@ -20,8 +22,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -33,7 +37,9 @@ public class TravelMemoryController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createMemory(
-            @RequestParam("photo") MultipartFile photo,
+            @RequestParam(value = "photos", required = false) List<MultipartFile> photos,
+            @RequestParam(value = "photos[]", required = false) List<MultipartFile> photosBracket,
+            @RequestParam(value = "photo", required = false) MultipartFile photo,
             @RequestParam("title") String title,
             @RequestParam(value = "caption", required = false) String caption,
             @RequestParam(value = "locationName", required = false) String locationName,
@@ -47,6 +53,25 @@ public class TravelMemoryController {
                         .body(new MessageResponse("Authentication required to create travel memories."));
             }
 
+            List<MultipartFile> filesToProcess = new ArrayList<>();
+            if (photos != null) {
+                for (MultipartFile p : photos) {
+                    if (p != null && !p.isEmpty()) {
+                        filesToProcess.add(p);
+                    }
+                }
+            }
+            if (photosBracket != null) {
+                for (MultipartFile p : photosBracket) {
+                    if (p != null && !p.isEmpty()) {
+                        filesToProcess.add(p);
+                    }
+                }
+            }
+            if (filesToProcess.isEmpty() && photo != null && !photo.isEmpty()) {
+                filesToProcess.add(photo);
+            }
+
             TravelMemoryRequest request = new TravelMemoryRequest();
             request.setTitle(title);
             request.setCaption(caption);
@@ -55,7 +80,7 @@ public class TravelMemoryController {
             request.setDestinationId(destinationId);
             request.setVisibility(visibility);
 
-            TravelMemoryResponse response = travelMemoryService.createMemory(photo, request, userId);
+            TravelMemoryResponse response = travelMemoryService.createMemory(filesToProcess, request, userId);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(e.getMessage()));
@@ -79,10 +104,24 @@ public class TravelMemoryController {
     }
 
     @GetMapping("/public")
-    public ResponseEntity<List<TravelMemoryResponse>> getPublicMemories() {
+    public ResponseEntity<?> getPublicMemories(
+            @RequestParam(value = "destinationId", required = false) Long destinationId,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
         Long userId = getCurrentUserId();
-        List<TravelMemoryResponse> list = travelMemoryService.getPublicMemories(userId);
-        return ResponseEntity.ok(list);
+        if (destinationId != null && page != null && size != null) {
+            int boundedSize = Math.max(1, Math.min(size, 50));
+            int boundedPage = Math.max(0, page);
+            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(boundedPage, boundedSize);
+            org.springframework.data.domain.Page<TravelMemoryResponse> list = travelMemoryService.getPublicMemoriesByDestination(destinationId, pageable);
+            return ResponseEntity.ok(list);
+        } else if (destinationId != null) {
+            List<TravelMemoryResponse> list = travelMemoryService.getPublicMemoriesByDestination(destinationId);
+            return ResponseEntity.ok(list);
+        } else {
+            List<TravelMemoryResponse> list = travelMemoryService.getPublicMemories(userId);
+            return ResponseEntity.ok(list);
+        }
     }
 
     @GetMapping("/{id}")
@@ -154,10 +193,17 @@ public class TravelMemoryController {
                 mediaType = MediaType.parseMediaType("image/webp");
             }
 
+            MemoryVisibility visibility = travelMemoryService.getPhotoVisibility(fileName);
+            CacheControl cacheControl = (visibility == MemoryVisibility.PUBLIC)
+                    ? CacheControl.maxAge(1, TimeUnit.DAYS).cachePublic()
+                    : CacheControl.noCache().cachePrivate();
+
             return ResponseEntity.ok()
                     .contentType(mediaType)
-                    .cacheControl(CacheControl.maxAge(1, TimeUnit.DAYS).cachePublic())
+                    .cacheControl(cacheControl)
                     .body(resource);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(e.getMessage()));
         } catch (SecurityException | AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
         } catch (IOException e) {

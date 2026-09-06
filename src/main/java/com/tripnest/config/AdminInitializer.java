@@ -79,6 +79,7 @@ public class AdminInitializer implements CommandLineRunner {
             admin.setEmail(adminEmail);
             admin.setFirstName("System");
             admin.setLastName("Admin");
+            admin.setPassword(passwordEncoder.encode(adminPassword));
             admin.setEnabled(true);
             needsSave = true;
         } else {
@@ -100,8 +101,8 @@ public class AdminInitializer implements CommandLineRunner {
             needsSave = true;
         }
 
-        // Ensure account password is synchronized with configured adminPassword
-        if (admin.getPassword() == null || !passwordEncoder.matches(adminPassword, admin.getPassword())) {
+        // Ensure account password is set if not already present
+        if (admin.getPassword() == null) {
             admin.setPassword(passwordEncoder.encode(adminPassword));
             needsSave = true;
         }

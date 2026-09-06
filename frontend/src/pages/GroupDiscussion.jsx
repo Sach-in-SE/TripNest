@@ -16,16 +16,59 @@ const GroupDiscussion = () => {
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const isInitialLoadRef = useRef(true);
+  const isFetchingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const pollingIntervalRef = useRef(null);
+  const isPollingStoppedRef = useRef(false);
 
-  useEffect(() => {
-    fetchGroupInfo();
-    fetchMessages(true);
+  const stopPolling = () => {
+    isPollingStoppedRef.current = true;
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
 
-    const interval = setInterval(() => {
+  const startPolling = () => {
+    if (isPollingStoppedRef.current) return;
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    pollingIntervalRef.current = setInterval(() => {
       fetchMessages(false);
     }, 4000);
+  };
 
-    return () => clearInterval(interval);
+  const pausePolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    isPollingStoppedRef.current = false;
+
+    fetchGroupInfo();
+    fetchMessages(true);
+    startPolling();
+
+    const handleVisibilityChange = () => {
+      if (isPollingStoppedRef.current) return;
+      if (document.visibilityState === "hidden") {
+        pausePolling();
+      } else if (document.visibilityState === "visible") {
+        fetchMessages(false);
+        startPolling();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      isMountedRef.current = false;
+      pausePolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [id]);
 
   const isNearBottom = () => {
@@ -43,16 +86,36 @@ const GroupDiscussion = () => {
   const fetchGroupInfo = async () => {
     try {
       const res = await api.get(`/groups/${id}`);
+      if (!isMountedRef.current) return;
       setGroup(res.data);
     } catch (err) {
+      if (!isMountedRef.current) return;
       console.error("Failed to load group info:", err);
-      setError(err.response?.data?.message || "Failed to load group details");
+      const status = err.response?.status;
+      if (status === 401) {
+        stopPolling();
+        setError("Session expired or unauthenticated. Please log in again.");
+      } else if (status === 403) {
+        stopPolling();
+        setError("You no longer have access to this group.");
+      } else if (status === 404) {
+        stopPolling();
+        setError("Group not found.");
+      } else {
+        setError(err.response?.data?.message || "Failed to load group details");
+      }
     }
   };
 
   const fetchMessages = async (isInitial = false) => {
+    if (isPollingStoppedRef.current && !isInitial) return;
+    if (isFetchingRef.current) return;
+
+    isFetchingRef.current = true;
     try {
       const res = await api.get(`/groups/${id}/messages`);
+      if (!isMountedRef.current) return;
+
       const newMessages = res.data || [];
       const shouldScroll = isInitial || isInitialLoadRef.current || isNearBottom();
       
@@ -64,18 +127,39 @@ const GroupDiscussion = () => {
 
       if (shouldScroll) {
         setTimeout(() => {
-          scrollToBottom(!isInitialLoadRef.current);
-          if (isInitialLoadRef.current) {
-            isInitialLoadRef.current = false;
+          if (isMountedRef.current) {
+            scrollToBottom(!isInitialLoadRef.current);
+            if (isInitialLoadRef.current) {
+              isInitialLoadRef.current = false;
+            }
           }
         }, 50);
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
       console.error("Failed to fetch messages:", err);
+
+      const status = err.response?.status;
+      if (status === 401) {
+        stopPolling();
+        setError("Session expired or unauthenticated. Please log in again.");
+      } else if (status === 403) {
+        stopPolling();
+        setError("You no longer have access to this discussion. You may have been removed from the group.");
+      } else if (status === 404) {
+        stopPolling();
+        setError("Group or discussion not found.");
+      } else {
+        if (isInitial) {
+          setError(err.response?.data?.message || "Failed to load messages. Please check your connection.");
+        }
+      }
+
       if (isInitial) {
-        setError(err.response?.data?.message || "Failed to load messages");
         setLoading(false);
       }
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 
@@ -88,14 +172,32 @@ const GroupDiscussion = () => {
       setSendingMessage(true);
       setError(null);
       await api.post(`/groups/${id}/messages`, { content: contentToSend });
+      if (!isMountedRef.current) return;
       setNewMessageContent("");
       await fetchMessages(false);
-      setTimeout(() => scrollToBottom(true), 50);
+      setTimeout(() => {
+        if (isMountedRef.current) scrollToBottom(true);
+      }, 50);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to send message");
-      console.error(err);
+      if (!isMountedRef.current) return;
+      console.error("Failed to send message:", err);
+      const status = err.response?.status;
+      if (status === 401) {
+        stopPolling();
+        setError("Session expired. Please log in again.");
+      } else if (status === 403) {
+        stopPolling();
+        setError("You do not have permission to post in this discussion.");
+      } else if (status === 404) {
+        stopPolling();
+        setError("Group not found.");
+      } else {
+        setError(err.response?.data?.message || "Failed to send message");
+      }
     } finally {
-      setSendingMessage(false);
+      if (isMountedRef.current) {
+        setSendingMessage(false);
+      }
     }
   };
 

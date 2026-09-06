@@ -3,16 +3,20 @@ package com.tripnest.service;
 import com.tripnest.dto.DestinationDetailsResponse;
 import com.tripnest.dto.DestinationRequest;
 import com.tripnest.dto.DestinationResponse;
+import com.tripnest.dto.TravelGuideResponse;
+import com.tripnest.dto.TravelMemoryResponse;
 import com.tripnest.dto.WeatherResponse;
 import com.tripnest.dto.WikipediaResponse;
 import com.tripnest.entity.Destination;
 import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.repository.DestinationRepository;
+import com.tripnest.repository.FavoriteDestinationRepository;
+import com.tripnest.repository.TravelMemoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -24,11 +28,24 @@ public class DestinationService {
     private DestinationRepository destinationRepository;
 
     @Autowired
+    private FavoriteDestinationRepository favoriteDestinationRepository;
+
+    @Autowired
+    private TravelMemoryRepository travelMemoryRepository;
+
+    @Autowired
     private WeatherService weatherService;
 
     @Autowired
     private WikipediaService wikipediaService;
 
+    @Autowired
+    private TravelGuideService travelGuideService;
+
+    @Autowired
+    private TravelMemoryService travelMemoryService;
+
+    @Transactional
     public DestinationResponse createDestination(DestinationRequest request) {
         String name = request.getName() != null ? request.getName().trim() : "";
         String state = request.getState() != null ? request.getState().trim() : "";
@@ -40,18 +57,19 @@ public class DestinationService {
         }
 
         Destination destination = new Destination();
-        destination.setName(request.getName());
-        destination.setState(request.getState());
-        destination.setCountry(request.getCountry());
-        destination.setDescription(request.getDescription());
-        destination.setCategory(request.getCategory());
-        destination.setImageUrl(request.getImageUrl());
-        destination.setBestSeason(request.getBestSeason());
-        destination.setEstimatedBudget(request.getEstimatedBudget());
-        destination.setRecommendedDays(request.getRecommendedDays());
+        destination.setName(name);
+        destination.setState(state);
+        destination.setCountry(country);
+        destination.setDescription(request.getDescription() != null ? request.getDescription().trim() : "");
+        destination.setCategory(request.getCategory() != null ? request.getCategory().trim() : "General");
+        destination.setImageUrl(request.getImageUrl() != null ? request.getImageUrl().trim() : null);
+        destination.setBestSeason(request.getBestSeason() != null ? request.getBestSeason().trim() : null);
+        destination.setEstimatedBudget(request.getEstimatedBudget() != null ? request.getEstimatedBudget() : 0.0);
+        destination.setRecommendedDays(request.getRecommendedDays() != null ? request.getRecommendedDays() : 3);
         destination.setLatitude(request.getLatitude());
         destination.setLongitude(request.getLongitude());
         destination.setRating(request.getRating() != null ? request.getRating() : 4.0);
+        destination.setPopular(false);
 
         Destination saved = destinationRepository.save(destination);
         return mapToResponse(saved);
@@ -117,42 +135,25 @@ public class DestinationService {
         WeatherResponse weather = weatherService.getCurrentWeather(
                 destination.getLatitude(), destination.getLongitude());
 
-        List<DestinationResponse> nearby = getNearbyDestinations(id, 4);
-
         WikipediaResponse wikipedia = wikipediaService.getWikipediaSummary(
                 destination.getName());
+
+        TravelGuideResponse travelGuide = travelGuideService.getTravelGuide(
+                destination.getName(), destination.getCountry(),
+                destination.getLatitude(), destination.getLongitude());
+
+        List<TravelMemoryResponse> travelerExperiences = travelMemoryService.getTop3PublicMemoriesByDestination(id);
+        if (travelerExperiences == null) {
+            travelerExperiences = Collections.emptyList();
+        }
 
         return DestinationDetailsResponse.builder()
                 .destination(destResponse)
                 .weather(weather)
-                .nearbyDestinations(nearby)
                 .wikipedia(wikipedia)
+                .travelGuide(travelGuide)
+                .travelerExperiences(travelerExperiences)
                 .build();
-    }
-
-    public List<DestinationResponse> getNearbyDestinations(Long destinationId, int limit) {
-        Destination current = destinationRepository.findById(destinationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + destinationId));
-
-        if (current.getLatitude() == null || current.getLongitude() == null) {
-            return Collections.emptyList();
-        }
-
-        double curLat = current.getLatitude();
-        double curLon = current.getLongitude();
-
-        return destinationRepository.findAll().stream()
-                .filter(d -> !d.getId().equals(destinationId))
-                .filter(d -> d.getLatitude() != null && d.getLongitude() != null)
-                .map(d -> {
-                    DestinationResponse resp = mapToResponse(d);
-                    double dist = calculateDistance(curLat, curLon, d.getLatitude(), d.getLongitude());
-                    resp.setDistanceKm(dist);
-                    return resp;
-                })
-                .sorted(Comparator.comparingDouble(DestinationResponse::getDistanceKm))
-                .limit(limit)
-                .collect(Collectors.toList());
     }
 
     public double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -167,6 +168,7 @@ public class DestinationService {
         return Math.round(R * c * 10.0) / 10.0;
     }
 
+    @Transactional
     public DestinationResponse updateDestination(Long id, DestinationRequest request) {
         Destination destination = destinationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));
@@ -183,26 +185,29 @@ public class DestinationService {
             throw new RuntimeException("Destination with this name already exists");
         }
 
-        destination.setName(request.getName());
-        destination.setState(request.getState());
-        destination.setCountry(request.getCountry());
-        destination.setDescription(request.getDescription());
-        destination.setCategory(request.getCategory());
-        destination.setImageUrl(request.getImageUrl());
-        destination.setBestSeason(request.getBestSeason());
-        destination.setEstimatedBudget(request.getEstimatedBudget());
-        destination.setRecommendedDays(request.getRecommendedDays());
+        destination.setName(name);
+        destination.setState(state);
+        destination.setCountry(country);
+        destination.setDescription(request.getDescription() != null ? request.getDescription().trim() : "");
+        destination.setCategory(request.getCategory() != null ? request.getCategory().trim() : "General");
+        destination.setImageUrl(request.getImageUrl() != null ? request.getImageUrl().trim() : null);
+        destination.setBestSeason(request.getBestSeason() != null ? request.getBestSeason().trim() : null);
+        destination.setEstimatedBudget(request.getEstimatedBudget() != null ? request.getEstimatedBudget() : 0.0);
+        destination.setRecommendedDays(request.getRecommendedDays() != null ? request.getRecommendedDays() : 3);
         destination.setLatitude(request.getLatitude());
         destination.setLongitude(request.getLongitude());
-        destination.setRating(request.getRating());
+        destination.setRating(request.getRating() != null ? request.getRating() : 4.0);
 
         Destination updated = destinationRepository.save(destination);
         return mapToResponse(updated);
     }
 
+    @Transactional
     public void deleteDestination(Long id) {
         destinationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));
+        favoriteDestinationRepository.deleteByDestinationId(id);
+        travelMemoryRepository.nullifyDestinationReferences(id);
         destinationRepository.deleteById(id);
     }
 

@@ -51,7 +51,7 @@ class DestinationControllerSecurityTest {
     void adminPostDestinationShouldBeAllowed() throws Exception {
         mockMvc.perform(post("/api/destinations")
                         .contentType("application/json")
-                        .content("{\"name\":\"Test\",\"country\":\"Test\"}"))
+                        .content("{\"name\":\"Test\",\"country\":\"Test\",\"description\":\"Test Description\",\"category\":\"General\"}"))
                 .andExpect(status().isOk());
     }
 }

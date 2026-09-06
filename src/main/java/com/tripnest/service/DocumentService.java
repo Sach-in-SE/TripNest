@@ -1,8 +1,10 @@
 package com.tripnest.service;
 
+import com.tripnest.dto.DocumentDownloadResult;
 import com.tripnest.dto.DocumentResponse;
 import com.tripnest.entity.DocumentType;
 import com.tripnest.entity.TravelDocument;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.entity.Trip;
 import com.tripnest.entity.User;
 import com.tripnest.repository.DocumentRepository;
@@ -113,32 +115,34 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
-    public Resource getDocumentResource(String storedFileName, Long userId) throws IOException {
-        // Sanitize stored filename parameter against path traversal
+    public DocumentDownloadResult getDocumentDownload(String storedFileName, Long userId) throws IOException {
+        // 1. Sanitize stored filename parameter against path traversal
         if (storedFileName == null || storedFileName.contains("..") || storedFileName.contains("/") || storedFileName.contains("\\")) {
             throw new SecurityException("Illegal filename path traversal attempt.");
         }
 
-        // Verify document authorization in database
-        List<TravelDocument> docs = documentRepository.findAll();
-        TravelDocument doc = docs.stream()
-                .filter(d -> d.getFileUrl() != null && d.getFileUrl().endsWith("/" + storedFileName))
-                .findFirst()
-                .orElse(null);
+        // 2. Look up document in database; if not found, immediately reject before storage access
+        TravelDocument doc = documentRepository.findByFileUrlEndingWith("/" + storedFileName)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with filename: " + storedFileName));
 
-        if (doc != null) {
-            Trip trip = doc.getTrip();
-            Long tripId = trip.getId();
-            boolean isOwner = trip.getUser().getId().equals(userId);
-            boolean hasAccess = tripShareService.hasAccess(tripId, userId);
-            boolean isGroupMember = groupRepository.existsByTripIdAndMembersId(tripId, userId);
+        // 3. Verify authorization rules before storage access
+        Trip trip = doc.getTrip();
+        Long tripId = trip != null ? trip.getId() : null;
+        boolean isOwner = trip != null && trip.getUser() != null && trip.getUser().getId().equals(userId);
+        boolean hasAccess = tripId != null && tripShareService.hasAccess(tripId, userId);
+        boolean isGroupMember = tripId != null && groupRepository.existsByTripIdAndMembersId(tripId, userId);
 
-            if (!isOwner && !hasAccess && !isGroupMember) {
-                throw new AccessDeniedException("Unauthorized: You do not have permission to download this document.");
-            }
+        if (!isOwner && !hasAccess && !isGroupMember) {
+            throw new AccessDeniedException("Unauthorized: You do not have permission to download this document.");
         }
 
-        return storageService.loadFileAsResource(storedFileName);
+        // 4. Load physical resource only after successful authorization
+        Resource resource = storageService.loadFileAsResource(storedFileName);
+        return new DocumentDownloadResult(resource, doc.getFileName(), doc.getFileType());
+    }
+
+    public Resource getDocumentResource(String storedFileName, Long userId) throws IOException {
+        return getDocumentDownload(storedFileName, userId).getResource();
     }
 
     public void deleteDocument(Long id, Long userId) throws IOException {

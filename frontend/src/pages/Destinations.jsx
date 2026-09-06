@@ -5,6 +5,17 @@ import Sidebar from "../components/Sidebar";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
+const CATEGORY_FALLBACK_IMAGES = {
+  Beach: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
+  Mountains: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80",
+  Historical: "https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=800&q=80",
+  Adventure: "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=800&q=80",
+  Spiritual: "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&w=800&q=80",
+  Wildlife: "https://images.unsplash.com/photo-1534177616072-ef7dc120449d?auto=format&fit=crop&w=800&q=80",
+  City: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=800&q=80",
+  Default: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80",
+};
+
 const Destinations = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -57,15 +68,6 @@ const Destinations = () => {
     fetchUserFavorites();
   }, []);
 
-  useEffect(() => {
-    // Pre-fetch Wikipedia fallback images for destinations missing valid admin images
-    destinations.forEach((dest) => {
-      if (!isValidImageUrl(dest.imageUrl) && !wikiImages[dest.id]) {
-        fetchWikipediaImage(dest);
-      }
-    });
-  }, [destinations]);
-
   const isValidImageUrl = (url) => {
     if (!url || typeof url !== "string") return false;
     const trimmed = url.trim();
@@ -77,10 +79,12 @@ const Destinations = () => {
       const res = await api.get(`/destinations/${dest.id}`);
       if (res.data?.wikipedia?.imageUrl) {
         setWikiImages((prev) => ({ ...prev, [dest.id]: res.data.wikipedia.imageUrl }));
+        return res.data.wikipedia.imageUrl;
       }
-    } catch (err) {
+    } catch {
       // Ignore image fallback failures
     }
+    return null;
   };
 
   const fetchDestinations = async () => {
@@ -143,7 +147,7 @@ const Destinations = () => {
         const res = await api.get("/destinations");
         setDestinations(applySort(res.data, sortBy));
         setError(null);
-      } catch (err) {
+      } catch {
         setError("Failed to reset filter");
       } finally {
         setLoading(false);
@@ -346,7 +350,7 @@ const Destinations = () => {
     if (wikiImages[dest.id]) {
       return wikiImages[dest.id];
     }
-    return null;
+    return CATEGORY_FALLBACK_IMAGES[dest.category] || CATEGORY_FALLBACK_IMAGES.Default;
   };
 
   const renderSkeleton = () => (
@@ -439,11 +443,19 @@ const Destinations = () => {
         ) : destinations.length === 0 ? (
           <div style={styles.emptyState} className="glass-card">
             <span style={{ fontSize: "48px" }}>🌍</span>
-            <h3 style={{ color: "#f1f5f9" }}>No destinations found</h3>
-            <p style={{ color: "#94a3b8" }}>Try adjusting your search or filters</p>
-            <button className="btn-aurora" onClick={clearFilters} style={{ marginTop: "16px" }}>
-              Clear Filters
-            </button>
+            <h3 style={{ color: "#f1f5f9" }}>
+              {!searchQuery && !selectedCategory ? "No destinations available yet" : "No destinations found"}
+            </h3>
+            <p style={{ color: "#94a3b8" }}>
+              {!searchQuery && !selectedCategory
+                ? "Check back soon or ask an administrator to add new travel destinations."
+                : "Try adjusting your search or category filters"}
+            </p>
+            {(searchQuery || selectedCategory || sortBy) && (
+              <button className="btn-aurora" onClick={clearFilters} style={{ marginTop: "16px" }}>
+                Clear Filters
+              </button>
+            )}
           </div>
         ) : (
           <div style={styles.grid}>
@@ -453,7 +465,29 @@ const Destinations = () => {
                 <div key={dest.id} style={styles.card} className="glass-card">
                   <div style={styles.imageContainer}>
                     {displayImg ? (
-                      <img src={displayImg} alt={dest.name} style={styles.cardImage} />
+                      <img
+                        src={displayImg}
+                        alt={dest.name}
+                        loading="lazy"
+                        decoding="async"
+                        style={styles.cardImage}
+                        onError={async (e) => {
+                          e.target.onerror = null;
+                          const fallback = CATEGORY_FALLBACK_IMAGES[dest.category] || CATEGORY_FALLBACK_IMAGES.Default;
+                          if (!wikiImages[dest.id] && !isValidImageUrl(dest.imageUrl)) {
+                            const wikiUrl = await fetchWikipediaImage(dest);
+                            if (wikiUrl) {
+                              e.target.src = wikiUrl;
+                              return;
+                            }
+                          }
+                          if (e.target.src !== fallback) {
+                            e.target.src = fallback;
+                          } else {
+                            e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'><rect width='400' height='250' fill='%231e293b'/><text x='50%25' y='50%25' font-size='32' text-anchor='middle' dominant-baseline='middle' fill='%2394a3b8'>📍</text></svg>";
+                          }
+                        }}
+                      />
                     ) : (
                       <div style={styles.cardImagePlaceholder}>
                         <span style={{ fontSize: "40px" }}>🏖️</span>

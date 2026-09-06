@@ -8,5 +8,7 @@ export { default as Avatar } from './Avatar';
 export { default as IconButton } from './IconButton';
 export { default as PageHeader, SectionHeader } from './PageHeader';
 export { default as LoadingSkeleton } from './LoadingSkeleton';
+export { default as LoadingSpinner } from './LoadingSpinner';
 export { default as EmptyState, ErrorState } from './EmptyState';
 export { default as ThemeToggle } from './ThemeToggle';
+export { default as ErrorBoundary } from './ErrorBoundary';

@@ -81,6 +81,9 @@ services:
       STORAGE_S3_SECRET_KEY: ${STORAGE_S3_SECRET_KEY:-}
       STORAGE_S3_ENDPOINT: ${STORAGE_S3_ENDPOINT:-}
 
+      TRAVEL_POI_API_KEY: ${TRAVEL_POI_API_KEY:-}
+      TRAVEL_GUIDE_SEARCH_RADIUS_KM: ${TRAVEL_GUIDE_SEARCH_RADIUS_KM:-10.0}
+
     volumes:
       - tripnest-uploads:/app/uploads
 

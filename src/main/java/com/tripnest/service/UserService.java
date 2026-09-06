@@ -59,7 +59,7 @@ public class UserService {
         Path targetPath = uploadPath.resolve(storedFileName);
         Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-        user.setProfilePictureUrl("/api/documents/download/profile-pictures/" + storedFileName);
+        user.setProfilePictureUrl("/api/user/profile-picture/" + storedFileName);
         userRepository.save(user);
 
         ProfilePictureResponse response = new ProfilePictureResponse();

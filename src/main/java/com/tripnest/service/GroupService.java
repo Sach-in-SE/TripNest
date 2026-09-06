@@ -29,11 +29,16 @@ import com.tripnest.repository.GroupRepository;
 import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.TripShareRepository;
 import com.tripnest.repository.UserRepository;
+import com.tripnest.exception.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -441,8 +446,11 @@ public class GroupService {
 
     public List<GroupMessageResponse> getGroupMessages(Long groupId, Long userId) {
         TravelGroup group = getAccessibleGroup(groupId, userId);
-        return groupMessageRepository.findByTravelGroupIdOrderByCreatedAtAsc(group.getId())
-                .stream()
+        List<GroupMessage> messages = new ArrayList<>(
+                groupMessageRepository.findRecentByTravelGroupIdWithSender(group.getId(), PageRequest.of(0, 100))
+        );
+        Collections.reverse(messages);
+        return messages.stream()
                 .map(msg -> mapToMessageResponse(msg, userId))
                 .collect(Collectors.toList());
     }
@@ -450,15 +458,15 @@ public class GroupService {
     @Transactional
     public GroupMessageResponse sendGroupMessage(Long groupId, GroupMessageRequest request, Long userId) {
         if (request.getContent() == null || request.getContent().trim().isEmpty()) {
-            throw new RuntimeException("Message content cannot be blank");
+            throw new IllegalArgumentException("Message content cannot be blank");
         }
         if (request.getContent().length() > 1000) {
-            throw new RuntimeException("Message content cannot exceed 1000 characters");
+            throw new IllegalArgumentException("Message content cannot exceed 1000 characters");
         }
 
         TravelGroup group = getAccessibleGroup(groupId, userId);
         User sender = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         GroupMessage message = new GroupMessage();
         message.setTravelGroup(group);
@@ -684,10 +692,10 @@ public class GroupService {
 
     private TravelGroup ensureOwner(Long groupId, Long userId) {
         TravelGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found"));
 
         if (!group.getCreatedBy().getId().equals(userId)) {
-            throw new RuntimeException("Only the group owner can perform this action");
+            throw new AccessDeniedException("Only the group owner can perform this action");
         }
 
         return group;
@@ -695,17 +703,17 @@ public class GroupService {
 
     private TravelGroup getAccessibleGroup(Long groupId, Long userId) {
         TravelGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new RuntimeException("Group not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found"));
 
         if (isOwner(group, userId)) {
             return group;
         }
 
         GroupMember membership = groupMemberRepository.findByTravelGroupIdAndUserId(groupId, userId)
-                .orElseThrow(() -> new RuntimeException("You are not a member of this group"));
+                .orElseThrow(() -> new AccessDeniedException("You are not a member of this group"));
 
         if (membership.getStatus() != GroupInvitationStatus.ACCEPTED) {
-            throw new RuntimeException("Your membership is not active. Current status: " + membership.getStatus());
+            throw new AccessDeniedException("Your membership is not active. Current status: " + membership.getStatus());
         }
 
         return group;

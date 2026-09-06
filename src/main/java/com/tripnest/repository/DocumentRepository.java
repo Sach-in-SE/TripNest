@@ -5,9 +5,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DocumentRepository extends JpaRepository<TravelDocument, Long> {
     List<TravelDocument> findByTripId(Long tripId);
     List<TravelDocument> findByUserId(Long userId);
+    Optional<TravelDocument> findByFileUrlEndingWith(String suffix);
 }

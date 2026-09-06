@@ -12,12 +12,14 @@ import com.tripnest.dto.MessageResponse;
 import com.tripnest.dto.RespondRequest;
 import com.tripnest.dto.TransferOwnershipRequest;
 import com.tripnest.dto.UpdateMemberPermissionRequest;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.GroupService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
@@ -73,6 +75,10 @@ public class GroupController {
             UserDetailsImpl userDetails = getCurrentUser();
             GroupDetailsResponse response = groupService.getGroupDetails(groupId, userDetails.getId());
             return ResponseEntity.ok(response);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(e.getMessage()));
+        } catch (AccessDeniedException | SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
         }
@@ -232,8 +238,12 @@ public class GroupController {
             UserDetailsImpl userDetails = getCurrentUser();
             List<GroupMessageResponse> messages = groupService.getGroupMessages(groupId, userDetails.getId());
             return ResponseEntity.ok(messages);
-        } catch (RuntimeException e) {
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(e.getMessage()));
+        } catch (AccessDeniedException | SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
     }
 
@@ -243,7 +253,11 @@ public class GroupController {
             UserDetailsImpl userDetails = getCurrentUser();
             GroupMessageResponse response = groupService.sendGroupMessage(groupId, request, userDetails.getId());
             return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(e.getMessage()));
+        } catch (AccessDeniedException | SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
     }

@@ -13,12 +13,19 @@ import com.tripnest.security.JwtUtils;
 import com.tripnest.security.UserDetailsImpl;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,6 +33,9 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
+
+    @Value("${tripnest.upload.dir:uploads}")
+    private String uploadDir;
 
     @Autowired
     private UserService userService;
@@ -159,6 +169,38 @@ public class UserController {
             return ResponseEntity.ok(new MessageResponse("Profile picture removed successfully!"));
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body(new MessageResponse("Failed to remove profile picture: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/profile-picture/{fileName:.+}")
+    public ResponseEntity<Resource> getProfilePicture(@PathVariable String fileName) {
+        try {
+            if (fileName == null || fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            Path uploadPath = Paths.get(uploadDir, "profile-pictures").toAbsolutePath().normalize();
+            Path filePath = uploadPath.resolve(fileName).normalize();
+
+            if (!filePath.startsWith(uploadPath)) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+            if (resource.exists() && resource.isReadable()) {
+                String contentType = Files.probeContentType(filePath);
+                if (contentType == null) {
+                    contentType = "image/jpeg";
+                }
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.CONTENT_TYPE, contentType)
+                        .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                        .body(resource);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
         }
     }
 

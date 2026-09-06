@@ -296,6 +296,10 @@ const Favorites = () => {
                           alt={fav.destinationName}
                           className="tn-favorites-card-img"
                           loading="lazy"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'><rect width='400' height='250' fill='%231e293b'/><text x='50%25' y='50%25' font-size='32' text-anchor='middle' dominant-baseline='middle' fill='%2394a3b8'>📍</text></svg>";
+                          }}
                         />
                       ) : (
                         <div className="tn-favorites-card-img-placeholder">

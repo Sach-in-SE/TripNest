@@ -85,7 +85,7 @@ public class WikipediaService {
             // Second attempt: Search API to find exact article title
             String searchUrl = "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                     + encodedName + "&format=json";
-            Map<?, ?> searchResult = restTemplate.getForObject(searchUrl, Map.class);
+            Map<?, ?> searchResult = executeWikiGetCall(searchUrl);
             if (searchResult != null && searchResult.containsKey("query")) {
                 Map<?, ?> queryObj = (Map<?, ?>) searchResult.get("query");
                 if (queryObj.containsKey("search")) {
@@ -119,7 +119,7 @@ public class WikipediaService {
 
     private WikipediaResponse fetchSummaryFromUrl(String url) {
         try {
-            Map<?, ?> res = restTemplate.getForObject(url, Map.class);
+            Map<?, ?> res = executeWikiGetCall(url);
             if (res != null && res.containsKey("extract")) {
                 String title = (String) res.get("title");
                 String extract = (String) res.get("extract");
@@ -164,5 +164,21 @@ public class WikipediaService {
             logger.debug("Wikipedia REST summary call failed for URL {}: {}", url, e.getMessage());
         }
         return null;
+    }
+
+    private Map<?, ?> executeWikiGetCall(String url) {
+        try {
+            java.net.URI uri = java.net.URI.create(url);
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("User-Agent", "TripNest-Guide/1.0 (https://tripnest.com; contact@tripnest.com)");
+            headers.set("Accept", "application/json");
+            org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+            org.springframework.http.ResponseEntity<Map> response = restTemplate.exchange(
+                    uri, org.springframework.http.HttpMethod.GET, entity, Map.class);
+            return response.getBody();
+        } catch (Exception e) {
+            logger.debug("Wikipedia GET call failed for {}: {}", url, e.getMessage());
+            return null;
+        }
     }
 }

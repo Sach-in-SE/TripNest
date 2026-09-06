@@ -15,7 +15,7 @@ const Budget = () => {
     title: "", amount: "", category: "FOOD",
     description: "", date: "",
   });
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
 
   useEffect(() => { fetchTrips(); }, []);
 

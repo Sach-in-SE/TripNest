@@ -1,11 +1,15 @@
 package com.tripnest.controller;
 
+import com.tripnest.dto.DocumentDownloadResult;
 import com.tripnest.dto.DocumentResponse;
 import com.tripnest.dto.MessageResponse;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.DocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -45,7 +50,7 @@ public class DocumentController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new MessageResponse("File upload storage failure: " + e.getMessage()));
+                    .body(new MessageResponse("File upload storage failure"));
         }
     }
 
@@ -80,7 +85,7 @@ public class DocumentController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new MessageResponse(e.getMessage()));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new MessageResponse("Delete operation failed: " + e.getMessage()));
+                    .body(new MessageResponse("Delete operation failed"));
         }
     }
 
@@ -91,16 +96,39 @@ public class DocumentController {
             if (userDetails == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("Authentication required"));
             }
-            Resource resource = documentService.getDocumentResource(fileName, userDetails.getId());
-            if (!resource.exists() || !resource.isReadable()) {
-                return ResponseEntity.notFound().build();
+            DocumentDownloadResult downloadResult = documentService.getDocumentDownload(fileName, userDetails.getId());
+            Resource resource = downloadResult.getResource();
+            if (resource == null || !resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse("Resource not found"));
             }
 
-            String contentType = "application/octet-stream";
+            MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            if (downloadResult.getContentType() != null && !downloadResult.getContentType().trim().isEmpty()) {
+                try {
+                    mediaType = MediaType.parseMediaType(downloadResult.getContentType().trim());
+                } catch (Exception ignored) {
+                    mediaType = MediaType.APPLICATION_OCTET_STREAM;
+                }
+            }
+
+            String originalFilename = downloadResult.getOriginalFileName();
+            if (originalFilename == null || originalFilename.trim().isEmpty()) {
+                originalFilename = fileName;
+            }
+
+            ContentDisposition contentDisposition = ContentDisposition.attachment()
+                    .filename(originalFilename, StandardCharsets.UTF_8)
+                    .build();
+
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                    .contentType(mediaType)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
                     .body(resource);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse(e.getMessage()));
         } catch (SecurityException | AccessDeniedException e) {

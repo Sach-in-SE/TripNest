@@ -413,6 +413,30 @@ CREATE TABLE `travel_memories` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `travel_memory_images`
+--
+
+DROP TABLE IF EXISTS `travel_memory_images`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `travel_memory_images` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `content_type` varchar(100) DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `display_order` int NOT NULL DEFAULT '0',
+  `file_size` bigint DEFAULT NULL,
+  `file_url` varchar(500) NOT NULL,
+  `original_file_name` varchar(255) DEFAULT NULL,
+  `stored_file_name` varchar(255) NOT NULL,
+  `memory_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_mem_img_memory_id` (`memory_id`),
+  KEY `idx_mem_img_stored_name` (`stored_file_name`),
+  CONSTRAINT `FK_travel_memory_images_memory` FOREIGN KEY (`memory_id`) REFERENCES `travel_memories` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `travel_preferences`
 --
 

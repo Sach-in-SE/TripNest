@@ -181,6 +181,10 @@ export const DestinationCatalog = () => {
             );
           })}
         </div>
+      ) : destinations.length === 0 ? (
+        <div className="tn-destination-empty">
+          <p>No destinations available yet. Administrators can add destinations from the admin dashboard.</p>
+        </div>
       ) : (
         <div className="tn-destination-empty">
           <p>No destinations found for "{selectedCategory}".</p>

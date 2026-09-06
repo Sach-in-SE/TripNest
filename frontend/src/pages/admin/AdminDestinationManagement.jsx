@@ -16,13 +16,13 @@ const CATEGORIES = [
 const INITIAL_FORM_STATE = {
   name: "",
   state: "",
-  country: "",
+  country: "India",
   description: "",
   category: "Beach",
   imageUrl: "",
   bestSeason: "",
   estimatedBudget: "",
-  recommendedDays: "",
+  recommendedDays: "3",
   latitude: "",
   longitude: "",
   rating: "4.5",
@@ -89,7 +89,7 @@ function AdminDestinationManagement() {
     setFormData({
       name: dest.name || "",
       state: dest.state || "",
-      country: dest.country || "",
+      country: dest.country || "India",
       description: dest.description || "",
       category: dest.category || "Beach",
       imageUrl: dest.imageUrl || "",
@@ -111,17 +111,61 @@ function AdminDestinationManagement() {
   const handleSubmitForm = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      alert("Destination Name is required.");
+      showToast("error", "Destination Name is required.");
       return;
+    }
+    if (!formData.country.trim()) {
+      showToast("error", "Country is required.");
+      return;
+    }
+    if (!formData.description.trim()) {
+      showToast("error", "Description is required.");
+      return;
+    }
+    if (!formData.category) {
+      showToast("error", "Category is required.");
+      return;
+    }
+
+    if (formData.latitude !== "") {
+      const lat = parseFloat(formData.latitude);
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        showToast("error", "Latitude must be a valid number between -90 and 90.");
+        return;
+      }
+    }
+
+    if (formData.longitude !== "") {
+      const lon = parseFloat(formData.longitude);
+      if (isNaN(lon) || lon < -180 || lon > 180) {
+        showToast("error", "Longitude must be a valid number between -180 and 180.");
+        return;
+      }
+    }
+
+    if (formData.estimatedBudget !== "") {
+      const budget = parseFloat(formData.estimatedBudget);
+      if (isNaN(budget) || budget < 0) {
+        showToast("error", "Estimated Budget must be a non-negative number.");
+        return;
+      }
+    }
+
+    if (formData.rating !== "") {
+      const rating = parseFloat(formData.rating);
+      if (isNaN(rating) || rating < 0 || rating > 5) {
+        showToast("error", "Rating must be between 0.0 and 5.0.");
+        return;
+      }
     }
 
     setActionLoading(true);
     const payload = {
       name: formData.name.trim(),
       state: formData.state.trim() || null,
-      country: formData.country.trim() || null,
-      description: formData.description.trim() || null,
-      category: formData.category || null,
+      country: formData.country.trim(),
+      description: formData.description.trim(),
+      category: formData.category,
       imageUrl: formData.imageUrl.trim() || null,
       bestSeason: formData.bestSeason.trim() || null,
       estimatedBudget: formData.estimatedBudget !== "" ? parseFloat(formData.estimatedBudget) : null,
@@ -168,7 +212,7 @@ function AdminDestinationManagement() {
 
   const formatCurrency = (val) => {
     if (val == null) return "—";
-    return `$${Number(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₹${Number(val).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   };
 
   return (
@@ -176,165 +220,171 @@ function AdminDestinationManagement() {
       <div className="admin-dashboard-header">
         <div>
           <h2>Destination Catalog</h2>
-          <p>Manage public travel destinations, categories, imagery, and recommendations</p>
+          <p>Manage public travel destinations, categories, imagery, and coordinates</p>
         </div>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button onClick={fetchDestinations} disabled={loading} className="admin-refresh-btn">
-                🔄 Refresh Catalog
-              </button>
-              <button onClick={openCreateModal} className="admin-btn-add">
-                ➕ Add Destination
-              </button>
-            </div>
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <button onClick={fetchDestinations} disabled={loading} className="admin-refresh-btn">
+            🔄 Refresh Catalog
+          </button>
+          <button onClick={openCreateModal} className="admin-btn-add">
+            ➕ Add Destination
+          </button>
+        </div>
+      </div>
+
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div className={`admin-toast-banner ${toastMessage.type}`}>
+          <span>{toastMessage.text}</span>
+          <button
+            style={{ background: "none", border: "none", color: "inherit", cursor: "pointer" }}
+            onClick={() => setToastMessage(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Search & Filter Bar */}
+      <div className="admin-filter-bar">
+        <div className="admin-search-wrapper">
+          <span className="admin-search-icon">🔍</span>
+          <input
+            type="text"
+            placeholder="Search destinations by name, state, country..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="admin-search-input"
+          />
+        </div>
+
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="admin-select"
+        >
+          <option value="">All Categories</option>
+          {CATEGORIES.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div className="admin-loading-container">
+          <div className="admin-spinner"></div>
+          <p style={{ color: "#94a3b8" }}>Loading destination catalog...</p>
+        </div>
+      ) : error ? (
+        <div className="admin-error-container">
+          <div className="admin-error-icon">⚠️</div>
+          <div className="admin-error-msg">{error}</div>
+          <button onClick={fetchDestinations} className="admin-retry-btn">
+            Retry Loading
+          </button>
+        </div>
+      ) : destinations.length === 0 ? (
+        <div className="admin-loading-container" style={{ padding: "60px 20px" }}>
+          <span style={{ fontSize: "40px", marginBottom: "12px" }}>🏝️</span>
+          <h3 style={{ color: "#f8fafc", marginBottom: "6px" }}>No destinations in database</h3>
+          <p style={{ color: "#94a3b8", marginBottom: "1.5rem", maxWidth: "400px" }}>
+            The destination catalog is currently empty. Click below to add your first admin-managed travel destination.
+          </p>
+          <button onClick={openCreateModal} className="admin-btn-add">
+            ➕ Add First Destination
+          </button>
+        </div>
+      ) : (
+        <div className="admin-table-card">
+          <div className="admin-table-wrapper">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Destination</th>
+                  <th>Location</th>
+                  <th>Category</th>
+                  <th>Est. Budget</th>
+                  <th>Rec. Days</th>
+                  <th>Rating</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {destinations.map((d) => (
+                  <tr key={d.id}>
+                    <td>
+                      <div className="admin-user-cell">
+                        {d.imageUrl ? (
+                          <img
+                            src={d.imageUrl}
+                            alt={d.name}
+                            className="admin-dest-img-thumb"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'><rect width='44' height='44' fill='%23334155'/><text x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle' fill='%2394a3b8'>📍</text></svg>";
+                            }}
+                          />
+                        ) : (
+                          <div className="admin-avatar-placeholder">📍</div>
+                        )}
+                        <div>
+                          <div className="admin-user-name">{d.name}</div>
+                          {d.bestSeason && (
+                            <div className="admin-user-sub">Best: {d.bestSeason}</div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      {[d.state, d.country].filter(Boolean).join(", ") || "—"}
+                    </td>
+                    <td>
+                      <span className="admin-badge admin-badge-admin">
+                        {d.category || "General"}
+                      </span>
+                    </td>
+                    <td>{formatCurrency(d.estimatedBudget)}</td>
+                    <td>{d.recommendedDays ? `${d.recommendedDays} days` : "—"}</td>
+                    <td>
+                      <span className="admin-badge admin-badge-warning">
+                        ⭐ {d.rating != null ? d.rating.toFixed(1) : "N/A"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="admin-action-group">
+                        <button
+                          onClick={() => setViewingDestination(d)}
+                          className="admin-action-btn view"
+                          title="View Details"
+                        >
+                          👁️ Details
+                        </button>
+                        <button
+                          onClick={() => openEditModal(d)}
+                          className="admin-action-btn edit"
+                          title="Edit Destination"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => setDeletingDestination(d)}
+                          className="admin-action-btn delete"
+                          title="Delete Destination"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-
-          {/* Toast Notification Banner */}
-          {toastMessage && (
-            <div className={`admin-toast-banner ${toastMessage.type}`}>
-              <span>{toastMessage.text}</span>
-              <button
-                style={{ background: "none", border: "none", color: "inherit", cursor: "pointer" }}
-                onClick={() => setToastMessage(null)}
-              >
-                ✕
-              </button>
-            </div>
-          )}
-
-          {/* Search & Filter Bar */}
-          <div className="admin-filter-bar">
-            <div className="admin-search-wrapper">
-              <span className="admin-search-icon">🔍</span>
-              <input
-                type="text"
-                placeholder="Search destinations by name, state, country..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="admin-search-input"
-              />
-            </div>
-
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="admin-select"
-            >
-              <option value="">All Categories</option>
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Table */}
-          {loading ? (
-            <div className="admin-loading-container">
-              <div className="admin-spinner"></div>
-              <p style={{ color: "#94a3b8" }}>Loading destination catalog...</p>
-            </div>
-          ) : error ? (
-            <div className="admin-error-container">
-              <div className="admin-error-icon">⚠️</div>
-              <div className="admin-error-msg">{error}</div>
-              <button onClick={fetchDestinations} className="admin-retry-btn">
-                Retry Loading
-              </button>
-            </div>
-          ) : destinations.length === 0 ? (
-            <div className="admin-loading-container">
-              <p style={{ color: "#cbd5e1", fontSize: "1.05rem" }}>
-                No destinations found matching your query.
-              </p>
-            </div>
-          ) : (
-            <div className="admin-table-card">
-              <div className="admin-table-wrapper">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Destination</th>
-                      <th>Location</th>
-                      <th>Category</th>
-                      <th>Est. Budget</th>
-                      <th>Rec. Days</th>
-                      <th>Rating</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {destinations.map((d) => (
-                      <tr key={d.id}>
-                        <td>
-                          <div className="admin-user-cell">
-                            {d.imageUrl ? (
-                              <img
-                                src={d.imageUrl}
-                                alt={d.name}
-                                className="admin-dest-img-thumb"
-                                onError={(e) => {
-                                  e.target.style.display = "none";
-                                }}
-                              />
-                            ) : (
-                              <div className="admin-avatar-placeholder">📍</div>
-                            )}
-                            <div>
-                              <div className="admin-user-name">{d.name}</div>
-                              {d.bestSeason && (
-                                <div className="admin-user-sub">Best: {d.bestSeason}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          {[d.state, d.country].filter(Boolean).join(", ") || "—"}
-                        </td>
-                        <td>
-                          <span className="admin-badge admin-badge-admin">
-                            {d.category || "General"}
-                          </span>
-                        </td>
-                        <td>{formatCurrency(d.estimatedBudget)}</td>
-                        <td>{d.recommendedDays ? `${d.recommendedDays} days` : "—"}</td>
-                        <td>
-                          <span className="admin-badge admin-badge-warning">
-                            ⭐ {d.rating != null ? d.rating.toFixed(1) : "N/A"}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="admin-action-group">
-                            <button
-                              onClick={() => setViewingDestination(d)}
-                              className="admin-action-btn view"
-                              title="View Details"
-                            >
-                              👁️ Details
-                            </button>
-                            <button
-                              onClick={() => openEditModal(d)}
-                              className="admin-action-btn edit"
-                              title="Edit Destination"
-                            >
-                              ✏️ Edit
-                            </button>
-                            <button
-                              onClick={() => setDeletingDestination(d)}
-                              className="admin-action-btn delete"
-                              title="Delete Destination"
-                            >
-                              🗑️ Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        </div>
+      )}
 
       {/* --- MODAL 1: CREATE / EDIT DESTINATION --- */}
       {showModal && (
@@ -357,26 +407,28 @@ function AdminDestinationManagement() {
                     name="name"
                     value={formData.name}
                     onChange={handleFormChange}
-                    placeholder="e.g. Manali, Paris, Goa"
+                    placeholder="e.g. Manali, Goa, Paris"
                     className="admin-form-input"
+                    maxLength={100}
                     required
                   />
                 </div>
 
                 <div className="admin-form-row">
                   <div className="admin-form-group">
-                    <label className="admin-form-label">State / Province</label>
+                    <label className="admin-form-label">State / Region</label>
                     <input
                       type="text"
                       name="state"
                       value={formData.state}
                       onChange={handleFormChange}
-                      placeholder="e.g. Himachal Pradesh"
+                      placeholder="e.g. Himachal Pradesh, Goa"
                       className="admin-form-input"
+                      maxLength={100}
                     />
                   </div>
                   <div className="admin-form-group">
-                    <label className="admin-form-label">Country</label>
+                    <label className="admin-form-label">Country *</label>
                     <input
                       type="text"
                       name="country"
@@ -384,18 +436,21 @@ function AdminDestinationManagement() {
                       onChange={handleFormChange}
                       placeholder="e.g. India, France"
                       className="admin-form-input"
+                      maxLength={100}
+                      required
                     />
                   </div>
                 </div>
 
                 <div className="admin-form-row">
                   <div className="admin-form-group">
-                    <label className="admin-form-label">Category</label>
+                    <label className="admin-form-label">Category *</label>
                     <select
                       name="category"
                       value={formData.category}
                       onChange={handleFormChange}
                       className="admin-form-select"
+                      required
                     >
                       {CATEGORIES.map((cat) => (
                         <option key={cat} value={cat}>
@@ -413,6 +468,7 @@ function AdminDestinationManagement() {
                       onChange={handleFormChange}
                       placeholder="e.g. October to March"
                       className="admin-form-input"
+                      maxLength={100}
                     />
                   </div>
                 </div>
@@ -426,19 +482,21 @@ function AdminDestinationManagement() {
                     onChange={handleFormChange}
                     placeholder="https://images.unsplash.com/photo-..."
                     className="admin-form-input"
+                    maxLength={1000}
                   />
                 </div>
 
                 <div className="admin-form-row">
                   <div className="admin-form-group">
-                    <label className="admin-form-label">Estimated Budget ($)</label>
+                    <label className="admin-form-label">Estimated Budget (₹)</label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="1"
+                      min="0"
                       name="estimatedBudget"
                       value={formData.estimatedBudget}
                       onChange={handleFormChange}
-                      placeholder="e.g. 500"
+                      placeholder="e.g. 25000"
                       className="admin-form-input"
                     />
                   </div>
@@ -446,10 +504,11 @@ function AdminDestinationManagement() {
                     <label className="admin-form-label">Recommended Days</label>
                     <input
                       type="number"
+                      min="1"
                       name="recommendedDays"
                       value={formData.recommendedDays}
                       onChange={handleFormChange}
-                      placeholder="e.g. 5"
+                      placeholder="e.g. 3"
                       className="admin-form-input"
                     />
                   </div>
@@ -471,24 +530,28 @@ function AdminDestinationManagement() {
                     />
                   </div>
                   <div className="admin-form-group">
-                    <label className="admin-form-label">Coordinates (Lat, Long)</label>
+                    <label className="admin-form-label">Coordinates (Latitude, Longitude)</label>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <input
                         type="number"
                         step="any"
+                        min="-90"
+                        max="90"
                         name="latitude"
                         value={formData.latitude}
                         onChange={handleFormChange}
-                        placeholder="Lat"
+                        placeholder="Latitude (-90 to 90)"
                         className="admin-form-input"
                       />
                       <input
                         type="number"
                         step="any"
+                        min="-180"
+                        max="180"
                         name="longitude"
                         value={formData.longitude}
                         onChange={handleFormChange}
-                        placeholder="Long"
+                        placeholder="Longitude (-180 to 180)"
                         className="admin-form-input"
                       />
                     </div>
@@ -496,13 +559,16 @@ function AdminDestinationManagement() {
                 </div>
 
                 <div className="admin-form-group">
-                  <label className="admin-form-label">Description</label>
+                  <label className="admin-form-label">Description *</label>
                   <textarea
                     name="description"
                     value={formData.description}
                     onChange={handleFormChange}
-                    placeholder="Enter detailed description of the destination..."
+                    placeholder="Enter comprehensive description of the destination..."
                     className="admin-form-textarea"
+                    rows={4}
+                    maxLength={2000}
+                    required
                   ></textarea>
                 </div>
               </div>
@@ -576,7 +642,7 @@ function AdminDestinationManagement() {
               </button>
             </div>
             <div className="admin-modal-body">
-              {viewingDestination.imageUrl && (
+              {viewingDestination.imageUrl ? (
                 <img
                   src={viewingDestination.imageUrl}
                   alt={viewingDestination.name}
@@ -588,10 +654,11 @@ function AdminDestinationManagement() {
                     marginBottom: "1.25rem",
                   }}
                   onError={(e) => {
-                    e.target.style.display = "none";
+                    e.target.onerror = null;
+                    e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='180' viewBox='0 0 400 180'><rect width='400' height='180' fill='%231e293b'/><text x='50%25' y='50%25' font-size='24' text-anchor='middle' dominant-baseline='middle' fill='%2394a3b8'>📍 Destination Image</text></svg>";
                   }}
                 />
-              )}
+              ) : null}
 
               <div className="admin-detail-grid">
                 <div className="admin-detail-item">
@@ -654,3 +721,4 @@ function AdminDestinationManagement() {
 }
 
 export default AdminDestinationManagement;
+
