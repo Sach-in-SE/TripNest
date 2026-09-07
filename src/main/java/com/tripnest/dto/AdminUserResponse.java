@@ -13,7 +13,6 @@ public class AdminUserResponse {
     private String firstName;
     private String lastName;
     private String phone;
-    private String profilePictureUrl;
     private String bio;
     private String country;
     private String state;

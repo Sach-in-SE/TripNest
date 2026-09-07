@@ -73,7 +73,7 @@ http {
         location ^~ /api/auth/ {
             limit_req zone=auth_limit burst=10 nodelay;
 
-            proxy_pass http://tripnest-backend:8080/api/auth/;
+            proxy_pass ${BACKEND_URL}/api/auth/;
             proxy_http_version 1.1;
 
             proxy_set_header Host $host;
@@ -87,7 +87,7 @@ http {
         location ^~ /api/admin/auth/ {
             limit_req zone=auth_limit burst=10 nodelay;
 
-            proxy_pass http://tripnest-backend:8080/api/admin/auth/;
+            proxy_pass ${BACKEND_URL}/api/admin/auth/;
             proxy_http_version 1.1;
 
             proxy_set_header Host $host;
@@ -101,7 +101,7 @@ http {
         location = /api/contact {
             limit_req zone=contact_limit burst=5 nodelay;
 
-            proxy_pass http://tripnest-backend:8080/api/contact;
+            proxy_pass ${BACKEND_URL}/api/contact;
             proxy_http_version 1.1;
 
             proxy_set_header Host $host;
@@ -116,7 +116,7 @@ http {
         # Backend REST API
         # ============================================
         location ^~ /api/ {
-            proxy_pass http://tripnest-backend:8080/api/;
+            proxy_pass ${BACKEND_URL}/api/;
 
             proxy_http_version 1.1;
 
@@ -132,7 +132,7 @@ http {
         # Google OAuth2
         # ============================================
         location ^~ /oauth2/authorization/ {
-            proxy_pass http://tripnest-backend:8080/oauth2/authorization/;
+            proxy_pass ${BACKEND_URL}/oauth2/authorization/;
 
             proxy_http_version 1.1;
 
@@ -145,7 +145,7 @@ http {
         }
 
         location ^~ /login/oauth2/ {
-            proxy_pass http://tripnest-backend:8080/login/oauth2/;
+            proxy_pass ${BACKEND_URL}/login/oauth2/;
 
             proxy_http_version 1.1;
 
@@ -161,7 +161,7 @@ http {
         # Actuator Health
         # ============================================
         location ^~ /actuator/health {
-            proxy_pass http://tripnest-backend:8080/actuator/health;
+            proxy_pass ${BACKEND_URL}/actuator/health;
 
             proxy_http_version 1.1;
 
@@ -174,7 +174,7 @@ http {
         }
 
         # ============================================
-        # Static Asset Caching
+        # Static Asset Caching (Hashed Vite Bundles)
         # ============================================
         location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2)$ {
             expires 1y;

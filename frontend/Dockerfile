@@ -31,16 +31,24 @@ RUN npm run build
 FROM nginx:1.27-alpine AS runtime
 
 # Remove default Nginx configuration
-RUN rm /etc/nginx/conf.d/default.conf
+RUN rm -f /etc/nginx/conf.d/default.conf
 
-# Copy our production Nginx configuration
+# Copy template and default Nginx configuration
+COPY nginx.conf.template /etc/nginx/nginx.conf.template
 COPY nginx.conf /etc/nginx/nginx.conf
+
+# Copy entrypoint script and ensure Unix line endings + executable permissions
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
 # Copy compiled React application
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Nginx listens on port 80
 EXPOSE 80
+
+# Dynamic environment variable substitution entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"]
 
 # Run Nginx in foreground so Docker can manage the process
 CMD ["nginx", "-g", "daemon off;"]

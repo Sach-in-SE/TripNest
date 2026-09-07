@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -380,66 +380,6 @@ const Profile = () => {
     }
   };
 
-  const fileInputRef = useRef(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Avatar image must be smaller than 2MB");
-      return;
-    }
-
-    const allowed = ["image/jpeg", "image/jpg", "image/png"];
-    if (!allowed.includes(file.type)) {
-      setError("Only JPG, JPEG, and PNG formats are allowed");
-      return;
-    }
-
-    setUploadingAvatar(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const data = new FormData();
-      data.append("file", file);
-      const res = await api.post("/user/profile-picture", data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setProfile((prev) => ({
-        ...prev,
-        profilePictureUrl: res.data.profilePictureUrl,
-      }));
-      setMessage("Profile picture updated successfully!");
-    } catch (err) {
-      console.error("Avatar upload error:", err);
-      setError(err.response?.data?.message || "Failed to upload profile picture");
-    } finally {
-      setUploadingAvatar(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
-  const handleRemoveAvatar = async () => {
-    if (!window.confirm("Remove your profile picture?")) return;
-    setUploadingAvatar(true);
-    setError("");
-    setMessage("");
-    try {
-      await api.delete("/user/profile-picture");
-      setProfile((prev) => ({ ...prev, profilePictureUrl: null }));
-      setMessage("Profile picture removed successfully!");
-    } catch (err) {
-      console.error("Avatar removal error:", err);
-      setError(err.response?.data?.message || "Failed to remove profile picture");
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
 
   const handleCancelUsername = () => {
     setUsernameForm(profile?.username || "");
@@ -463,53 +403,6 @@ const Profile = () => {
         {/* Hero Section */}
         <div style={styles.heroCard} className="glass-card profile-hero-card">
           <div style={styles.heroContent} className="profile-hero-content">
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-              <div style={styles.avatar}>
-                {profile?.profilePictureUrl ? (
-                  <img
-                    src={profile.profilePictureUrl}
-                    alt={profile.firstName || "Avatar"}
-                    style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
-                    onError={(e) => {
-                      e.target.style.display = "none";
-                    }}
-                  />
-                ) : (
-                  profile?.firstName?.charAt(0) || profile?.username?.charAt(0) || "U"
-                )}
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleAvatarChange}
-                  accept="image/jpeg,image/png,image/jpg"
-                  style={{ display: "none" }}
-                />
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "6px" }}
-                  title="Upload profile picture"
-                >
-                  {uploadingAvatar ? "..." : "📷 Photo"}
-                </button>
-                {profile?.profilePictureUrl && (
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={handleRemoveAvatar}
-                    disabled={uploadingAvatar}
-                    style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "6px", color: "#f87171" }}
-                    title="Remove profile picture"
-                  >
-                    🗑️
-                  </button>
-                )}
-              </div>
-            </div>
             <div style={styles.heroInfo}>
               <h2 style={styles.heroName}>{profile?.firstName} {profile?.lastName}</h2>
               {editingUsername ? (
@@ -940,7 +833,6 @@ const styles = {
   errorBox: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", padding: "12px 16px", color: "#f87171", fontSize: "14px", marginBottom: "20px" },
   heroCard: { padding: "32px", marginBottom: "32px" },
   heroContent: { display: "flex", alignItems: "flex-start", gap: "24px" },
-  avatar: { width: "100px", height: "100px", borderRadius: "50%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "40px", fontWeight: "700", color: "white", textTransform: "uppercase", flexShrink: 0 },
   heroInfo: { flex: 1 },
   heroName: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
   heroUsername: { color: "#7c3aed", fontSize: "16px", marginBottom: "12px" },

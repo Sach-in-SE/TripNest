@@ -30,7 +30,6 @@ import com.tripnest.dto.ForgotPasswordRequest;
 import com.tripnest.dto.ResetPasswordRequest;
 import com.tripnest.service.PasswordResetService;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

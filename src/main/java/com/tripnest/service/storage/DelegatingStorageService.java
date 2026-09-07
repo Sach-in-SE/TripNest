@@ -28,11 +28,42 @@ public class DelegatingStorageService implements StorageService {
     @Qualifier("s3CloudStorageService")
     private StorageService s3CloudStorageService;
 
-    private StorageService getActiveStorageService() {
-        if ("s3".equalsIgnoreCase(storageType) || (s3AccessKey != null && !s3AccessKey.trim().isEmpty())) {
+    @Autowired
+    @Qualifier("azureBlobStorageService")
+    private StorageService azureBlobStorageService;
+
+    // Package-private setters for unit testing
+    void setStorageType(String storageType) {
+        this.storageType = storageType;
+    }
+
+    void setLocalStorageService(StorageService localStorageService) {
+        this.localStorageService = localStorageService;
+    }
+
+    void setS3CloudStorageService(StorageService s3CloudStorageService) {
+        this.s3CloudStorageService = s3CloudStorageService;
+    }
+
+    void setAzureBlobStorageService(StorageService azureBlobStorageService) {
+        this.azureBlobStorageService = azureBlobStorageService;
+    }
+
+    void setS3AccessKey(String s3AccessKey) {
+        this.s3AccessKey = s3AccessKey;
+    }
+
+    StorageService getActiveStorageService() {
+        if ("azure".equalsIgnoreCase(storageType) || "azure_blob".equalsIgnoreCase(storageType)) {
+            return azureBlobStorageService;
+        }
+        if ("s3".equalsIgnoreCase(storageType) || (s3AccessKey != null && !s3AccessKey.trim().isEmpty() && !"local".equalsIgnoreCase(storageType))) {
             return s3CloudStorageService;
         }
-        return localStorageService;
+        if (storageType == null || storageType.trim().isEmpty() || "local".equalsIgnoreCase(storageType)) {
+            return localStorageService;
+        }
+        throw new IllegalArgumentException("Unsupported storage type: " + storageType + ". Supported types are: local, azure, s3.");
     }
 
     @Override

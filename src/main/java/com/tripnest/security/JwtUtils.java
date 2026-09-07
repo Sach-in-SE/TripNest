@@ -19,6 +19,20 @@ public class JwtUtils {
     @Value("${tripnest.app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.core.env.Environment environment;
+
+    @jakarta.annotation.PostConstruct
+    public void validateJwtSecret() {
+        if (environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            if (jwtSecret == null || jwtSecret.trim().isEmpty() ||
+                jwtSecret.contains("tripnest-development-only-change-me-secret-key") ||
+                jwtSecret.length() < 32) {
+                throw new IllegalStateException("CRITICAL SECURITY ERROR: In production profile, a secure JWT_SECRET environment variable (minimum 32 characters, non-default) MUST be provided!");
+            }
+        }
+    }
+
     public String generateJwtToken(String username) {
         return Jwts.builder()
                 .setSubject(username)

@@ -36,9 +36,19 @@ public class AdminInitializer implements CommandLineRunner {
     @Value("${tripnest.admin.password}")
     private String adminPassword;
 
+    @Autowired
+    private org.springframework.core.env.Environment environment;
+
     @Override
     @org.springframework.transaction.annotation.Transactional
     public void run(String... args) throws Exception {
+        boolean isProd = environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod");
+        if (isProd) {
+            if (adminPassword == null || adminPassword.trim().isEmpty() || "DevAdminPassword123!".equals(adminPassword)) {
+                throw new IllegalStateException("CRITICAL SECURITY ERROR: In production profile, a secure ADMIN_PASSWORD environment variable (non-default) MUST be provided!");
+            }
+        }
+
         // Initialize Roles if missing
         Role travelerRole = roleRepository.findByName(ERole.ROLE_TRAVELER)
                 .orElseGet(() -> {

@@ -139,7 +139,6 @@ public class AdminUserService {
         response.setFirstName(user.getFirstName());
         response.setLastName(user.getLastName());
         response.setPhone(user.getPhone());
-        response.setProfilePictureUrl(user.getProfilePictureUrl());
         response.setBio(user.getBio());
         response.setCountry(user.getCountry());
         response.setState(user.getState());

@@ -4,7 +4,6 @@ import com.tripnest.dto.ChangePasswordRequest;
 import com.tripnest.dto.ChangeUsernameRequest;
 import com.tripnest.dto.JwtResponse;
 import com.tripnest.dto.MessageResponse;
-import com.tripnest.dto.ProfilePictureResponse;
 import com.tripnest.dto.UpdateProfileRequest;
 import com.tripnest.dto.UserProfileResponse;
 import com.tripnest.entity.User;
@@ -13,29 +12,16 @@ import com.tripnest.security.JwtUtils;
 import com.tripnest.security.UserDetailsImpl;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
-
-    @Value("${tripnest.upload.dir:uploads}")
-    private String uploadDir;
 
     @Autowired
     private UserService userService;
@@ -58,7 +44,6 @@ public class UserController {
         response.setFirstName(user.getFirstName());
         response.setLastName(user.getLastName());
         response.setPhone(user.getPhone());
-        response.setProfilePictureUrl(user.getProfilePictureUrl());
         response.setBio(user.getBio());
         response.setCountry(user.getCountry());
         response.setState(user.getState());
@@ -129,79 +114,6 @@ public class UserController {
         userService.updateUser(user);
 
         return ResponseEntity.ok(new MessageResponse("Profile updated successfully!"));
-    }
-
-    @PostMapping("/profile-picture")
-    public ResponseEntity<?> uploadProfilePicture(@RequestParam("file") MultipartFile file) {
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest().body(new MessageResponse("File is empty"));
-            }
-
-            if (file.getSize() > 2 * 1024 * 1024) {
-                return ResponseEntity.badRequest().body(new MessageResponse("File size exceeds 2MB limit"));
-            }
-
-            String contentType = file.getContentType();
-            if (contentType == null || (!contentType.equals("image/jpeg") &&
-                !contentType.equals("image/jpg") &&
-                !contentType.equals("image/png"))) {
-                return ResponseEntity.badRequest().body(new MessageResponse("Only JPG, JPEG, and PNG formats are allowed"));
-            }
-
-            ProfilePictureResponse response = userService.uploadProfilePicture(file, userDetails.getId());
-            return ResponseEntity.ok(response);
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().body(new MessageResponse("File upload failed: " + e.getMessage()));
-        }
-    }
-
-    @DeleteMapping("/profile-picture")
-    public ResponseEntity<?> removeProfilePicture() {
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-
-            userService.removeProfilePicture(userDetails.getId());
-            return ResponseEntity.ok(new MessageResponse("Profile picture removed successfully!"));
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().body(new MessageResponse("Failed to remove profile picture: " + e.getMessage()));
-        }
-    }
-
-    @GetMapping("/profile-picture/{fileName:.+}")
-    public ResponseEntity<Resource> getProfilePicture(@PathVariable String fileName) {
-        try {
-            if (fileName == null || fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
-                return ResponseEntity.badRequest().build();
-            }
-
-            Path uploadPath = Paths.get(uploadDir, "profile-pictures").toAbsolutePath().normalize();
-            Path filePath = uploadPath.resolve(fileName).normalize();
-
-            if (!filePath.startsWith(uploadPath)) {
-                return ResponseEntity.badRequest().build();
-            }
-
-            Resource resource = new UrlResource(filePath.toUri());
-            if (resource.exists() && resource.isReadable()) {
-                String contentType = Files.probeContentType(filePath);
-                if (contentType == null) {
-                    contentType = "image/jpeg";
-                }
-                return ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_TYPE, contentType)
-                        .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
-                        .body(resource);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
-        }
     }
 
     @PostMapping("/change-password")
