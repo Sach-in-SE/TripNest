@@ -34,7 +34,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         // User should already be created/fetched in CustomOAuth2UserService
         // Fetch again to ensure we have the persisted user with correct ID
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new RuntimeException("User not found after OAuth login"));
 
         // Generate JWT token using username to match existing JWT authentication system

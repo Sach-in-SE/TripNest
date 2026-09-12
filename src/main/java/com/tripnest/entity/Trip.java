@@ -4,16 +4,21 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = "user")
 @Entity
 @Table(name = "trips")
 public class Trip {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @NotBlank

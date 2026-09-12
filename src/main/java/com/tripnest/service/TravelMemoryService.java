@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class TravelMemoryService {
 
     private static final Logger logger = LoggerFactory.getLogger(TravelMemoryService.class);

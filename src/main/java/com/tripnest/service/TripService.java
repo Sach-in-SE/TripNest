@@ -21,9 +21,10 @@ import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
-
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class TripService {
 
     private static final Logger logger = LoggerFactory.getLogger(TripService.class);
@@ -73,6 +74,10 @@ public class TripService {
     @Autowired
     private TravelUpdateNotificationService travelUpdateNotificationService;
 
+    @Autowired
+    private TravelMemoryRepository travelMemoryRepository;
+
+    @Transactional
     public TripResponse createTrip(TripRequest request, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -155,6 +160,7 @@ public class TripService {
         return response;
     }
 
+    @Transactional
     public TripResponse updateTrip(Long tripId, TripRequest request, Long userId) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
@@ -236,13 +242,16 @@ public class TripService {
         return r;
     }
     
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public void deleteTrip(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
         if (!trip.getUser().getId().equals(userId)) {
             throw new RuntimeException("Unauthorized");
         }
+
+        // 0. Unlink travel memories referencing this trip to prevent foreign key constraint violations
+        travelMemoryRepository.nullifyTripReferences(tripId);
 
         // 1. Delete activities first (which reference itineraries)
         List<Itinerary> itineraries = itineraryRepository.findByTripIdOrderByDateAsc(tripId);

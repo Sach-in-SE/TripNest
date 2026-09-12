@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class TripShareService {
 
     @Autowired
@@ -49,7 +50,7 @@ public class TripShareService {
             throw new IllegalArgumentException("Email is required");
         }
 
-        User targetUser = userRepository.findByEmail(request.getEmail().trim())
+        User targetUser = userRepository.findByEmailIgnoreCase(request.getEmail().trim())
                 .orElseThrow(() -> new IllegalArgumentException("No registered user found with that email. Please ask them to register first."));
 
         if (targetUser.getId().equals(ownerId)) {

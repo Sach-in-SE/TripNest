@@ -59,8 +59,9 @@ public class AuthController {
 
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        User user = userRepository.findByUsername(loginRequest.getUsername())
-                .orElseGet(() -> userRepository.findByEmail(loginRequest.getUsername()).orElse(null));
+        String loginIdentifier = loginRequest.getUsername() != null ? loginRequest.getUsername().trim() : "";
+        User user = userRepository.findByUsernameIgnoreCase(loginIdentifier)
+                .orElseGet(() -> userRepository.findByEmailIgnoreCase(loginIdentifier).orElse(null));
 
         if (user != null && user.isPasswordChangeRequired() && user.getTemporaryPasswordExpiry() != null) {
             if (java.time.LocalDateTime.now().isAfter(user.getTemporaryPasswordExpiry())) {
@@ -71,13 +72,14 @@ public class AuthController {
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUsername(),
+                        loginIdentifier,
                         loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(authentication.getName());
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        String jwt = jwtUtils.generateJwtToken(userDetails.getUsername());
+
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(item -> item.getAuthority())
                 .collect(Collectors.toList());

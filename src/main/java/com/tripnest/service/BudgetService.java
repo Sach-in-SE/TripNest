@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class BudgetService {
 
     @Autowired
@@ -63,6 +64,7 @@ public class BudgetService {
         return mapToResponse(saved);
     }
 
+    @Transactional
     public BudgetResponse getBudgetByTripId(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new RuntimeException("Trip not found"));

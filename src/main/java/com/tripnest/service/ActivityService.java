@@ -18,8 +18,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class ActivityService {
 
     @Autowired
@@ -46,6 +48,7 @@ public class ActivityService {
     @Autowired
     private TravelUpdateNotificationService travelUpdateNotificationService;
 
+    @Transactional
     public ActivityResponse createActivity(ActivityRequest request, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(request.getItineraryId())
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
@@ -122,6 +125,7 @@ public class ActivityService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public ActivityResponse updateActivity(Long id, ActivityRequest request, Long userId) {
         Activity activity = activityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Activity not found"));
@@ -186,6 +190,7 @@ public class ActivityService {
         return mapToResponse(updated);
     }
 
+    @Transactional
     public void deleteActivity(Long id, Long userId) {
         Activity activity = activityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Activity not found"));

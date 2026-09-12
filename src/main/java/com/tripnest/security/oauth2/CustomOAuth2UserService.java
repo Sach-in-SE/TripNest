@@ -41,7 +41,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException("Email not found from Google account");
         }
 
-        User user = userRepository.findByEmail(email).orElse(null);
+        User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
 
         if (user == null) {
             user = new User();

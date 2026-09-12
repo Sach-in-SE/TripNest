@@ -15,10 +15,12 @@ import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class ExpenseService {
 
     @Autowired
@@ -42,6 +44,7 @@ public class ExpenseService {
     @Autowired
     private NotificationService notificationService;
 
+    @Transactional
     public ExpenseResponse createExpense(ExpenseRequest request, Long userId) {
         Trip trip = tripRepository.findById(request.getTripId())
                 .orElseThrow(() -> new RuntimeException("Trip not found"));
@@ -100,6 +103,7 @@ public class ExpenseService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public ExpenseResponse updateExpense(Long id, ExpenseRequest request, Long userId) {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Expense not found"));
@@ -135,6 +139,7 @@ public class ExpenseService {
         return mapToResponse(updated);
     }
 
+    @Transactional
     public void deleteExpense(Long id, Long userId) {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Expense not found"));

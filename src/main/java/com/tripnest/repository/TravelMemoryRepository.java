@@ -32,5 +32,9 @@ public interface TravelMemoryRepository extends JpaRepository<TravelMemory, Long
     @Query("UPDATE TravelMemory m SET m.destination = null WHERE m.destination.id = :destinationId")
     void nullifyDestinationReferences(@Param("destinationId") Long destinationId);
 
+    @Modifying
+    @Query("UPDATE TravelMemory m SET m.trip = null WHERE m.trip.id = :tripId")
+    void nullifyTripReferences(@Param("tripId") Long tripId);
+
     Optional<TravelMemory> findByStoredFileName(String storedFileName);
 }

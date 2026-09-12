@@ -15,10 +15,12 @@ import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class ItineraryService {
 
     @Autowired
@@ -45,6 +47,7 @@ public class ItineraryService {
     @Autowired
     private TravelUpdateNotificationService travelUpdateNotificationService;
 
+    @Transactional
     public ItineraryResponse createItinerary(ItineraryRequest request, Long userId) {
         tripTimelineValidator.validateDateWithinTripTimeline(request.getTripId(), request.getDate(), userId);
 
@@ -82,6 +85,7 @@ public class ItineraryService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public ItineraryResponse updateItinerary(Long id, ItineraryRequest request, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
@@ -100,7 +104,7 @@ public class ItineraryService {
         return mapToResponse(updated);
     }
 
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public void deleteItinerary(Long id, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Itinerary not found"));
