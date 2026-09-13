@@ -472,11 +472,10 @@ const Destinations = () => {
                         decoding="async"
                         style={styles.cardImage}
                         onError={async (e) => {
-                          e.target.onerror = null;
                           const fallback = CATEGORY_FALLBACK_IMAGES[dest.category] || CATEGORY_FALLBACK_IMAGES.Default;
-                          if (!wikiImages[dest.id] && !isValidImageUrl(dest.imageUrl)) {
+                          if (!wikiImages[dest.id]) {
                             const wikiUrl = await fetchWikipediaImage(dest);
-                            if (wikiUrl) {
+                            if (wikiUrl && e.target.src !== wikiUrl) {
                               e.target.src = wikiUrl;
                               return;
                             }
@@ -484,6 +483,7 @@ const Destinations = () => {
                           if (e.target.src !== fallback) {
                             e.target.src = fallback;
                           } else {
+                            e.target.onerror = null;
                             e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'><rect width='400' height='250' fill='%231e293b'/><text x='50%25' y='50%25' font-size='32' text-anchor='middle' dominant-baseline='middle' fill='%2394a3b8'>📍</text></svg>";
                           }
                         }}

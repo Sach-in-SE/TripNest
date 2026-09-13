@@ -130,11 +130,14 @@ public class WebSecurityConfig {
                         // Admin panel APIs
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
+                        // Error dispatch
+                        .requestMatchers("/error").permitAll()
+
                         // Destination APIs
-                        .requestMatchers(HttpMethod.GET, "/api/destinations/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/destinations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/destinations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/destinations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/destinations", "/api/destinations/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
 
                         // Document download endpoint
                         .requestMatchers("/api/documents/download/**").authenticated()

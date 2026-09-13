@@ -6,6 +6,7 @@ import com.tripnest.dto.MessageResponse;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.FavoriteDestinationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,27 +23,42 @@ public class FavoriteDestinationController {
 
     @PostMapping
     public ResponseEntity<?> addFavorite(@RequestBody FavoriteDestinationRequest request) {
-        UserDetailsImpl userDetails = getCurrentUser();
-        FavoriteDestinationResponse response = favoriteDestinationService.addFavorite(request, userDetails.getId());
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Authentication required."));
+        }
+        FavoriteDestinationResponse response = favoriteDestinationService.addFavorite(request, userId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
     public ResponseEntity<?> getUserFavorites() {
-        UserDetailsImpl userDetails = getCurrentUser();
-        List<FavoriteDestinationResponse> favorites = favoriteDestinationService.getUserFavorites(userDetails.getId());
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Authentication required."));
+        }
+        List<FavoriteDestinationResponse> favorites = favoriteDestinationService.getUserFavorites(userId);
         return ResponseEntity.ok(favorites);
     }
 
     @DeleteMapping("/{destinationId}")
     public ResponseEntity<?> removeFavorite(@PathVariable Long destinationId) {
-        UserDetailsImpl userDetails = getCurrentUser();
-        favoriteDestinationService.removeFavorite(destinationId, userDetails.getId());
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Authentication required."));
+        }
+        favoriteDestinationService.removeFavorite(destinationId, userId);
         return ResponseEntity.ok(new MessageResponse("Destination removed from favorites"));
     }
 
-    private UserDetailsImpl getCurrentUser() {
+    private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (UserDetailsImpl) authentication.getPrincipal();
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+            return ((UserDetailsImpl) authentication.getPrincipal()).getId();
+        }
+        return null;
     }
 }

@@ -7,6 +7,17 @@ import api from "../services/api";
 
 const DestinationMap = lazy(() => import("../components/DestinationMap"));
 
+const CATEGORY_FALLBACK_IMAGES = {
+  Beach: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
+  Mountains: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80",
+  Historical: "https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=800&q=80",
+  Adventure: "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?auto=format&fit=crop&w=800&q=80",
+  Spiritual: "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&w=800&q=80",
+  Wildlife: "https://images.unsplash.com/photo-1534177616072-ef7dc120449d?auto=format&fit=crop&w=800&q=80",
+  City: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=800&q=80",
+  Default: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80",
+};
+
 const DestinationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -121,12 +132,16 @@ const DestinationDetails = () => {
   const wikipedia = details?.wikipedia;
   const travelGuide = details?.travelGuide;
 
-  // Resolve hero image with fallback chain: Valid Admin URL -> Wikipedia URL -> Fallback placeholder
+  // Resolve hero image with fallback chain: Valid Admin URL -> Wikipedia URL -> Category Fallback -> Fallback placeholder
   let heroImage = null;
   if (!heroImgFailed && isValidImageUrl(destination.imageUrl)) {
     heroImage = destination.imageUrl;
   } else if (isValidImageUrl(wikipedia?.imageUrl)) {
     heroImage = wikipedia.imageUrl;
+  } else if (destination?.category && CATEGORY_FALLBACK_IMAGES[destination.category]) {
+    heroImage = CATEGORY_FALLBACK_IMAGES[destination.category];
+  } else {
+    heroImage = CATEGORY_FALLBACK_IMAGES.Default;
   }
 
   const guideTabs = [
