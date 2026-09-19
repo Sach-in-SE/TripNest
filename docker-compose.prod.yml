@@ -1,0 +1,177 @@
+# ==============================================================================
+# TripNest — Production Docker Compose Configuration (PostgreSQL)
+# Usage: docker compose -f docker-compose.prod.yml up -d
+# ==============================================================================
+
+services:
+
+  # ==========================================
+  # PostgreSQL Database (Production)
+  # ==========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: tripnest-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tripnest_db}
+      POSTGRES_USER: ${POSTGRES_USER:-tripnest_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tripnest_password}
+
+    volumes:
+      - tripnest-postgres-data:/var/lib/postgresql/data
+
+    networks:
+      - tripnest-network
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER:-tripnest_user} -d $${POSTGRES_DB:-tripnest_db}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+  # ==========================================
+  # Spring Boot Backend (Production Profile)
+  # ==========================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: tripnest-backend
+    restart: unless-stopped
+
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+
+      # Production PostgreSQL Datasource Configuration
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://tripnest-postgres:5432/tripnest_db?sslmode=disable}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-tripnest_user}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-tripnest_password}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:-org.postgresql.Driver}
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: ${SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT:-org.hibernate.dialect.PostgreSQLDialect}
+
+      # Flyway & Hibernate Settings
+      SPRING_FLYWAY_ENABLED: ${SPRING_FLYWAY_ENABLED:-true}
+
+      JWT_SECRET: ${JWT_SECRET:-d9f83a21e4c7b80562e148a0f9b37c2e5d1a8f9c0e4b7a2d6f8e1c3b5a7d9e2f}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+
+      TRIPNEST_UPLOAD_DIR: ${TRIPNEST_UPLOAD_DIR:-/app/uploads}
+
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@tripnest.com}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPassword123!}
+
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@tripnest.com}
+
+      STORAGE_TYPE: ${STORAGE_TYPE:-azure}
+
+      STORAGE_AZURE_CONNECTION_STRING: ${STORAGE_AZURE_CONNECTION_STRING:-}
+      STORAGE_AZURE_CONTAINER: ${STORAGE_AZURE_CONTAINER:-tripnest-media}
+      STORAGE_AZURE_ENDPOINT: ${STORAGE_AZURE_ENDPOINT:-}
+
+      STORAGE_S3_BUCKET: ${STORAGE_S3_BUCKET:-}
+      STORAGE_S3_REGION: ${STORAGE_S3_REGION:-}
+      STORAGE_S3_ACCESS_KEY: ${STORAGE_S3_ACCESS_KEY:-}
+      STORAGE_S3_SECRET_KEY: ${STORAGE_S3_SECRET_KEY:-}
+      STORAGE_S3_ENDPOINT: ${STORAGE_S3_ENDPOINT:-}
+
+      TRAVEL_POI_API_KEY: ${TRAVEL_POI_API_KEY:-}
+      TRAVEL_GUIDE_SEARCH_RADIUS_KM: ${TRAVEL_GUIDE_SEARCH_RADIUS_KM:-10.0}
+
+    volumes:
+      - tripnest-uploads:/app/uploads
+
+    networks:
+      - tripnest-network
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://localhost:8080/actuator/health || exit 1"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+
+  # ==========================================
+  # React + Nginx Frontend
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_BACKEND_URL: ""
+
+    container_name: tripnest-frontend
+    restart: unless-stopped
+
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://tripnest-backend:8080}
+
+    ports:
+      - "80:80"
+
+    networks:
+      - tripnest-network
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q --spider http://127.0.0.1/ || exit 1"
+        ]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+
+# ==========================================
+# Networks
+# ==========================================
+networks:
+  tripnest-network:
+    driver: bridge
+
+
+# ==========================================
+# Persistent Volumes
+# ==========================================
+volumes:
+  tripnest-postgres-data:
+    driver: local
+
+  tripnest-uploads:
+    driver: local

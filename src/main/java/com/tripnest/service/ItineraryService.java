@@ -14,9 +14,14 @@ import com.tripnest.repository.ItineraryRepository;
 import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.tripnest.exception.ResourceNotFoundException;
+import com.tripnest.exception.UnauthorizedAccessException;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,8 +57,14 @@ public class ItineraryService {
         tripTimelineValidator.validateDateWithinTripTimeline(request.getTripId(), request.getDate(), userId);
 
         Trip trip = tripTimelineValidator.getTripForValidation(request.getTripId());
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+
         User creator = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         Itinerary itinerary = new Itinerary();
         itinerary.setDate(request.getDate());
@@ -71,26 +82,44 @@ public class ItineraryService {
 
     public List<ItineraryResponse> getTripItineraries(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "id", tripId));
 
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasAccess = tripShareService.hasAccess(tripId, userId);
         if (!isOwner && !hasAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedAccessException("Unauthorized");
         }
 
-        return itineraryRepository.findByTripIdOrderByDateAsc(tripId)
-                .stream()
-                .map(this::mapToResponse)
+        List<Itinerary> itineraries = itineraryRepository.findByTripIdWithTripAndUserOrderByDateAsc(tripId);
+        if (itineraries.isEmpty()) {
+            itineraries = itineraryRepository.findByTripIdOrderByDateAsc(tripId);
+        }
+        if (itineraries.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> itineraryIds = itineraries.stream().map(Itinerary::getId).collect(Collectors.toList());
+        List<Activity> activities = activityRepository.findByItineraryIdInWithUserOrderByStartTimeAsc(itineraryIds);
+        Map<Long, List<Activity>> activitiesByItinerary = activities.stream()
+                .collect(Collectors.groupingBy(a -> a.getItinerary().getId()));
+
+        return itineraries.stream()
+                .map(itin -> mapToResponseWithActivities(itin, activitiesByItinerary.getOrDefault(itin.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public ItineraryResponse updateItinerary(Long id, ItineraryRequest request, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Itinerary not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Itinerary", "id", id));
 
         Trip trip = itinerary.getTrip();
+        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
+        if (!isOwner && !hasEditAccess) {
+            throw new UnauthorizedAccessException("Unauthorized");
+        }
+
         tripTimelineValidator.validateDateWithinTripTimeline(trip.getId(), request.getDate(), userId);
 
         itinerary.setDate(request.getDate());
@@ -107,13 +136,13 @@ public class ItineraryService {
     @Transactional
     public void deleteItinerary(Long id, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Itinerary not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Itinerary", "id", id));
 
         Trip trip = itinerary.getTrip();
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
         if (!isOwner && !hasEditAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedAccessException("Unauthorized");
         }
 
         // 1. Delete linked expenses from activities
@@ -134,6 +163,11 @@ public class ItineraryService {
     }
 
     private ItineraryResponse mapToResponse(Itinerary itinerary) {
+        List<Activity> activities = activityRepository.findByItineraryIdOrderByStartTimeAsc(itinerary.getId());
+        return mapToResponseWithActivities(itinerary, activities);
+    }
+
+    private ItineraryResponse mapToResponseWithActivities(Itinerary itinerary, List<Activity> activities) {
         ItineraryResponse response = new ItineraryResponse();
         response.setId(itinerary.getId());
         response.setDate(itinerary.getDate());
@@ -145,12 +179,10 @@ public class ItineraryService {
         response.setCreatedAt(itinerary.getCreatedAt());
         response.setUpdatedAt(itinerary.getUpdatedAt());
 
-        List<ActivityResponse> activities = activityRepository
-                .findByItineraryIdOrderByStartTimeAsc(itinerary.getId())
-                .stream()
+        List<ActivityResponse> activityResponses = activities.stream()
                 .map(this::mapActivityToResponse)
                 .collect(Collectors.toList());
-        response.setActivities(activities);
+        response.setActivities(activityResponses);
 
         return response;
     }

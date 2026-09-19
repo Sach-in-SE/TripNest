@@ -60,6 +60,8 @@ public class TravelGuideService {
         cache.clear();
     }
 
+    private final Map<String, java.util.concurrent.CompletableFuture<TravelGuideResponse>> activeEnrichments = new java.util.concurrent.ConcurrentHashMap<>();
+
     public TravelGuideResponse getTravelGuide(String destinationName, String country, Double latitude, Double longitude) {
         if (latitude == null || longitude == null
                 || latitude.isNaN() || longitude.isNaN()
@@ -86,25 +88,44 @@ public class TravelGuideService {
             }
         }
 
-        try {
-            TravelGuideResponse response = travelEnrichmentClient.enrich(
-                    destinationName, country, latitude, longitude, searchRadiusKm, maxResultsPerCategory);
+        // Single-flight coalescing: concurrent requests for identical coordinates share a single enrichment task
+        java.util.concurrent.CompletableFuture<TravelGuideResponse> future = activeEnrichments.computeIfAbsent(cacheKey, k -> java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            try {
+                TravelGuideResponse response = travelEnrichmentClient.enrich(
+                        destinationName, country, latitude, longitude, searchRadiusKm, maxResultsPerCategory);
 
-            if (response != null && response.isAvailable()) {
-                cache.put(cacheKey, new CacheEntry(response, now));
-                return response;
+                if (response != null && response.isAvailable()) {
+                    cache.put(cacheKey, new CacheEntry(response, System.currentTimeMillis()));
+                    return response;
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to enrich travel guide for '{}' ({}, {}): {}", destinationName, latitude, longitude, e.getMessage());
             }
-        } catch (Exception e) {
-            logger.warn("Failed to enrich travel guide for '{}' ({}, {}): {}", destinationName, latitude, longitude, e.getMessage());
-        }
 
-        return TravelGuideResponse.builder()
-                .attractions(new ArrayList<>())
-                .hotels(new ArrayList<>())
-                .food(new ArrayList<>())
-                .shopping(new ArrayList<>())
-                .available(false)
-                .attribution(DEFAULT_ATTRIBUTION)
-                .build();
+            return TravelGuideResponse.builder()
+                    .attractions(new ArrayList<>())
+                    .hotels(new ArrayList<>())
+                    .food(new ArrayList<>())
+                    .shopping(new ArrayList<>())
+                    .available(false)
+                    .attribution(DEFAULT_ATTRIBUTION)
+                    .build();
+        }));
+
+        try {
+            return future.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            logger.warn("Travel guide enrichment wait timed out or failed for '{}': {}", destinationName, e.getMessage());
+            return TravelGuideResponse.builder()
+                    .attractions(new ArrayList<>())
+                    .hotels(new ArrayList<>())
+                    .food(new ArrayList<>())
+                    .shopping(new ArrayList<>())
+                    .available(false)
+                    .attribution(DEFAULT_ATTRIBUTION)
+                    .build();
+        } finally {
+            activeEnrichments.remove(cacheKey, future);
+        }
     }
 }

@@ -45,7 +45,7 @@ public class LocalStorageServiceTest {
     }
 
     @Test
-    @DisplayName("storeFile: Rejects path traversal filenames")
+    @DisplayName("storeFile: Rejects path traversal filenames (.., slashes, backslashes, null-bytes)")
     void testStoreFile_PathTraversal() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "doc.pdf", "application/pdf", "data".getBytes()
@@ -53,6 +53,42 @@ public class LocalStorageServiceTest {
 
         assertThrows(SecurityException.class, () ->
                 localStorageService.storeFile(file, "../outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.storeFile(file, "..\\outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.storeFile(file, "sub/dir/outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.storeFile(file, "sub\\dir\\outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.storeFile(file, "outside\0.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.storeFile(file, ""));
+    }
+
+    @Test
+    @DisplayName("loadFileAsResource: Rejects path traversal filenames")
+    void testLoadFileAsResource_PathTraversal() {
+        assertThrows(SecurityException.class, () ->
+                localStorageService.loadFileAsResource("../outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.loadFileAsResource("..\\outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.loadFileAsResource("dir/outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.loadFileAsResource("outside\0.pdf"));
+    }
+
+    @Test
+    @DisplayName("deleteFile: Rejects path traversal filenames")
+    void testDeleteFile_PathTraversal() {
+        assertThrows(SecurityException.class, () ->
+                localStorageService.deleteFile("../outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.deleteFile("..\\outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.deleteFile("dir/outside.pdf"));
+        assertThrows(SecurityException.class, () ->
+                localStorageService.deleteFile("outside\0.pdf"));
     }
 
     @Test

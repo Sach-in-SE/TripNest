@@ -78,7 +78,7 @@ function AdminDashboard() {
 
   // --- CHART 1: USER ROLE DISTRIBUTION ---
   const countTravelers = users.filter((u) =>
-    u.roles?.some((r) => r === "ROLE_TRAVELER" || r === "TRAVELER")
+    u.roles?.some((r) => r === "ROLE_USER" || r === "USER" || r === "ROLE_TRAVELER" || r === "TRAVELER")
   ).length;
   const countGroupAdmins = users.filter((u) =>
     u.roles?.some((r) => r === "ROLE_GROUP_ADMIN" || r === "GROUP_ADMIN")

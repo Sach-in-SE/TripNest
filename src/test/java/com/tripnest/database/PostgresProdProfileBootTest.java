@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
     "spring.sql.init.mode=always",
     "spring.sql.init.schema-locations=file:schema-postgres.sql",
     "spring.sql.init.data-locations=",
+    "spring.flyway.enabled=false",
     "tripnest.admin.password=ProdSecurePassword2026!",
     "tripnest.app.jwtSecret=ProductionSecureCryptographicallyRandomKey2026VeryLongString32Plus"
 })
@@ -67,6 +68,12 @@ public class PostgresProdProfileBootTest {
         assertEquals("10", environment.getProperty("spring.datasource.hikari.maximum-pool-size"));
         assertEquals("3", environment.getProperty("spring.datasource.hikari.minimum-idle"));
         assertEquals("20000", environment.getProperty("spring.datasource.hikari.connection-timeout"));
+        assertEquals("10000", environment.getProperty("spring.datasource.hikari.leak-detection-threshold"));
+
+        // Production DB Timeouts & SSL configuration
+        assertEquals("15000", environment.getProperty("spring.jpa.properties.jakarta.persistence.query.timeout"));
+        assertEquals("30", environment.getProperty("spring.datasource.hikari.data-source-properties.socketTimeout"));
+        assertEquals("require", environment.getProperty("spring.datasource.hikari.data-source-properties.sslmode"));
 
         // Frontend URL and CORS defaults
         assertEquals("http://localhost", environment.getProperty("app.frontend.url"));

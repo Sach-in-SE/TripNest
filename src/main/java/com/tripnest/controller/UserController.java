@@ -4,23 +4,30 @@ import com.tripnest.dto.ChangePasswordRequest;
 import com.tripnest.dto.ChangeUsernameRequest;
 import com.tripnest.dto.JwtResponse;
 import com.tripnest.dto.MessageResponse;
+import com.tripnest.dto.SwitchRoleRequest;
 import com.tripnest.dto.UpdateProfileRequest;
 import com.tripnest.dto.UserProfileResponse;
+import com.tripnest.entity.ERole;
+import com.tripnest.entity.Role;
 import com.tripnest.entity.User;
+import com.tripnest.repository.RoleRepository;
 import com.tripnest.service.UserService;
 import com.tripnest.security.JwtUtils;
 import com.tripnest.security.UserDetailsImpl;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/user")
+@RequestMapping({"/api/user", "/api/users"})
 public class UserController {
 
     @Autowired
@@ -28,6 +35,15 @@ public class UserController {
 
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Autowired
+    private com.tripnest.repository.UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private com.tripnest.service.DisposableEmailService disposableEmailService;
 
     @GetMapping("/profile")
     public ResponseEntity<?> getUserProfile() {
@@ -86,7 +102,20 @@ public class UserController {
 
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
-        user.setEmail(request.getEmail());
+
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            String newEmail = request.getEmail().trim();
+            if (user.getEmail() == null || !newEmail.equalsIgnoreCase(user.getEmail().trim())) {
+                if (userRepository.findByEmailIgnoreCase(newEmail).isPresent()) {
+                    return ResponseEntity.badRequest().body(new MessageResponse("Error: Email is already in use!"));
+                }
+                if (disposableEmailService.isDisposableEmail(newEmail)) {
+                    return ResponseEntity.badRequest().body(new MessageResponse("Error: Disposable email addresses are not allowed. Please use a permanent email address."));
+                }
+                user.setEmail(newEmail);
+            }
+        }
+
         user.setPhone(request.getPhone());
         user.setBio(request.getBio());
         user.setCountry(request.getCountry());
@@ -168,5 +197,77 @@ public class UserController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
+    }
+
+    @PutMapping("/role")
+    public ResponseEntity<?> switchRole(@Valid @RequestBody SwitchRoleRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetailsImpl)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("User is not authenticated"));
+        }
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        User user = userService.getUserById(userDetails.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Check if the current user has ROLE_ADMIN. Admin role cannot be modified via self-service.
+        boolean isCurrentAdmin = user.getRoles().stream()
+                .anyMatch(r -> r.getName() == ERole.ROLE_ADMIN);
+        if (isCurrentAdmin) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Administrator role cannot be changed via self-service"));
+        }
+
+        String targetRoleStr = request.getRole() != null ? request.getRole().trim().toUpperCase() : "";
+        ERole targetERole;
+        if ("ROLE_USER".equals(targetRoleStr) || "USER".equals(targetRoleStr)
+                || "ROLE_TRAVELER".equals(targetRoleStr) || "TRAVELER".equals(targetRoleStr)) {
+            targetERole = ERole.ROLE_USER;
+        } else if ("ROLE_GROUP_ADMIN".equals(targetRoleStr) || "GROUP_ADMIN".equals(targetRoleStr)) {
+            targetERole = ERole.ROLE_GROUP_ADMIN;
+        } else if ("ROLE_ADMIN".equals(targetRoleStr) || "ADMIN".equals(targetRoleStr)) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Cannot switch to Administrator role"));
+        } else {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Invalid role specified. Allowed roles: Traveler, Group Admin"));
+        }
+
+        Role newRole = roleRepository.findByName(targetERole)
+                .orElseGet(() -> {
+                    Role r = new Role();
+                    r.setName(targetERole);
+                    return roleRepository.save(r);
+                });
+
+        Set<Role> updatedRoles = new HashSet<>();
+        updatedRoles.add(newRole);
+        user.setRoles(updatedRoles);
+        userRepository.save(user);
+
+        // Update current Spring Security context with newly loaded authorities
+        UserDetailsImpl updatedUserDetails = UserDetailsImpl.build(user);
+        UsernamePasswordAuthenticationToken newAuth = new UsernamePasswordAuthenticationToken(
+                updatedUserDetails,
+                authentication.getCredentials(),
+                updatedUserDetails.getAuthorities()
+        );
+        SecurityContextHolder.getContext().setAuthentication(newAuth);
+
+        // Generate fresh JWT token for seamless client authorization
+        String newToken = jwtUtils.generateJwtToken(user.getUsername());
+        List<String> rolesList = user.getRoles().stream()
+                .map(r -> r.getName().name())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(new JwtResponse(
+                newToken,
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                rolesList,
+                user.isPasswordChangeRequired()
+        ));
     }
 }

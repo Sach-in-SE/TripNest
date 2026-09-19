@@ -31,14 +31,16 @@ test.describe('Core Navigation, Lazy Loading, & Error Handling', () => {
   });
 
   test('ErrorBoundary renders fallback UI when a component crashes', async ({ page }) => {
-    // Inject a runtime error into the page context
+    // Inject a runtime error flag into the page context
     await page.addInitScript(() => {
       window.__triggerTestCrash = true;
     });
 
-    // We can test ErrorBoundary by navigating to a route and checking the fallback structure
-    // Let's verify the ErrorBoundary markup and text exist in the build
     await page.goto('/');
-    await expect(page.locator('#root')).toBeVisible();
+    // Verify ErrorBoundary alert card and recovery options
+    await expect(page.locator('[role="alert"]')).toBeVisible();
+    await expect(page.locator('h2')).toContainText('Something went wrong');
+    await expect(page.locator('button:has-text("Reload Application")')).toBeVisible();
+    await expect(page.locator('button:has-text("Return to Home")')).toBeVisible();
   });
 });

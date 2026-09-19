@@ -76,10 +76,10 @@ const Destinations = () => {
 
   const fetchWikipediaImage = async (dest) => {
     try {
-      const res = await api.get(`/destinations/${dest.id}`);
-      if (res.data?.wikipedia?.imageUrl) {
-        setWikiImages((prev) => ({ ...prev, [dest.id]: res.data.wikipedia.imageUrl }));
-        return res.data.wikipedia.imageUrl;
+      const res = await api.get(`/destinations/${dest.id}/image`);
+      if (res.data?.imageUrl) {
+        setWikiImages((prev) => ({ ...prev, [dest.id]: res.data.imageUrl }));
+        return res.data.imageUrl;
       }
     } catch {
       // Ignore image fallback failures
@@ -198,7 +198,7 @@ const Destinations = () => {
   };
 
   const handleExplore = (destination) => {
-    navigate(`/destinations/${destination.id}`);
+    navigate(`/destinations/${destination.id}`, { state: { destination } });
   };
 
   const handleToggleFavorite = async (dest, e) => {
@@ -471,21 +471,10 @@ const Destinations = () => {
                         loading="lazy"
                         decoding="async"
                         style={styles.cardImage}
-                        onError={async (e) => {
+                        onError={(e) => {
+                          e.target.onerror = null;
                           const fallback = CATEGORY_FALLBACK_IMAGES[dest.category] || CATEGORY_FALLBACK_IMAGES.Default;
-                          if (!wikiImages[dest.id]) {
-                            const wikiUrl = await fetchWikipediaImage(dest);
-                            if (wikiUrl && e.target.src !== wikiUrl) {
-                              e.target.src = wikiUrl;
-                              return;
-                            }
-                          }
-                          if (e.target.src !== fallback) {
-                            e.target.src = fallback;
-                          } else {
-                            e.target.onerror = null;
-                            e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='250' viewBox='0 0 400 250'><rect width='400' height='250' fill='%231e293b'/><text x='50%25' y='50%25' font-size='32' text-anchor='middle' dominant-baseline='middle' fill='%2394a3b8'>📍</text></svg>";
-                          }
+                          e.target.src = fallback;
                         }}
                       />
                     ) : (

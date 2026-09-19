@@ -172,5 +172,48 @@ class DestinationDiscoveryServiceTest {
         assertTrue(distAntipodal > 19000);
         assertFalse(Double.isNaN(distAntipodal));
     }
+
+    @Test
+    void getDestinationDetails_ExternalFailures_GracefulFallback() {
+        when(destinationRepository.findById(1L)).thenReturn(Optional.of(delhi));
+        when(weatherService.getCurrentWeather(anyDouble(), anyDouble()))
+                .thenThrow(new RuntimeException("Weather API offline"));
+        when(wikipediaService.getWikipediaSummary(anyString()))
+                .thenThrow(new RuntimeException("Wikipedia API offline"));
+        when(travelGuideService.getTravelGuide(anyString(), anyString(), anyDouble(), anyDouble()))
+                .thenThrow(new RuntimeException("OSM Overpass offline"));
+        when(travelMemoryService.getTop3PublicMemoriesByDestination(1L))
+                .thenThrow(new RuntimeException("Database timeout"));
+
+        DestinationDetailsResponse response = destinationService.getDestinationDetails(1L);
+
+        assertNotNull(response);
+        assertNotNull(response.getDestination());
+        assertEquals("Delhi", response.getDestination().getName());
+
+        assertNotNull(response.getWeather());
+        assertFalse(response.getWeather().isAvailable());
+
+        assertNotNull(response.getWikipedia());
+        assertFalse(response.getWikipedia().isAvailable());
+
+        assertNotNull(response.getTravelGuide());
+        assertFalse(response.getTravelGuide().isAvailable());
+
+        assertNotNull(response.getTravelerExperiences());
+        assertTrue(response.getTravelerExperiences().isEmpty());
+    }
+
+    @Test
+    void getDestinationImageOnly_LightweightWithoutExternalCalls() {
+        when(destinationRepository.findById(1L)).thenReturn(Optional.of(delhi));
+
+        java.util.Map<String, String> imageRes = destinationService.getDestinationImageOnly(1L);
+
+        assertNotNull(imageRes);
+        assertEquals(delhi.getImageUrl(), imageRes.get("imageUrl"));
+
+        verifyNoInteractions(weatherService, wikipediaService, travelGuideService);
+    }
 }
 

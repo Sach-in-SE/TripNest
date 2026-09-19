@@ -48,12 +48,12 @@ const AdminDestinationManagement = lazy(() => import("./pages/admin/AdminDestina
 const AdminContactInbox = lazy(() => import("./pages/admin/AdminContactInbox"));
 const AdminReports = lazy(() => import("./pages/admin/AdminReports"));
 
-const PrivateRoute = ({ children }) => {
+export const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem("token");
   return token ? children : <Navigate to="/login" replace />;
 };
 
-const AdminPrivateRoute = ({ children }) => {
+export const AdminPrivateRoute = ({ children }) => {
   const token = localStorage.getItem("token");
   const userStr = localStorage.getItem("user");
   let isAdmin = false;

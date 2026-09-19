@@ -12,18 +12,29 @@ import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.repository.DestinationRepository;
 import com.tripnest.repository.FavoriteDestinationRepository;
 import com.tripnest.repository.TravelMemoryRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
 public class DestinationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(DestinationService.class);
+
+    private final ExecutorService enrichmentExecutor = new ThreadPoolExecutor(
+            2, 8, 60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(100),
+            new ThreadPoolExecutor.CallerRunsPolicy()
+    );
 
     @Autowired
     private DestinationRepository destinationRepository;
@@ -46,7 +57,11 @@ public class DestinationService {
     @Autowired
     private TravelMemoryService travelMemoryService;
 
+    @Autowired(required = false)
+    private org.springframework.cache.CacheManager cacheManager;
+
     @Transactional
+    @CacheEvict(value = {"destinations", "destination-image", "destinations-list"}, allEntries = true)
     public DestinationResponse createDestination(DestinationRequest request) {
         String name = request.getName() != null ? request.getName().trim() : "";
         String state = request.getState() != null ? request.getState().trim() : "";
@@ -76,6 +91,7 @@ public class DestinationService {
         return mapToResponse(saved);
     }
 
+    @Cacheable(value = "destinations-list", key = "'all'", sync = true)
     public List<DestinationResponse> getAllDestinations() {
         return destinationRepository.findAll()
                 .stream()
@@ -90,6 +106,7 @@ public class DestinationService {
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "destinations-list", key = "'cat:' + #category", sync = true)
     public List<DestinationResponse> filterByCategory(String category) {
         return destinationRepository.findByCategoryIgnoreCase(category)
                 .stream()
@@ -97,6 +114,7 @@ public class DestinationService {
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "destinations-list", key = "'sort:' + (#sortBy != null ? #sortBy.toLowerCase() : 'all')", sync = true)
     public List<DestinationResponse> sortDestinations(String sortBy) {
         List<Destination> destinations;
         if (sortBy == null) {
@@ -127,26 +145,91 @@ public class DestinationService {
         return mapToResponse(destination);
     }
 
+    @Cacheable(value = "destinations", key = "#id", sync = true)
     public DestinationDetailsResponse getDestinationDetails(Long id) {
         Destination destination = destinationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));
 
         DestinationResponse destResponse = mapToResponse(destination);
 
-        WeatherResponse weather = weatherService.getCurrentWeather(
-                destination.getLatitude(), destination.getLongitude());
+        // Concurrently enrich weather, wikipedia, travel guide, and memories
+        CompletableFuture<WeatherResponse> weatherFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return weatherService.getCurrentWeather(destination.getLatitude(), destination.getLongitude());
+            } catch (Exception e) {
+                logger.warn("Weather fetch failed for destination {}: {}", destination.getName(), e.getMessage());
+                return WeatherResponse.builder().available(false).attribution(WeatherService.OPEN_METEO_ATTRIBUTION).build();
+            }
+        }, enrichmentExecutor);
 
-        WikipediaResponse wikipedia = wikipediaService.getWikipediaSummary(
-                destination.getName());
+        CompletableFuture<WikipediaResponse> wikiFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return wikipediaService.getWikipediaSummary(destination.getName());
+            } catch (Exception e) {
+                logger.warn("Wikipedia fetch failed for destination {}: {}", destination.getName(), e.getMessage());
+                return WikipediaResponse.builder().available(false).attribution(WikipediaService.WIKIPEDIA_ATTRIBUTION).build();
+            }
+        }, enrichmentExecutor);
 
-        TravelGuideResponse travelGuide = travelGuideService.getTravelGuide(
-                destination.getName(), destination.getCountry(),
-                destination.getLatitude(), destination.getLongitude());
+        CompletableFuture<TravelGuideResponse> guideFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                return travelGuideService.getTravelGuide(
+                        destination.getName(), destination.getCountry(),
+                        destination.getLatitude(), destination.getLongitude());
+            } catch (Exception e) {
+                logger.warn("Travel guide fetch failed for destination {}: {}", destination.getName(), e.getMessage());
+                return TravelGuideResponse.builder().available(false).attribution(TravelGuideService.DEFAULT_ATTRIBUTION).build();
+            }
+        }, enrichmentExecutor);
 
-        List<TravelMemoryResponse> travelerExperiences = travelMemoryService.getTop3PublicMemoriesByDestination(id);
-        if (travelerExperiences == null) {
-            travelerExperiences = Collections.emptyList();
+        CompletableFuture<List<TravelMemoryResponse>> memoriesFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                List<TravelMemoryResponse> memories = travelMemoryService.getTop3PublicMemoriesByDestination(id);
+                return memories != null ? memories : Collections.<TravelMemoryResponse>emptyList();
+            } catch (Exception e) {
+                return Collections.<TravelMemoryResponse>emptyList();
+            }
+        }, enrichmentExecutor);
+
+        WeatherResponse weatherFallback = WeatherResponse.builder().available(false).attribution(WeatherService.OPEN_METEO_ATTRIBUTION).build();
+        WikipediaResponse wikiFallback = WikipediaResponse.builder().available(false).attribution(WikipediaService.WIKIPEDIA_ATTRIBUTION).build();
+        TravelGuideResponse guideFallback = TravelGuideResponse.builder().available(false).attribution(TravelGuideService.DEFAULT_ATTRIBUTION).build();
+
+        // Bounded micro-budget on critical path (total max 200ms across all futures concurrently)
+        CompletableFuture<Void> boundedAll = CompletableFuture.allOf(weatherFuture, wikiFuture, guideFuture, memoriesFuture);
+        try {
+            boundedAll.get(200, TimeUnit.MILLISECONDS);
+        } catch (Exception ignored) {
+            // Micro-budget elapsed: proceed immediately with whatever is ready
         }
+
+        WeatherResponse weather = weatherFuture.getNow(weatherFallback);
+        WikipediaResponse wikipedia = wikiFuture.getNow(wikiFallback);
+        TravelGuideResponse travelGuide = guideFuture.getNow(guideFallback);
+        List<TravelMemoryResponse> travelerExperiences = memoriesFuture.getNow(Collections.emptyList());
+
+        final List<TravelMemoryResponse> finalTravelerExperiences = travelerExperiences;
+
+        // Asynchronous cache self-healing: when background enrichments finish, update cache automatically
+        CompletableFuture.allOf(weatherFuture, wikiFuture, guideFuture).thenAcceptAsync(v -> {
+            try {
+                WeatherResponse w = weatherFuture.getNow(weatherFallback);
+                WikipediaResponse wk = wikiFuture.getNow(wikiFallback);
+                TravelGuideResponse tg = guideFuture.getNow(guideFallback);
+                if ((w != null && w.isAvailable()) || (tg != null && tg.isAvailable()) || (wk != null && wk.isAvailable())) {
+                    DestinationDetailsResponse enriched = DestinationDetailsResponse.builder()
+                            .destination(destResponse)
+                            .weather(w != null ? w : weatherFallback)
+                            .wikipedia(wk != null ? wk : wikiFallback)
+                            .travelGuide(tg != null ? tg : guideFallback)
+                            .travelerExperiences(finalTravelerExperiences != null ? finalTravelerExperiences : Collections.emptyList())
+                            .build();
+                    if (cacheManager != null && cacheManager.getCache("destinations") != null) {
+                        cacheManager.getCache("destinations").put(id, enriched);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }, enrichmentExecutor);
 
         return DestinationDetailsResponse.builder()
                 .destination(destResponse)
@@ -155,6 +238,59 @@ public class DestinationService {
                 .travelGuide(travelGuide)
                 .travelerExperiences(travelerExperiences)
                 .build();
+    }
+
+    public WeatherResponse getDestinationWeather(Long id) {
+        Destination destination = destinationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));
+        try {
+            return weatherService.getCurrentWeather(destination.getLatitude(), destination.getLongitude());
+        } catch (Exception e) {
+            return WeatherResponse.builder().available(false).attribution(WeatherService.OPEN_METEO_ATTRIBUTION).build();
+        }
+    }
+
+    public TravelGuideResponse getDestinationGuide(Long id) {
+        Destination destination = destinationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));
+        try {
+            return travelGuideService.getTravelGuide(
+                    destination.getName(), destination.getCountry(),
+                    destination.getLatitude(), destination.getLongitude());
+        } catch (Exception e) {
+            return TravelGuideResponse.builder().available(false).attribution(TravelGuideService.DEFAULT_ATTRIBUTION).build();
+        }
+    }
+
+    public WikipediaResponse getDestinationWiki(Long id) {
+        Destination destination = destinationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));
+        try {
+            return wikipediaService.getWikipediaSummary(destination.getName());
+        } catch (Exception e) {
+            return WikipediaResponse.builder().available(false).attribution(WikipediaService.WIKIPEDIA_ATTRIBUTION).build();
+        }
+    }
+
+    @Cacheable(value = "destination-image", key = "#id", sync = true)
+    public Map<String, String> getDestinationImageOnly(Long id) {
+        Destination destination = destinationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));
+
+        String imageUrl = destination.getImageUrl();
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            try {
+                WikipediaResponse wiki = wikipediaService.getWikipediaSummary(destination.getName());
+                if (wiki != null && wiki.getImageUrl() != null && !wiki.getImageUrl().trim().isEmpty()) {
+                    imageUrl = wiki.getImageUrl();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        Map<String, String> result = new HashMap<>();
+        result.put("imageUrl", imageUrl != null ? imageUrl : "");
+        return result;
     }
 
     public double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -170,6 +306,7 @@ public class DestinationService {
     }
 
     @Transactional
+    @CacheEvict(value = {"destinations", "destination-image", "destinations-list"}, allEntries = true)
     public DestinationResponse updateDestination(Long id, DestinationRequest request) {
         Destination destination = destinationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));
@@ -204,6 +341,7 @@ public class DestinationService {
     }
 
     @Transactional
+    @CacheEvict(value = {"destinations", "destination-image", "destinations-list"}, allEntries = true)
     public void deleteDestination(Long id) {
         destinationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Destination not found with id: " + id));

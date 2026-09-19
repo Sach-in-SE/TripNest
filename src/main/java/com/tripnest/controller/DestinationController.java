@@ -78,6 +78,27 @@ public class DestinationController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id}/image")
+    public ResponseEntity<?> getDestinationImage(@PathVariable Long id) {
+        java.util.Map<String, String> image = destinationService.getDestinationImageOnly(id);
+        return ResponseEntity.ok(image);
+    }
+
+    @GetMapping("/{id}/weather")
+    public ResponseEntity<?> getDestinationWeather(@PathVariable Long id) {
+        return ResponseEntity.ok(destinationService.getDestinationWeather(id));
+    }
+
+    @GetMapping("/{id}/guide")
+    public ResponseEntity<?> getDestinationGuide(@PathVariable Long id) {
+        return ResponseEntity.ok(destinationService.getDestinationGuide(id));
+    }
+
+    @GetMapping("/{id}/wiki")
+    public ResponseEntity<?> getDestinationWiki(@PathVariable Long id) {
+        return ResponseEntity.ok(destinationService.getDestinationWiki(id));
+    }
+
     @GetMapping("/{id}/experiences")
     public ResponseEntity<Page<TravelMemoryResponse>> getDestinationExperiences(
             @PathVariable Long id,

@@ -2,7 +2,6 @@ package com.tripnest.security.oauth2;
 
 import com.tripnest.entity.User;
 import com.tripnest.repository.UserRepository;
-import com.tripnest.security.JwtUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,7 +17,7 @@ import java.io.IOException;
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     @Autowired
-    private JwtUtils jwtUtils;
+    private OAuth2ExchangeCodeService oAuth2ExchangeCodeService;
 
     @Autowired
     private UserRepository userRepository;
@@ -37,14 +36,14 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new RuntimeException("User not found after OAuth login"));
 
-        // Generate JWT token using username to match existing JWT authentication system
-        String token = jwtUtils.generateJwtToken(user.getUsername());
+        // Issue short-lived, single-use exchange code instead of exposing JWT in URL
+        String exchangeCode = oAuth2ExchangeCodeService.createExchangeCode(user.getUsername());
 
-        // Redirect to frontend with token in URL parameter, normalizing trailing slashes
+        // Redirect to frontend with exchange code in URL parameter, normalizing trailing slashes
         String base = (frontendUrl != null && !frontendUrl.trim().isEmpty())
                 ? frontendUrl.trim().replaceAll("/+$", "")
                 : "http://localhost:5173";
-        String targetUrl = base + "/oauth2/redirect?token=" + token;
+        String targetUrl = base + "/oauth2/redirect?code=" + exchangeCode;
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 }

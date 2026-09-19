@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import PublicLayout from "../components/layout/PublicLayout";
 import Sidebar from "../components/Sidebar";
 import { useAuth } from "../context/AuthContext";
@@ -21,9 +21,14 @@ const CATEGORY_FALLBACK_IMAGES = {
 const DestinationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const [details, setDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
+
+  const initialDest = location.state?.destination || null;
+  const [details, setDetails] = useState(initialDest ? { destination: initialDest } : null);
+  const [loading, setLoading] = useState(!initialDest);
+  const [guideLoading, setGuideLoading] = useState(false);
+  const [weatherLoading, setWeatherLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [activeGuideTab, setActiveGuideTab] = useState("attractions");
@@ -34,18 +39,58 @@ const DestinationDetails = () => {
   }, [id]);
 
   const fetchDestinationDetails = async () => {
-    setLoading(true);
+    if (!initialDest) {
+      setLoading(true);
+    }
     setHeroImgFailed(false);
     try {
       const res = await api.get(`/destinations/${id}`);
       setDetails(res.data);
       setError(null);
       checkFavoriteStatus(res.data?.destination?.id || id);
+
+      // Progressively enrich weather & travel guide if not already available
+      if (!res.data?.travelGuide?.available) {
+        fetchGuideProgressive();
+      }
+      if (!res.data?.weather?.available) {
+        fetchWeatherProgressive();
+      }
     } catch (err) {
-      setError(err.response?.data?.message || "Destination not found or failed to load");
+      if (!initialDest) {
+        setError(err.response?.data?.message || "Destination not found or failed to load");
+      }
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGuideProgressive = async () => {
+    try {
+      setGuideLoading(true);
+      const guideRes = await api.get(`/destinations/${id}/guide`);
+      if (guideRes.data?.available) {
+        setDetails((prev) => (prev ? { ...prev, travelGuide: guideRes.data } : prev));
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setGuideLoading(false);
+    }
+  };
+
+  const fetchWeatherProgressive = async () => {
+    try {
+      setWeatherLoading(true);
+      const weatherRes = await api.get(`/destinations/${id}/weather`);
+      if (weatherRes.data?.available) {
+        setDetails((prev) => (prev ? { ...prev, weather: weatherRes.data } : prev));
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setWeatherLoading(false);
     }
   };
 
@@ -261,7 +306,14 @@ const DestinationDetails = () => {
             </div>
 
             {/* Tab Content Cards */}
-            {currentTabObj.items.length === 0 ? (
+            {guideLoading && currentTabObj.items.length === 0 ? (
+              <div style={styles.tabEmptyState}>
+                <div style={styles.spinner}></div>
+                <p style={{ color: "#94a3b8", fontSize: "13px", marginTop: "12px" }}>
+                  Discovering verified local places nearby...
+                </p>
+              </div>
+            ) : currentTabObj.items.length === 0 ? (
               <div style={styles.tabEmptyState}>
                 <span style={{ fontSize: "32px", marginBottom: "8px" }}>🔍</span>
                 <h4 style={{ color: "#f1f5f9", margin: "4px 0", fontSize: "15px" }}>No Places Found</h4>
@@ -518,6 +570,11 @@ const DestinationDetails = () => {
                     <span style={styles.miniVal}>{weather.windSpeed != null ? `${weather.windSpeed} km/h` : "N/A"}</span>
                   </div>
                 </div>
+              </div>
+            ) : weatherLoading ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "16px 0" }}>
+                <div style={{ ...styles.spinner, width: "20px", height: "20px" }}></div>
+                <span style={{ color: "#94a3b8", fontSize: "13px" }}>Loading live weather...</span>
               </div>
             ) : (
               <p style={{ color: "#94a3b8", fontSize: "14px" }}>Live weather data currently unavailable</p>

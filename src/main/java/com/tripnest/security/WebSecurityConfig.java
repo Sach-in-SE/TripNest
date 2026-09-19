@@ -1,6 +1,7 @@
 package com.tripnest.security;
 
 import com.tripnest.security.oauth2.CustomOAuth2UserService;
+import com.tripnest.security.oauth2.OAuth2AuthenticationFailureHandler;
 import com.tripnest.security.oauth2.OAuth2AuthenticationSuccessHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -37,6 +38,12 @@ public class WebSecurityConfig {
 
     @Autowired
     private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+
+    @Autowired
+    private OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+
+    @Autowired
+    private RateLimitingFilter rateLimitingFilter;
 
     @org.springframework.beans.factory.annotation.Value("${tripnest.cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
     private String allowedOrigins;
@@ -143,6 +150,7 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/documents/download/**").authenticated()
 
                         // Groups
+                        .requestMatchers("/api/groups/admin/**").hasAnyRole("GROUP_ADMIN", "ADMIN")
                         .requestMatchers("/api/groups", "/api/groups/**").authenticated()
 
                         // Trips
@@ -150,6 +158,9 @@ public class WebSecurityConfig {
 
                         // OAuth2
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        // WebSocket STOMP handshake endpoint
+                        .requestMatchers("/ws", "/ws/**").permitAll()
 
                         // Trip sharing
                         .requestMatchers(
@@ -172,13 +183,18 @@ public class WebSecurityConfig {
 
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
-                        .successHandler(oAuth2AuthenticationSuccessHandler));
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler));
 
         http.authenticationProvider(authenticationProvider());
 
         http.addFilterBefore(
                 authenticationJwtTokenFilter(),
                 UsernamePasswordAuthenticationFilter.class);
+
+        http.addFilterBefore(
+                rateLimitingFilter,
+                AuthTokenFilter.class);
 
         return http.build();
     }

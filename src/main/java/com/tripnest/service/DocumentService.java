@@ -13,6 +13,8 @@ import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.UserRepository;
 import com.tripnest.service.storage.DocumentFileValidator;
 import com.tripnest.service.storage.StorageService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class DocumentService {
+
+    private static final Logger logger = LoggerFactory.getLogger(DocumentService.class);
 
     @Autowired
     private DocumentRepository documentRepository;
@@ -82,6 +86,7 @@ public class DocumentService {
         // 5. Persist Document Entity
         TravelDocument document = new TravelDocument();
         document.setFileName(originalFileName);
+        document.setStoredFileName(storedFileName);
         document.setFileType(file.getContentType());
         document.setFileUrl("/api/documents/download/" + storedFileName);
         document.setTrip(trip);
@@ -96,7 +101,18 @@ public class DocumentService {
             document.setDocumentType(DocumentType.OTHER);
         }
 
-        TravelDocument saved = documentRepository.save(document);
+        TravelDocument saved;
+        try {
+            saved = documentRepository.save(document);
+        } catch (Exception e) {
+            // Compensating storage cleanup if database persistence fails to prevent orphan files
+            try {
+                storageService.deleteFile(storedFileName);
+            } catch (Exception cleanupEx) {
+                logger.error("Failed to clean up stored file '{}' after database persistence failure", storedFileName, cleanupEx);
+            }
+            throw e;
+        }
         return mapToResponse(saved);
     }
 
@@ -123,8 +139,9 @@ public class DocumentService {
             throw new SecurityException("Illegal filename path traversal attempt.");
         }
 
-        // 2. Look up document in database; if not found, immediately reject before storage access
-        TravelDocument doc = documentRepository.findByFileUrlEndingWith("/" + storedFileName)
+        // 2. Look up document in database by indexed storedFileName with fallback for legacy records
+        TravelDocument doc = documentRepository.findByStoredFileName(storedFileName)
+                .or(() -> documentRepository.findByFileUrlEndingWith("/" + storedFileName))
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found with filename: " + storedFileName));
 
         // 3. Verify authorization rules before storage access
@@ -160,8 +177,11 @@ public class DocumentService {
             throw new AccessDeniedException("Unauthorized: You do not have permission to delete this document.");
         }
 
-        String fileUrl = document.getFileUrl();
-        String storedFileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+        String storedFileName = document.getStoredFileName();
+        if (storedFileName == null || storedFileName.trim().isEmpty()) {
+            String fileUrl = document.getFileUrl();
+            storedFileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+        }
 
         storageService.deleteFile(storedFileName);
         documentRepository.delete(document);
@@ -171,6 +191,7 @@ public class DocumentService {
         DocumentResponse response = new DocumentResponse();
         response.setId(document.getId());
         response.setFileName(document.getFileName());
+        response.setStoredFileName(document.getStoredFileName());
         response.setFileType(document.getFileType());
         response.setFileUrl(document.getFileUrl());
         response.setDocumentType(document.getDocumentType() != null ? document.getDocumentType().name() : null);

@@ -249,6 +249,9 @@ public class OsmOverpassEnrichmentClient implements TravelEnrichmentClient {
         }
     }
 
+    private static final Object NOMINATIM_LOCK = new Object();
+    private static volatile long lastNominatimTimeMs = 0L;
+
     private void fetchNominatimPois(String destinationName, Double centerLat, Double centerLon,
                                     List<TravelPlace> hotels, List<TravelPlace> food,
                                     List<TravelPlace> shopping, List<TravelPlace> attractions,
@@ -283,6 +286,19 @@ public class OsmOverpassEnrichmentClient implements TravelEnrichmentClient {
     private void fetchNominatimCategory(String query, String category, String defaultSnippet,
                                         Double centerLat, Double centerLon, double maxRadiusKm,
                                         List<TravelPlace> targetList, int limit) {
+        synchronized (NOMINATIM_LOCK) {
+            long now = System.currentTimeMillis();
+            long elapsed = now - lastNominatimTimeMs;
+            if (elapsed < 1000L) {
+                try {
+                    Thread.sleep(1000L - elapsed);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+            lastNominatimTimeMs = System.currentTimeMillis();
+        }
         try {
             String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
             String url = "https://nominatim.openstreetmap.org/search?q=" + encodedQuery + "&format=json&limit=" + (limit + 5);
@@ -368,6 +384,7 @@ public class OsmOverpassEnrichmentClient implements TravelEnrichmentClient {
                 Map<?, ?> query = (Map<?, ?>) res.get("query");
                 if (query.containsKey("geosearch")) {
                     List<?> geoList = (List<?>) query.get("geosearch");
+                    int summaryFetchCount = 0;
                     for (Object item : geoList) {
                         if (!(item instanceof Map<?, ?>)) continue;
                         Map<?, ?> m = (Map<?, ?>) item;
@@ -383,30 +400,33 @@ public class OsmOverpassEnrichmentClient implements TravelEnrichmentClient {
                                 continue;
                             }
 
-                            // Fetch summary extract and image for rich display
+                            // Fetch summary extract and image for rich display (bounded to top 4)
                             String snippet = "Notable cultural landmark and point of interest.";
                             String imageUrl = null;
                             String pageUrl = "https://en.wikipedia.org/wiki/" + URLEncoder.encode(title.replace(' ', '_'), StandardCharsets.UTF_8);
 
-                            try {
-                                String summaryUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/" + URLEncoder.encode(title, StandardCharsets.UTF_8);
-                                Map<?, ?> summaryRes = executeGetApiCall(summaryUrl);
-                                if (summaryRes != null) {
-                                    if (summaryRes.containsKey("extract")) {
-                                        String extract = (String) summaryRes.get("extract");
-                                        if (extract != null && !extract.trim().isEmpty()) {
-                                            snippet = cleanSnippetText(extract, 160);
+                            if (summaryFetchCount < 4) {
+                                summaryFetchCount++;
+                                try {
+                                    String summaryUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/" + URLEncoder.encode(title, StandardCharsets.UTF_8);
+                                    Map<?, ?> summaryRes = executeGetApiCall(summaryUrl);
+                                    if (summaryRes != null) {
+                                        if (summaryRes.containsKey("extract")) {
+                                            String extract = (String) summaryRes.get("extract");
+                                            if (extract != null && !extract.trim().isEmpty()) {
+                                                snippet = cleanSnippetText(extract, 160);
+                                            }
+                                        }
+                                        if (summaryRes.containsKey("thumbnail")) {
+                                            Map<?, ?> thumb = (Map<?, ?>) summaryRes.get("thumbnail");
+                                            if (thumb != null && thumb.containsKey("source")) {
+                                                imageUrl = (String) thumb.get("source");
+                                            }
                                         }
                                     }
-                                    if (summaryRes.containsKey("thumbnail")) {
-                                        Map<?, ?> thumb = (Map<?, ?>) summaryRes.get("thumbnail");
-                                        if (thumb != null && thumb.containsKey("source")) {
-                                            imageUrl = (String) thumb.get("source");
-                                        }
-                                    }
+                                } catch (Exception ex) {
+                                    logger.debug("Wikipedia summary fetch error for {}: {}", title, ex.getMessage());
                                 }
-                            } catch (Exception ex) {
-                                logger.debug("Wikipedia summary fetch error for {}: {}", title, ex.getMessage());
                             }
 
                             list.add(TravelPlace.builder()

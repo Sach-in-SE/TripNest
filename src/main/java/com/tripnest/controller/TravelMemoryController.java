@@ -21,6 +21,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,11 +96,19 @@ public class TravelMemoryController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getUserMemories() {
+    public ResponseEntity<?> getUserMemories(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
         Long userId = getCurrentUserId();
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new MessageResponse("Authentication required to view your memories."));
+        }
+        if (page != null) {
+            int boundedSize = Math.max(1, Math.min(size != null ? size : 20, 50));
+            int boundedPage = Math.max(0, page);
+            Pageable pageable = PageRequest.of(boundedPage, boundedSize);
+            return ResponseEntity.ok(travelMemoryService.getUserMemories(userId, pageable));
         }
         List<TravelMemoryResponse> list = travelMemoryService.getUserMemories(userId);
         return ResponseEntity.ok(list);
@@ -111,11 +123,17 @@ public class TravelMemoryController {
         if (destinationId != null && page != null && size != null) {
             int boundedSize = Math.max(1, Math.min(size, 50));
             int boundedPage = Math.max(0, page);
-            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(boundedPage, boundedSize);
-            org.springframework.data.domain.Page<TravelMemoryResponse> list = travelMemoryService.getPublicMemoriesByDestination(destinationId, pageable);
+            Pageable pageable = PageRequest.of(boundedPage, boundedSize);
+            Page<TravelMemoryResponse> list = travelMemoryService.getPublicMemoriesByDestination(destinationId, pageable);
             return ResponseEntity.ok(list);
         } else if (destinationId != null) {
             List<TravelMemoryResponse> list = travelMemoryService.getPublicMemoriesByDestination(destinationId);
+            return ResponseEntity.ok(list);
+        } else if (page != null) {
+            int boundedSize = Math.max(1, Math.min(size != null ? size : 20, 50));
+            int boundedPage = Math.max(0, page);
+            Pageable pageable = PageRequest.of(boundedPage, boundedSize);
+            Page<TravelMemoryResponse> list = travelMemoryService.getPublicMemories(userId, pageable);
             return ResponseEntity.ok(list);
         } else {
             List<TravelMemoryResponse> list = travelMemoryService.getPublicMemories(userId);

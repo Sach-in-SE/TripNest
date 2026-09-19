@@ -43,26 +43,18 @@ const Favorites = () => {
     fetchFavorites();
   }, [fetchFavorites]);
 
-  // Pre-fetch Wikipedia fallback images for favorited destinations missing images
-  useEffect(() => {
-    favorites.forEach((fav) => {
-      if (!isValidImageUrl(fav.imageUrl) && !wikiImages[fav.destinationId]) {
-        fetchWikipediaImage(fav.destinationId);
-      }
-    });
-  }, [favorites, wikiImages]);
-
   const isValidImageUrl = (url) => {
     if (!url || typeof url !== "string") return false;
     const trimmed = url.trim();
     return trimmed.startsWith("http://") || trimmed.startsWith("https://");
   };
 
+  // Lightweight Wikipedia fallback fetch if specifically requested (using fast image-only endpoint)
   const fetchWikipediaImage = async (destId) => {
     try {
-      const res = await api.get(`/destinations/${destId}`);
-      if (res.data?.wikipedia?.imageUrl) {
-        setWikiImages((prev) => ({ ...prev, [destId]: res.data.wikipedia.imageUrl }));
+      const res = await api.get(`/destinations/${destId}/image`);
+      if (res.data?.imageUrl) {
+        setWikiImages((prev) => ({ ...prev, [destId]: res.data.imageUrl }));
       }
     } catch {
       // Ignore image fallback failures

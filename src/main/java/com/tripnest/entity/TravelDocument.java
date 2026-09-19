@@ -22,6 +22,9 @@ public class TravelDocument {
     @Column(length = 500)
     private String fileUrl;
 
+    @Column(name = "stored_file_name", length = 255, unique = true)
+    private String storedFileName;
+
     @Enumerated(EnumType.STRING)
     private DocumentType documentType;
 

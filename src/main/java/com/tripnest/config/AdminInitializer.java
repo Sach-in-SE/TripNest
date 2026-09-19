@@ -50,6 +50,13 @@ public class AdminInitializer implements CommandLineRunner {
         }
 
         // Initialize Roles if missing
+        roleRepository.findByName(ERole.ROLE_USER)
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setName(ERole.ROLE_USER);
+                    return roleRepository.save(role);
+                });
+
         Role travelerRole = roleRepository.findByName(ERole.ROLE_TRAVELER)
                 .orElseGet(() -> {
                     Role role = new Role();

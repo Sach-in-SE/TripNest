@@ -15,7 +15,10 @@ import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.ItineraryRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import com.tripnest.exception.ResourceNotFoundException;
+import com.tripnest.exception.UnauthorizedAccessException;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +54,7 @@ public class ActivityService {
     @Transactional
     public ActivityResponse createActivity(ActivityRequest request, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(request.getItineraryId())
-                .orElseThrow(() -> new RuntimeException("Itinerary not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Itinerary", "id", request.getItineraryId()));
 
         Trip trip = itinerary.getTrip();
         
@@ -61,11 +64,11 @@ public class ActivityService {
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
         if (!isOwner && !hasEditAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedAccessException("Unauthorized");
         }
 
         User creator = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         Activity activity = new Activity();
         activity.setTitle(request.getTitle());
@@ -110,13 +113,13 @@ public class ActivityService {
 
     public List<ActivityResponse> getItineraryActivities(Long itineraryId, Long userId) {
         Itinerary itinerary = itineraryRepository.findById(itineraryId)
-                .orElseThrow(() -> new RuntimeException("Itinerary not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Itinerary", "id", itineraryId));
 
         Trip trip = itinerary.getTrip();
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasAccess = tripShareService.hasAccess(trip.getId(), userId);
         if (!isOwner && !hasAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedAccessException("Unauthorized");
         }
 
         return activityRepository.findByItineraryIdOrderByStartTimeAsc(itineraryId)
@@ -128,7 +131,7 @@ public class ActivityService {
     @Transactional
     public ActivityResponse updateActivity(Long id, ActivityRequest request, Long userId) {
         Activity activity = activityRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Activity not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Activity", "id", id));
 
         Trip trip = activity.getItinerary().getTrip();
         
@@ -138,7 +141,7 @@ public class ActivityService {
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
         if (!isOwner && !hasEditAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedAccessException("Unauthorized");
         }
 
         Double oldCost = activity.getCost();
@@ -193,13 +196,13 @@ public class ActivityService {
     @Transactional
     public void deleteActivity(Long id, Long userId) {
         Activity activity = activityRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Activity not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Activity", "id", id));
 
         Trip trip = activity.getItinerary().getTrip();
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
         if (!isOwner && !hasEditAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedAccessException("Unauthorized");
         }
 
         String activityTitle = activity.getTitle();

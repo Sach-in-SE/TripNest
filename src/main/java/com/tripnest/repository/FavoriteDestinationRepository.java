@@ -27,5 +27,10 @@ public interface FavoriteDestinationRepository extends JpaRepository<FavoriteDes
     @Transactional
     @Query("DELETE FROM FavoriteDestination f WHERE f.destination.id = :destinationId")
     void deleteByDestinationId(@Param("destinationId") Long destinationId);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM FavoriteDestination f WHERE f.user.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 }
 

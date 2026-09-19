@@ -129,6 +129,54 @@ CREATE TABLE `expenses` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `expense_splits`
+--
+
+DROP TABLE IF EXISTS `expense_splits`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `expense_splits` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `amount` decimal(10,2) NOT NULL,
+  `is_settled` bit(1) NOT NULL DEFAULT b'0',
+  `settled_at` datetime(6) DEFAULT NULL,
+  `expense_id` bigint NOT NULL,
+  `user_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_expense_splits_expense` (`expense_id`),
+  KEY `FK_expense_splits_user` (`user_id`),
+  CONSTRAINT `FK_expense_splits_expense` FOREIGN KEY (`expense_id`) REFERENCES `expenses` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_expense_splits_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `settlements`
+--
+
+DROP TABLE IF EXISTS `settlements`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `settlements` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `amount` decimal(10,2) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'PENDING',
+  `created_at` datetime(6) DEFAULT NULL,
+  `settled_at` datetime(6) DEFAULT NULL,
+  `payee_id` bigint NOT NULL,
+  `payer_id` bigint NOT NULL,
+  `trip_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_settlements_trip` (`trip_id`),
+  KEY `FK_settlements_payer` (`payer_id`),
+  KEY `FK_settlements_payee` (`payee_id`),
+  CONSTRAINT `FK_settlements_trip` FOREIGN KEY (`trip_id`) REFERENCES `trips` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_settlements_payer` FOREIGN KEY (`payer_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `FK_settlements_payee` FOREIGN KEY (`payee_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `favorite_destinations`
 --
 
@@ -329,7 +377,7 @@ DROP TABLE IF EXISTS `roles`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `roles` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` enum('ROLE_ADMIN','ROLE_GROUP_ADMIN','ROLE_TRAVELER') DEFAULT NULL,
+  `name` enum('ROLE_ADMIN','ROLE_GROUP_ADMIN','ROLE_TRAVELER','ROLE_USER') DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

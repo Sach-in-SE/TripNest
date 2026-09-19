@@ -187,11 +187,23 @@ public class TravelMemoryService {
     }
 
     @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<TravelMemoryResponse> getUserMemories(Long userId, org.springframework.data.domain.Pageable pageable) {
+        return travelMemoryRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(m -> mapToResponse(m, userId));
+    }
+
+    @Transactional(readOnly = true)
     public List<TravelMemoryResponse> getPublicMemories(Long currentUserIdOrNull) {
         return travelMemoryRepository.findByVisibilityOrderByCreatedAtDesc(MemoryVisibility.PUBLIC)
                 .stream()
                 .map(m -> mapToResponse(m, currentUserIdOrNull))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<TravelMemoryResponse> getPublicMemories(Long currentUserIdOrNull, org.springframework.data.domain.Pageable pageable) {
+        return travelMemoryRepository.findByVisibilityOrderByCreatedAtDesc(MemoryVisibility.PUBLIC, pageable)
+                .map(m -> mapToResponse(m, currentUserIdOrNull));
     }
 
     @Transactional(readOnly = true)

@@ -11,6 +11,7 @@ const Signup = () => {
     password: "",
     firstName: "",
     lastName: "",
+    role: "traveler",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -129,6 +130,7 @@ const Signup = () => {
         password,
         firstName,
         lastName,
+        role: formData.role || "traveler",
       });
       setSuccess("Account created successfully! Redirecting to sign in...");
       setTimeout(() => navigate("/login"), 1800);
@@ -555,6 +557,44 @@ const Signup = () => {
                   <div className={`signup-strength-bar ${passwordStrength.score >= 3 ? passwordStrength.colorClass : ""}`} />
                 </div>
               )}
+            </div>
+
+            {/* Account Role Selection */}
+            <div className="signup-form-group">
+              <label className="signup-label">
+                I want to register as <span className="signup-required">*</span>
+              </label>
+              <div className="signup-role-selector" role="radiogroup" aria-label="Account Role">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={formData.role === "traveler"}
+                  className={`signup-role-card ${formData.role === "traveler" ? "active" : ""}`}
+                  onClick={() => setFormData((prev) => ({ ...prev, role: "traveler" }))}
+                  disabled={loading || !!success}
+                >
+                  <span className="signup-role-icon">🎒</span>
+                  <div className="signup-role-info">
+                    <span className="signup-role-title">Traveler</span>
+                    <span className="signup-role-desc">Explore destinations, plan trips & join travel groups</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={formData.role === "group_admin"}
+                  className={`signup-role-card ${formData.role === "group_admin" ? "active" : ""}`}
+                  onClick={() => setFormData((prev) => ({ ...prev, role: "group_admin" }))}
+                  disabled={loading || !!success}
+                >
+                  <span className="signup-role-icon">👥</span>
+                  <div className="signup-role-info">
+                    <span className="signup-role-title">Group Admin</span>
+                    <span className="signup-role-desc">Organize group trips, invite members & lead travel groups</span>
+                  </div>
+                </button>
+              </div>
             </div>
 
             {/* Submit Button */}

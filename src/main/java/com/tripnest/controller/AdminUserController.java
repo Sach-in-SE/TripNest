@@ -4,6 +4,7 @@ import com.tripnest.dto.AdminUserRoleRequest;
 import com.tripnest.dto.AdminUserResponse;
 import com.tripnest.dto.AdminUserStatusRequest;
 import com.tripnest.dto.MessageResponse;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.AdminUserService;
 import jakarta.validation.Valid;
@@ -26,10 +27,19 @@ public class AdminUserController {
     private AdminUserService adminUserService;
 
     @GetMapping
-    public ResponseEntity<List<AdminUserResponse>> getUsers(
+    public ResponseEntity<?> getUsers(
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "enabled", required = false) Boolean enabled,
-            @RequestParam(value = "role", required = false) String role) {
+            @RequestParam(value = "role", required = false) String role,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        if (page != null) {
+            int boundedSize = Math.max(1, Math.min(size != null ? size : 20, 100));
+            int boundedPage = Math.max(0, page);
+            org.springframework.data.domain.Page<AdminUserResponse> result =
+                    adminUserService.getUsers(search, enabled, role, org.springframework.data.domain.PageRequest.of(boundedPage, boundedSize));
+            return ResponseEntity.ok(result);
+        }
         List<AdminUserResponse> users = adminUserService.getUsers(search, enabled, role);
         return ResponseEntity.ok(users);
     }
@@ -83,6 +93,21 @@ public class AdminUserController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        try {
+            Long currentAdminId = getCurrentUserId();
+            adminUserService.deleteUser(id, currentAdminId);
+            return ResponseEntity.ok(new MessageResponse("User deleted successfully"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new MessageResponse(e.getMessage()));
         }
     }
 

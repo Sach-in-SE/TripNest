@@ -20,6 +20,9 @@ import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -165,5 +168,60 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.userId").value(10))
                 .andExpect(jsonPath("$.username").value("john_traveler"))
                 .andExpect(jsonPath("$.temporaryPassword").value("Tmp-xK9#mQ2$"));
+    }
+
+    @Test
+    void unauthenticatedDeleteUserShouldBeUnauthorized() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/10"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "TRAVELER")
+    void travelerDeleteUserShouldBeForbidden() throws Exception {
+        mockMvc.perform(delete("/api/admin/users/10"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminDeleteUserShouldSucceed() throws Exception {
+        doNothing().when(adminUserService).deleteUser(eq(10L), any());
+
+        mockMvc.perform(delete("/api/admin/users/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("User deleted successfully"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminDeleteSelfShouldReturnBadRequest() throws Exception {
+        doThrow(new IllegalArgumentException("Administrators cannot delete their own account"))
+                .when(adminUserService).deleteUser(eq(1L), any());
+
+        mockMvc.perform(delete("/api/admin/users/1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Administrators cannot delete their own account"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminDeleteOtherAdminShouldReturnBadRequest() throws Exception {
+        doThrow(new IllegalArgumentException("Administrators cannot delete other administrator accounts"))
+                .when(adminUserService).deleteUser(eq(2L), any());
+
+        mockMvc.perform(delete("/api/admin/users/2"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Administrators cannot delete other administrator accounts"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminDeleteNonExistentUserShouldReturnNotFound() throws Exception {
+        doThrow(new com.tripnest.exception.ResourceNotFoundException("User not found with id: 999"))
+                .when(adminUserService).deleteUser(eq(999L), any());
+
+        mockMvc.perform(delete("/api/admin/users/999"))
+                .andExpect(status().isNotFound());
     }
 }

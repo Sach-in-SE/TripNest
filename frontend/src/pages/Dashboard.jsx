@@ -43,28 +43,20 @@ const Dashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const [profileRes, tripsRes, notifRes] = await Promise.all([
+      const [profileRes, tripsRes, notifRes, expensesRes] = await Promise.all([
         api.get("/user/profile").catch(() => ({ data: null })),
         api.get("/trips").catch(() => ({ data: [] })),
         api.get("/notifications").catch(() => ({ data: [] })),
+        api.get("/expenses/user").catch(() => ({ data: [] })),
       ]);
 
       setProfile(profileRes.data);
       const fetchedTrips = Array.isArray(tripsRes.data) ? tripsRes.data : [];
       setTrips(fetchedTrips);
-      setNotifications(Array.isArray(notifRes.data) ? notifRes.data : []);
-
-      // Fetch expenses across all trips safely
-      if (fetchedTrips.length > 0) {
-        const allExpenses = await Promise.all(
-          fetchedTrips.map((trip) =>
-            api.get(`/expenses/trip/${trip.id}`).catch(() => ({ data: [] }))
-          )
-        );
-        setExpenses(allExpenses.flatMap((res) => res.data || []));
-      } else {
-        setExpenses([]);
-      }
+      const notifData = notifRes.data;
+      setNotifications(Array.isArray(notifData) ? notifData : (notifData?.content || []));
+      const expData = expensesRes.data;
+      setExpenses(Array.isArray(expData) ? expData : (expData?.content || []));
     } catch (err) {
       console.error("Dashboard data fetch error:", err);
       setError("Unable to load latest dashboard data. Please check your connection and retry.");

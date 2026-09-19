@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../services/api";
 import "../../pages/admin/AdminLayout.css";
 
 const ADMIN_NAV_ITEMS = [
@@ -24,6 +25,15 @@ export const AdminLayout = ({ children, pageTitle = "Admin Portal" }) => {
     return false;
   });
 
+  // Admin Self Password Change State
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState("");
+  const [pwdSuccess, setPwdSuccess] = useState("");
+
   // Handle responsive collapse on window resize
   useEffect(() => {
     const handleResize = () => {
@@ -42,14 +52,18 @@ export const AdminLayout = ({ children, pageTitle = "Admin Portal" }) => {
     setIsDrawerOpen(false);
   }, [location.pathname]);
 
-  // Handle Escape key to close mobile drawer
+  // Handle Escape key to close mobile drawer or modal
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === "Escape" && isDrawerOpen) {
-        setIsDrawerOpen(false);
+      if (e.key === "Escape") {
+        if (isChangePasswordOpen) {
+          closeChangePasswordModal();
+        } else if (isDrawerOpen) {
+          setIsDrawerOpen(false);
+        }
       }
     };
-    if (isDrawerOpen) {
+    if (isDrawerOpen || isChangePasswordOpen) {
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
     } else {
@@ -59,7 +73,57 @@ export const AdminLayout = ({ children, pageTitle = "Admin Portal" }) => {
       document.body.style.overflow = "unset";
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isDrawerOpen]);
+  }, [isDrawerOpen, isChangePasswordOpen]);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPwdError("");
+    setPwdSuccess("");
+
+    if (!currentPassword) {
+      setPwdError("Current password is required");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwdError("New password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwdError("New password and confirm password do not match");
+      return;
+    }
+
+    setPwdLoading(true);
+    try {
+      await api.post("/user/change-password", {
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+      setPwdSuccess("Password changed successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => {
+        setIsChangePasswordOpen(false);
+        setPwdSuccess("");
+      }, 1500);
+    } catch (err) {
+      console.error("Failed to change password:", err);
+      setPwdError(err.response?.data?.message || "Failed to change password. Please verify current password.");
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
+  const closeChangePasswordModal = () => {
+    setIsChangePasswordOpen(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPwdError("");
+    setPwdSuccess("");
+  };
 
   const handleLogout = () => {
     logout();
@@ -187,6 +251,15 @@ export const AdminLayout = ({ children, pageTitle = "Admin Portal" }) => {
             </div>
             <button
               type="button"
+              onClick={() => setIsChangePasswordOpen(true)}
+              className="admin-change-pwd-btn"
+              aria-label="Change Admin Password"
+              title="Change Admin Password"
+            >
+              🔑 Change Password
+            </button>
+            <button
+              type="button"
               onClick={handleLogout}
               className="admin-logout-btn"
               aria-label="Sign Out"
@@ -201,6 +274,168 @@ export const AdminLayout = ({ children, pageTitle = "Admin Portal" }) => {
           {children}
         </main>
       </div>
+
+      {/* Admin Change Password Modal */}
+      {isChangePasswordOpen && (
+        <div
+          className="admin-modal-overlay"
+          onClick={closeChangePasswordModal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="admin-change-pwd-title"
+        >
+          <div
+            className="admin-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "440px" }}
+          >
+            <div className="admin-modal-header">
+              <h3 id="admin-change-pwd-title" className="admin-modal-title">
+                🔑 Change Your Password
+              </h3>
+              <button
+                type="button"
+                onClick={closeChangePasswordModal}
+                className="admin-modal-close"
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleChangePassword}>
+              <div className="admin-modal-body">
+                {pwdError && (
+                  <div
+                    style={{
+                      background: "rgba(239, 68, 68, 0.15)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      color: "#fca5a5",
+                      padding: "0.75rem",
+                      borderRadius: "6px",
+                      marginBottom: "1rem",
+                      fontSize: "0.875rem",
+                    }}
+                    role="alert"
+                  >
+                    {pwdError}
+                  </div>
+                )}
+                {pwdSuccess && (
+                  <div
+                    style={{
+                      background: "rgba(34, 197, 94, 0.15)",
+                      border: "1px solid rgba(34, 197, 94, 0.3)",
+                      color: "#86efac",
+                      padding: "0.75rem",
+                      borderRadius: "6px",
+                      marginBottom: "1rem",
+                      fontSize: "0.875rem",
+                    }}
+                    role="status"
+                  >
+                    {pwdSuccess}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: "1rem" }}>
+                  <label
+                    htmlFor="current-admin-pwd"
+                    style={{
+                      display: "block",
+                      marginBottom: "0.4rem",
+                      fontSize: "0.85rem",
+                      fontWeight: "600",
+                      color: "#cbd5e1",
+                    }}
+                  >
+                    Current Password
+                  </label>
+                  <input
+                    id="current-admin-pwd"
+                    type="password"
+                    required
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    className="admin-search-input"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "1rem" }}>
+                  <label
+                    htmlFor="new-admin-pwd"
+                    style={{
+                      display: "block",
+                      marginBottom: "0.4rem",
+                      fontSize: "0.85rem",
+                      fontWeight: "600",
+                      color: "#cbd5e1",
+                    }}
+                  >
+                    New Password (min 6 characters)
+                  </label>
+                  <input
+                    id="new-admin-pwd"
+                    type="password"
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    className="admin-search-input"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "1rem" }}>
+                  <label
+                    htmlFor="confirm-admin-pwd"
+                    style={{
+                      display: "block",
+                      marginBottom: "0.4rem",
+                      fontSize: "0.85rem",
+                      fontWeight: "600",
+                      color: "#cbd5e1",
+                    }}
+                  >
+                    Confirm New Password
+                  </label>
+                  <input
+                    id="confirm-admin-pwd"
+                    type="password"
+                    required
+                    minLength={6}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    className="admin-search-input"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-modal-footer">
+                <button
+                  type="button"
+                  onClick={closeChangePasswordModal}
+                  className="admin-modal-btn cancel"
+                  disabled={pwdLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-modal-btn save"
+                  disabled={pwdLoading}
+                >
+                  {pwdLoading ? "Updating..." : "Update Password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TripService from "../services/tripService";
-import ShareTripModal from "../components/ShareTripModal";
+import CollaboratorModal from "../components/CollaboratorModal";
 import api from "../services/api";
 
 const TripDetail = () => {
@@ -329,12 +329,14 @@ const TripDetail = () => {
           </div>
         )}
 
-        {/* Share Trip Modal */}
+        {/* Share / Collaborate Modal */}
         {showShareModal && (
-          <ShareTripModal
+          <CollaboratorModal
             tripId={parseInt(id)}
+            tripTitle={trip?.title}
+            canManageShares={!trip?.permission || trip?.permission === "OWNER"}
             onClose={() => setShowShareModal(false)}
-            onShare={fetchTripData}
+            onSuccess={fetchTripData}
           />
         )}
       </main>

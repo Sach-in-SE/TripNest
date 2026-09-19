@@ -36,6 +36,33 @@ const AuthService = {
 
     isLoggedIn: () => {
         return !!localStorage.getItem('token');
+    },
+
+    switchRole: async (role) => {
+        const response = await api.put('/user/role', { role });
+        if (response.data && response.data.token) {
+            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('user', JSON.stringify(response.data));
+        }
+        return response.data;
+    },
+
+    exchangeOAuthCode: async (code) => {
+        const response = await api.post('/auth/oauth2/exchange', { code });
+        if (response.data && response.data.token) {
+            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('user', JSON.stringify(response.data));
+        }
+        return response.data;
+    },
+
+    updateStoredUser: (data) => {
+        if (data && data.token) {
+            localStorage.setItem('token', data.token);
+        }
+        if (data) {
+            localStorage.setItem('user', JSON.stringify(data));
+        }
     }
 };
 

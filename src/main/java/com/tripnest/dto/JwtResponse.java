@@ -13,6 +13,9 @@ public class JwtResponse {
     private List<String> roles;
     private boolean passwordChangeRequired = false;
 
+    public JwtResponse() {
+    }
+
     public JwtResponse(String token, Long id, String username, String email, List<String> roles) {
         this(token, id, username, email, roles, false);
     }

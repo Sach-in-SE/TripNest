@@ -4,10 +4,67 @@ import Sidebar from "../components/Sidebar";
 import api from "../services/api";
 import "./Memories.css";
 
-// In-memory cache for memory photo Object URLs
-// Key: canonical endpoint string (e.g. /memories/photo/memory_uuid.jpg)
-// Value: { status: 'loaded' | 'loading' | 'error', objectUrl?: string, error?: any, promise?: Promise<string> }
-const memoryBlobCache = new Map();
+// Bounded LRU cache for memory photo Object URLs (max 40 entries)
+// Evicted entries have their Object URLs revoked via URL.revokeObjectURL to avoid memory leaks
+class BoundedBlobCache {
+  constructor(maxSize = 40) {
+    this.maxSize = maxSize;
+    this.cache = new Map();
+  }
+
+  has(key) {
+    return this.cache.has(key);
+  }
+
+  get(key) {
+    if (!this.cache.has(key)) return undefined;
+    const value = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key, value) {
+    if (this.cache.has(key)) {
+      const existing = this.cache.get(key);
+      if (existing?.objectUrl && existing.objectUrl !== value.objectUrl) {
+        try { URL.revokeObjectURL(existing.objectUrl); } catch (_) {}
+      }
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      const oldestEntry = this.cache.get(oldestKey);
+      if (oldestEntry?.objectUrl) {
+        try { URL.revokeObjectURL(oldestEntry.objectUrl); } catch (_) {}
+      }
+      this.cache.delete(oldestKey);
+    }
+    this.cache.set(key, value);
+  }
+
+  delete(key) {
+    const existing = this.cache.get(key);
+    if (existing?.objectUrl) {
+      try { URL.revokeObjectURL(existing.objectUrl); } catch (_) {}
+    }
+    return this.cache.delete(key);
+  }
+
+  forEach(callback) {
+    this.cache.forEach(callback);
+  }
+
+  clear() {
+    this.cache.forEach((entry) => {
+      if (entry?.objectUrl) {
+        try { URL.revokeObjectURL(entry.objectUrl); } catch (_) {}
+      }
+    });
+    this.cache.clear();
+  }
+}
+
+const memoryBlobCache = new BoundedBlobCache(40);
 
 /**
  * Fetch a memory photo blob via Axios with the Authorization header and return an object URL.
@@ -246,10 +303,12 @@ const Memories = () => {
     try {
       if (activeTab === "my") {
         const res = await api.get("/memories");
-        setUserMemories(res.data || []);
+        const data = res.data;
+        setUserMemories(Array.isArray(data) ? data : (data?.content || []));
       } else {
         const res = await api.get("/memories/public");
-        setPublicMemories(res.data || []);
+        const data = res.data;
+        setPublicMemories(Array.isArray(data) ? data : (data?.content || []));
       }
     } catch (err) {
       console.error("Failed to load travel memories:", err);

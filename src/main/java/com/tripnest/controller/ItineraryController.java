@@ -5,6 +5,7 @@ import com.tripnest.dto.ItineraryResponse;
 import com.tripnest.dto.MessageResponse;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.ItineraryService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -20,7 +21,7 @@ public class ItineraryController {
     private ItineraryService itineraryService;
 
     @PostMapping
-    public ResponseEntity<?> createItinerary(@RequestBody ItineraryRequest request) {
+    public ResponseEntity<?> createItinerary(@Valid @RequestBody ItineraryRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         ItineraryResponse response = itineraryService.createItinerary(request, userDetails.getId());
         return ResponseEntity.ok(response);
@@ -35,7 +36,7 @@ public class ItineraryController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateItinerary(@PathVariable Long id,
-            @RequestBody ItineraryRequest request) {
+            @Valid @RequestBody ItineraryRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         ItineraryResponse response = itineraryService.updateItinerary(id, request, userDetails.getId());
         return ResponseEntity.ok(response);

@@ -52,6 +52,9 @@ public class Trip {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<com.tripnest.model.Settlement> settlements = new java.util.ArrayList<>();
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

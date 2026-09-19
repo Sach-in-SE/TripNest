@@ -103,7 +103,8 @@ class ItineraryServiceTest {
 
         when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
         when(itineraryRepository.findByTripIdOrderByDateAsc(10L)).thenReturn(List.of(legacyItinerary));
-        when(activityRepository.findByItineraryIdOrderByStartTimeAsc(101L)).thenReturn(Collections.emptyList());
+        lenient().when(activityRepository.findByItineraryIdOrderByStartTimeAsc(101L)).thenReturn(Collections.emptyList());
+        lenient().when(activityRepository.findByItineraryIdInWithUserOrderByStartTimeAsc(anyList())).thenReturn(Collections.emptyList());
 
         List<ItineraryResponse> responses = itineraryService.getTripItineraries(10L, 1L);
 

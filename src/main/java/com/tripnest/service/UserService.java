@@ -1,6 +1,8 @@
 package com.tripnest.service;
 
 import com.tripnest.entity.User;
+import com.tripnest.exception.BadRequestException;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,10 +32,10 @@ public class UserService {
 
     public void changePassword(Long userId, String currentPassword, String newPassword) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-            throw new RuntimeException("Current password is incorrect");
+            throw new BadRequestException("Current password is incorrect");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));

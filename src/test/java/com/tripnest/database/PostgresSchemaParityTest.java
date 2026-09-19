@@ -28,7 +28,8 @@ import static org.junit.jupiter.api.Assertions.*;
     "spring.jpa.hibernate.ddl-auto=validate",
     "spring.sql.init.mode=always",
     "spring.sql.init.schema-locations=file:schema-postgres.sql",
-    "spring.sql.init.data-locations="
+    "spring.sql.init.data-locations=",
+    "spring.flyway.enabled=false"
 })
 public class PostgresSchemaParityTest {
 

@@ -18,4 +18,6 @@ public class ExpenseResponse {
     private String username;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private java.util.List<Long> splitUserIds;
+    private java.util.List<ExpenseSplitResponse> splits;
 }

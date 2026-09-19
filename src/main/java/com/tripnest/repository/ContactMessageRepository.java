@@ -4,6 +4,7 @@ import com.tripnest.entity.ContactCategory;
 import com.tripnest.entity.ContactMessage;
 import com.tripnest.entity.ContactMessageStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -32,4 +33,8 @@ public interface ContactMessageRepository extends JpaRepository<ContactMessage, 
             @Param("search") String search);
 
     long countByStatus(ContactMessageStatus status);
+
+    @Modifying
+    @Query("UPDATE ContactMessage c SET c.user = null WHERE c.user.id = :userId")
+    void nullifyUserReferences(@Param("userId") Long userId);
 }

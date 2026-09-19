@@ -39,7 +39,8 @@ api.interceptors.response.use(
             requestUrl.includes('/auth/signup') ||
             requestUrl.includes('/admin/auth/') ||
             requestUrl.includes('/auth/forgot-password') ||
-            requestUrl.includes('/auth/reset-password');
+            requestUrl.includes('/auth/reset-password') ||
+            requestUrl.includes('/auth/oauth2/exchange');
 
         if (status === 401 && !isAuthEndpoint) {
             const hadToken = Boolean(localStorage.getItem('token'));

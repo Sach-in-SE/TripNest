@@ -9,6 +9,7 @@ public class DocumentResponse {
     private String fileName;
     private String fileType;
     private String fileUrl;
+    private String storedFileName;
     private String documentType;
     private Long tripId;
     private String tripTitle;

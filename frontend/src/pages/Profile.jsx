@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import AuthService from "../services/authService";
 import "./Profile.css";
 
 const SocialIcon = ({ name, hasLink, link, icon }) => {
@@ -74,6 +75,28 @@ const Profile = () => {
   const [usernameForm, setUsernameForm] = useState("");
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameAvailability, setUsernameAvailability] = useState(null);
+
+  // Role switching states
+  const [switchingRole, setSwitchingRole] = useState(false);
+  const [roleMessage, setRoleMessage] = useState("");
+  const [roleError, setRoleError] = useState("");
+
+  const handleSwitchRole = async (newRole) => {
+    setSwitchingRole(true);
+    setRoleMessage("");
+    setRoleError("");
+    try {
+      const response = await AuthService.switchRole(newRole);
+      updateUser(response);
+      setRoleMessage(`Successfully switched role to ${newRole === "ROLE_GROUP_ADMIN" ? "Group Admin" : "Traveler"}!`);
+      const res = await api.get("/user/profile");
+      setProfile(res.data);
+    } catch (err) {
+      setRoleError(err.response?.data?.message || "Failed to switch role");
+    } finally {
+      setSwitchingRole(false);
+    }
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -388,6 +411,11 @@ const Profile = () => {
     setError("");
   };
 
+  const currentRole = profile?.roles?.find(r => r === "ROLE_ADMIN" || r === "ROLE_GROUP_ADMIN" || r === "ROLE_USER" || r === "ROLE_TRAVELER") || profile?.roles?.[0] || "ROLE_USER";
+  const isCurrentAdmin = currentRole === "ROLE_ADMIN";
+  const isCurrentGroupAdmin = currentRole === "ROLE_GROUP_ADMIN";
+  const isCurrentTraveler = !isCurrentAdmin && !isCurrentGroupAdmin;
+
   if (loading) return <div className="tn-user-layout-container"><Sidebar /><main className="tn-user-main"><p style={{ color: "#94a3b8" }}>Loading...</p></main></div>;
 
   return (
@@ -400,42 +428,57 @@ const Profile = () => {
         {message && <div style={styles.successBox}>✅ {message}</div>}
         {error && <div style={styles.errorBox}>❌ {error}</div>}
 
-        {/* Hero Section */}
+        {/* Hero Card */}
         <div style={styles.heroCard} className="glass-card profile-hero-card">
           <div style={styles.heroContent} className="profile-hero-content">
-            <div style={styles.heroInfo}>
-              <h2 style={styles.heroName}>{profile?.firstName} {profile?.lastName}</h2>
+            {/* Avatar Display with Initials */}
+            <div className="profile-avatar-container">
+              <div className="profile-avatar-initials">
+                {profile?.firstName && profile?.lastName
+                  ? `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase()
+                  : profile?.username?.substring(0, 2).toUpperCase() || "TN"}
+              </div>
+            </div>
+
+            {/* User Details */}
+            <div style={styles.heroInfo} className="profile-hero-info">
+              <h2 style={styles.heroName}>
+                {profile?.firstName && profile?.lastName 
+                  ? `${profile.firstName} ${profile.lastName}`
+                  : profile?.username}
+              </h2>
               {editingUsername ? (
-                <div style={styles.usernameEditContainer}>
+                <div style={styles.usernameEditContainer} className="profile-username-edit">
                   <input
-                    className="aurora-input"
-                    type="text"
-                    value={usernameForm}
-                    onChange={(e) => setUsernameForm(e.target.value)}
                     style={styles.usernameInput}
-                    placeholder="Username"
+                    value={usernameForm}
+                    onChange={(e) => {
+                      setUsernameForm(e.target.value);
+                      checkUsernameAvailability(e.target.value);
+                    }}
+                    placeholder="New username"
+                    autoFocus
                   />
-                  {checkingUsername && (
-                    <div style={styles.availabilityMessage}>Checking availability...</div>
+                  {checkingUsername && <span style={styles.availabilityMessage}>Checking availability...</span>}
+                  {!checkingUsername && usernameAvailability === true && (
+                    <span style={styles.availableMessage}>✓ Username available</span>
                   )}
-                  {usernameAvailability === true && usernameForm !== profile?.username && (
-                    <div style={styles.availableMessage}>Username is available</div>
-                  )}
-                  {usernameAvailability === false && (
-                    <div style={styles.takenMessage}>Username is already taken</div>
+                  {!checkingUsername && usernameAvailability === false && (
+                    <span style={styles.takenMessage}>✗ Username already taken</span>
                   )}
                   <div style={styles.usernameEditButtons}>
-                    <button
-                      className="btn-ghost"
+                    <button 
+                      className="btn-ghost" 
                       onClick={handleCancelUsername}
+                      disabled={saving}
                       style={styles.usernameEditButton}
                     >
                       Cancel
                     </button>
-                    <button
-                      className="btn-aurora"
+                    <button 
+                      className="btn-aurora" 
                       onClick={handleSaveUsername}
-                      disabled={saving || usernameAvailability === false}
+                      disabled={saving || usernameAvailability === false || !usernameForm.trim() || usernameForm === profile?.username}
                       style={styles.usernameEditButton}
                     >
                       {saving ? "Saving..." : "Save"}
@@ -456,7 +499,9 @@ const Profile = () => {
                 </div>
               )}
               <div style={styles.heroMeta} className="profile-hero-meta">
-                <span className={`badge badge-upcoming`}>{profile?.roles?.[0]?.replace("ROLE_", "") || "TRAVELER"}</span>
+                <span className={`badge badge-upcoming`}>
+                  {isCurrentAdmin ? "ADMIN" : isCurrentGroupAdmin ? "GROUP ADMIN" : "TRAVELER"}
+                </span>
                 <span className={`badge ${profile?.enabled ? "badge-completed" : "badge-cancelled"}`}>
                   {profile?.enabled ? "Active" : "Disabled"}
                 </span>
@@ -531,6 +576,108 @@ const Profile = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Application Role Management Card */}
+        <div style={styles.sectionCard} className="glass-card profile-section-card">
+          <div style={styles.sectionHeader} className="profile-section-header">
+            <div>
+              <h3 style={styles.sectionTitle}>Application Role</h3>
+              <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: "4px" }}>
+                Switch between Traveler and Group Admin to access role-specific capabilities
+              </p>
+            </div>
+            <span className="badge badge-upcoming" style={{ fontSize: "13px", padding: "6px 14px" }}>
+              Current: {isCurrentAdmin ? "Administrator" : isCurrentGroupAdmin ? "Group Admin" : "Traveler"}
+            </span>
+          </div>
+
+          {roleMessage && <div style={styles.successBox}>✅ {roleMessage}</div>}
+          {roleError && <div style={styles.errorBox}>❌ {roleError}</div>}
+
+          {isCurrentAdmin ? (
+            <div style={{ color: "#94a3b8", fontSize: "14px", background: "rgba(255,255,255,0.03)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+              🔒 <strong>Administrator Account:</strong> Administrator privileges are system-managed and cannot be altered via self-service.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginTop: "12px" }}>
+              {/* Traveler Role Card */}
+              <div
+                style={{
+                  padding: "20px",
+                  borderRadius: "12px",
+                  border: isCurrentTraveler ? "2px solid #7c3aed" : "1px solid rgba(255,255,255,0.08)",
+                  background: isCurrentTraveler ? "rgba(124, 58, 237, 0.1)" : "rgba(255,255,255,0.02)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: "14px"
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "24px" }}>🎒</span>
+                    <h4 style={{ fontSize: "16px", fontWeight: "600", color: "#f1f5f9", margin: 0 }}>Traveler</h4>
+                    {isCurrentTraveler && (
+                      <span className="badge badge-completed" style={{ fontSize: "11px", marginLeft: "auto" }}>Active</span>
+                    )}
+                  </div>
+                  <p style={{ color: "#94a3b8", fontSize: "13px", margin: 0, lineHeight: "1.5" }}>
+                    Explore destination catalogs, create personal itineraries, track trip budgets, and participate in travel groups.
+                  </p>
+                </div>
+                {!isCurrentTraveler && (
+                  <button
+                    type="button"
+                    className="btn-aurora"
+                    onClick={() => handleSwitchRole("ROLE_USER")}
+                    disabled={switchingRole}
+                    style={{ alignSelf: "flex-start", padding: "8px 18px", fontSize: "13px" }}
+                  >
+                    {switchingRole ? "Switching..." : "Switch to Traveler"}
+                  </button>
+                )}
+              </div>
+
+              {/* Group Admin Role Card */}
+              <div
+                style={{
+                  padding: "20px",
+                  borderRadius: "12px",
+                  border: isCurrentGroupAdmin ? "2px solid #7c3aed" : "1px solid rgba(255,255,255,0.08)",
+                  background: isCurrentGroupAdmin ? "rgba(124, 58, 237, 0.1)" : "rgba(255,255,255,0.02)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: "14px"
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "24px" }}>👥</span>
+                    <h4 style={{ fontSize: "16px", fontWeight: "600", color: "#f1f5f9", margin: 0 }}>Group Admin</h4>
+                    {isCurrentGroupAdmin && (
+                      <span className="badge badge-completed" style={{ fontSize: "11px", marginLeft: "auto" }}>Active</span>
+                    )}
+                  </div>
+                  <p style={{ color: "#94a3b8", fontSize: "13px", margin: 0, lineHeight: "1.5" }}>
+                    Organize travel groups, send invitations, manage group members, and lead shared travel experiences.
+                  </p>
+                </div>
+                {!isCurrentGroupAdmin && (
+                  <button
+                    type="button"
+                    className="btn-aurora"
+                    onClick={() => handleSwitchRole("ROLE_GROUP_ADMIN")}
+                    disabled={switchingRole}
+                    style={{ alignSelf: "flex-start", padding: "8px 18px", fontSize: "13px" }}
+                  >
+                    {switchingRole ? "Switching..." : "Switch to Group Admin"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Personal Profile (Merged) */}

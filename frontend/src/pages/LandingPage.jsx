@@ -11,6 +11,9 @@ import {
 } from '../components/landing';
 
 export const LandingPage = () => {
+  if (typeof window !== "undefined" && window.__triggerTestCrash) {
+    throw new Error("Test crash triggered by E2E test suite");
+  }
   const location = useLocation();
 
   // Smooth scroll handler for anchor links and cross-page navigation

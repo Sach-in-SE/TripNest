@@ -347,4 +347,80 @@ public class DocumentServiceTest {
                 documentService.deleteDocument(100L, 2L)
         );
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Compensating Cleanup & Orphan Prevention Tests
+    // ---------------------------------------------------------------------------------------------
+    @Test
+    @DisplayName("Orphan Cleanup: Database save failure attempts physical file deletion and propagates original DB exception")
+    void testUploadDocument_DatabaseSaveFails_TriggersStorageCleanupAndPropagatesOriginalException() throws IOException {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "receipt.pdf", "application/pdf", "%PDF-1.5 test".getBytes()
+        );
+
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(storageService.storeFile(any(), anyString())).thenReturn("uuid-receipt.pdf");
+
+        RuntimeException dbException = new RuntimeException("Database constraint violation on documents table");
+        when(documentRepository.save(any(TravelDocument.class))).thenThrow(dbException);
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () ->
+                documentService.uploadDocument(file, 10L, "RECEIPT", 1L)
+        );
+
+        assertSame(dbException, thrown, "Original database exception MUST be propagated as the primary failure");
+        // Verify storage cleanup was attempted with the generated filename
+        verify(storageService).deleteFile(argThat(name -> name.endsWith(".pdf")));
+    }
+
+    @Test
+    @DisplayName("Orphan Cleanup: Storage cleanup failure does not swallow original DB exception")
+    void testUploadDocument_DatabaseSaveFails_StorageCleanupAlsoFails_PropagatesOriginalDBException() throws IOException {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "receipt.pdf", "application/pdf", "%PDF-1.5 test".getBytes()
+        );
+
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(storageService.storeFile(any(), anyString())).thenReturn("uuid-receipt.pdf");
+
+        RuntimeException dbException = new RuntimeException("DB deadlock error");
+        when(documentRepository.save(any(TravelDocument.class))).thenThrow(dbException);
+        doThrow(new IOException("Storage service connection timeout")).when(storageService).deleteFile(anyString());
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () ->
+                documentService.uploadDocument(file, 10L, "RECEIPT", 1L)
+        );
+
+        assertSame(dbException, thrown, "Original DB exception must remain the primary exception even if cleanup fails");
+        verify(storageService).deleteFile(argThat(name -> name.endsWith(".pdf")));
+    }
+
+    @Test
+    @DisplayName("Get document download uses direct storedFileName index lookup without wildcard fallback")
+    void testGetDocumentDownload_ByStoredFileName_DirectO1Lookup() throws IOException {
+        TravelDocument doc = new TravelDocument();
+        doc.setId(200L);
+        doc.setFileName("pass.pdf");
+        doc.setStoredFileName("uuid-direct-pass.pdf");
+        doc.setFileType("application/pdf");
+        doc.setFileUrl("/api/documents/download/uuid-direct-pass.pdf");
+        doc.setTrip(trip);
+        doc.setUser(owner);
+
+        when(documentRepository.findByStoredFileName("uuid-direct-pass.pdf")).thenReturn(Optional.of(doc));
+        Resource mockResource = new ByteArrayResource("%PDF direct".getBytes());
+        when(storageService.loadFileAsResource("uuid-direct-pass.pdf")).thenReturn(mockResource);
+
+        DocumentDownloadResult result = documentService.getDocumentDownload("uuid-direct-pass.pdf", 1L);
+
+        assertNotNull(result);
+        assertEquals("pass.pdf", result.getOriginalFileName());
+        assertEquals("application/pdf", result.getContentType());
+        assertEquals(mockResource, result.getResource());
+
+        verify(documentRepository).findByStoredFileName("uuid-direct-pass.pdf");
+        verify(documentRepository, never()).findByFileUrlEndingWith(anyString());
+    }
 }

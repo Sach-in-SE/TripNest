@@ -52,6 +52,7 @@ public class WikipediaService {
         cache.clear();
     }
 
+    @org.springframework.cache.annotation.Cacheable(value = "wikipedia", sync = true)
     public WikipediaResponse getWikipediaSummary(String destinationName) {
         if (destinationName == null || destinationName.trim().isEmpty()) {
             return WikipediaResponse.builder()

@@ -17,8 +17,10 @@ import java.util.Optional;
 public interface TravelMemoryRepository extends JpaRepository<TravelMemory, Long> {
 
     List<TravelMemory> findByUserIdOrderByCreatedAtDesc(Long userId);
+    Page<TravelMemory> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     List<TravelMemory> findByVisibilityOrderByCreatedAtDesc(MemoryVisibility visibility);
+    Page<TravelMemory> findByVisibilityOrderByCreatedAtDesc(MemoryVisibility visibility, Pageable pageable);
 
     List<TravelMemory> findByTripIdAndUserIdOrderByCreatedAtDesc(Long tripId, Long userId);
 
@@ -37,4 +39,8 @@ public interface TravelMemoryRepository extends JpaRepository<TravelMemory, Long
     void nullifyTripReferences(@Param("tripId") Long tripId);
 
     Optional<TravelMemory> findByStoredFileName(String storedFileName);
+
+    @Modifying
+    @Query("DELETE FROM TravelMemory m WHERE m.user.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 }

@@ -8,8 +8,10 @@ import com.tripnest.repository.BudgetRepository;
 import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.TripRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.tripnest.exception.ResourceNotFoundException;
 
 @Service
 @Transactional(readOnly = true)
@@ -30,12 +32,12 @@ public class BudgetService {
     @Transactional
     public BudgetResponse createOrUpdateBudget(BudgetRequest request, Long userId) {
         Trip trip = tripRepository.findById(request.getTripId())
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip not found"));
 
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(request.getTripId(), userId);
         if (!isOwner && !hasEditAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new AccessDeniedException("Unauthorized");
         }
 
         Budget budget = budgetRepository.findByTripId(request.getTripId())
@@ -64,26 +66,36 @@ public class BudgetService {
         return mapToResponse(saved);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public BudgetResponse getBudgetByTripId(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip not found"));
 
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasAccess = tripShareService.hasAccess(tripId, userId);
         if (!isOwner && !hasAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new AccessDeniedException("Unauthorized");
         }
 
         Budget budget = budgetRepository.findByTripId(tripId)
-                .orElseThrow(() -> new RuntimeException("Budget not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Budget not found"));
 
         Double spent = expenseRepository.getTotalExpenseByTripId(tripId);
-        budget.setSpentAmount(spent != null ? spent : 0.0);
-        budget.setRemainingAmount(budget.getTotalAmount() - budget.getSpentAmount());
-        budgetRepository.save(budget);
+        double spentAmount = spent != null ? spent : 0.0;
+        double totalAmount = budget.getTotalAmount() != null ? budget.getTotalAmount() : 0.0;
+        double remainingAmount = totalAmount - spentAmount;
 
-        return mapToResponse(budget);
+        BudgetResponse response = mapToResponse(budget);
+        response.setSpentAmount(spentAmount);
+        response.setRemainingAmount(remainingAmount);
+        if (totalAmount > 0) {
+            double percentage = (spentAmount / totalAmount) * 100;
+            response.setPercentageUsed(Math.round(percentage * 100.0) / 100.0);
+        } else {
+            response.setPercentageUsed(0.0);
+        }
+
+        return response;
     }
 
     private BudgetResponse mapToResponse(Budget budget) {
