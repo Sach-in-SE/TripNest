@@ -796,7 +796,7 @@ public class GroupService {
         }
         return userRepository.findById(userId)
                 .map(u -> u.getRoles() != null && u.getRoles().stream()
-                        .anyMatch(r -> r.getName() == ERole.ROLE_ADMIN || r.getName() == ERole.ROLE_GROUP_ADMIN))
+                        .anyMatch(r -> r.getName() == ERole.ROLE_ADMIN))
                 .orElse(false);
     }
 
