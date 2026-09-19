@@ -38,6 +38,9 @@ public class Expense {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<com.tripnest.model.ExpenseSplit> splits = new java.util.ArrayList<>();
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -6,10 +6,15 @@ import com.tripnest.dto.TravelHistoryResponse;
 import com.tripnest.dto.BudgetRequest;
 import com.tripnest.entity.*;
 import com.tripnest.repository.*;
+import com.tripnest.service.storage.StorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import com.tripnest.exception.BadRequestException;
+import com.tripnest.exception.ResourceNotFoundException;
+import com.tripnest.exception.UnauthorizedAccessException;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.nio.file.Files;
@@ -20,9 +25,10 @@ import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
-
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class TripService {
 
     private static final Logger logger = LoggerFactory.getLogger(TripService.class);
@@ -55,6 +61,9 @@ public class TripService {
     private DocumentRepository documentRepository;
 
     @Autowired
+    private StorageService storageService;
+
+    @Autowired
     private GroupRepository groupRepository;
 
     @Autowired
@@ -69,14 +78,18 @@ public class TripService {
     @Autowired
     private TravelUpdateNotificationService travelUpdateNotificationService;
 
+    @Autowired
+    private TravelMemoryRepository travelMemoryRepository;
+
+    @Transactional
     public TripResponse createTrip(TripRequest request, Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         // Validate dates
         if (request.getStartDate() != null && request.getEndDate() != null) {
             if (request.getEndDate().isBefore(request.getStartDate())) {
-                throw new RuntimeException("End date must be on or after start date");
+                throw new BadRequestException("End date must be on or after start date");
             }
         }
 
@@ -112,31 +125,37 @@ public class TripService {
     public List<TripResponse> getUserTrips(Long userId) {
         Map<Long, TripResponse> tripsMap = new java.util.LinkedHashMap<>();
 
-        tripRepository.findByUserId(userId)
-                .forEach(trip -> {
-                    TripResponse r = mapToResponse(trip);
-                    r.setPermission("OWNER");
-                    tripsMap.put(trip.getId(), r);
-                });
+        List<Trip> ownedTrips = tripRepository.findByUserIdWithUserOrderByCreatedAtDesc(userId);
+        if (ownedTrips.isEmpty()) {
+            ownedTrips = tripRepository.findByUserId(userId);
+        }
+        ownedTrips.forEach(trip -> {
+            TripResponse r = mapToResponse(trip);
+            r.setPermission("OWNER");
+            tripsMap.put(trip.getId(), r);
+        });
 
-        // Only include shared trips where invitation is ACCEPTED and not already present
-        tripShareRepository
-                .findBySharedWithUserIdAndStatus(userId, com.tripnest.entity.ShareStatus.ACCEPTED)
-                .forEach(share -> {
-                    Long tripId = share.getTrip().getId();
-                    if (!tripsMap.containsKey(tripId)) {
-                        TripResponse r = mapToResponse(share.getTrip());
-                        r.setPermission(share.getPermission().name());
-                        tripsMap.put(tripId, r);
-                    }
-                });
+        // Only include shared trips where invitation is ACCEPTED and not already present (fetch join avoids N+1)
+        List<TripShare> sharedTrips = tripShareRepository
+                .findBySharedWithUserIdAndStatusWithTripAndUser(userId, com.tripnest.entity.ShareStatus.ACCEPTED);
+        if (sharedTrips.isEmpty()) {
+            sharedTrips = tripShareRepository.findBySharedWithUserIdAndStatus(userId, com.tripnest.entity.ShareStatus.ACCEPTED);
+        }
+        sharedTrips.forEach(share -> {
+            Long tripId = share.getTrip().getId();
+            if (!tripsMap.containsKey(tripId)) {
+                TripResponse r = mapToResponse(share.getTrip());
+                r.setPermission(share.getPermission().name());
+                tripsMap.put(tripId, r);
+            }
+        });
 
         return new ArrayList<>(tripsMap.values());
     }
 
     public TripResponse getTripById(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "id", tripId));
         boolean isOwner = trip.getUser().getId().equals(userId);
 
         TripResponse response = mapToResponse(trip);
@@ -145,25 +164,26 @@ public class TripService {
         } else {
             TripShare share = tripShareRepository.findByTripIdAndSharedWithUserId(tripId, userId)
                     .filter(s -> s.getStatus() == com.tripnest.entity.ShareStatus.ACCEPTED)
-                    .orElseThrow(() -> new RuntimeException("Unauthorized"));
+                    .orElseThrow(() -> new UnauthorizedAccessException("Unauthorized"));
             response.setPermission(share.getPermission().name());
         }
         return response;
     }
 
+    @Transactional
     public TripResponse updateTrip(Long tripId, TripRequest request, Long userId) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "id", tripId));
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasEditAccess = tripShareService.hasEditAccess(tripId, userId);
         if (!isOwner && !hasEditAccess) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedAccessException("Unauthorized");
         }
 
         // Validate dates
         if (request.getStartDate() != null && request.getEndDate() != null) {
             if (request.getEndDate().isBefore(request.getStartDate())) {
-                throw new RuntimeException("End date must be on or after start date");
+                throw new BadRequestException("End date must be on or after start date");
             }
         }
 
@@ -226,19 +246,22 @@ public class TripService {
             r.setPermission("OWNER");
         } else {
             TripShare share = tripShareRepository.findByTripIdAndSharedWithUserId(tripId, userId)
-                    .orElseThrow(() -> new RuntimeException("Unauthorized"));
+                    .orElseThrow(() -> new UnauthorizedAccessException("Unauthorized"));
             r.setPermission(share.getPermission().name());
         }
         return r;
     }
     
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public void deleteTrip(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new RuntimeException("Trip not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Trip", "id", tripId));
         if (!trip.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new UnauthorizedAccessException("Unauthorized");
         }
+
+        // 0. Unlink travel memories referencing this trip to prevent foreign key constraint violations
+        travelMemoryRepository.nullifyTripReferences(tripId);
 
         // 1. Delete activities first (which reference itineraries)
         List<Itinerary> itineraries = itineraryRepository.findByTripIdOrderByDateAsc(tripId);
@@ -260,13 +283,14 @@ public class TripService {
         List<Expense> expenses = expenseRepository.findByTripId(tripId);
         expenseRepository.deleteAll(expenses);
 
-        // 6. Delete documents and remove corresponding files from disk if possible
+        // 6. Delete documents and remove corresponding files via StorageService
         List<TravelDocument> documents = documentRepository.findByTripId(tripId);
         for (TravelDocument document : documents) {
             try {
-                String storedFileName = document.getFileUrl().substring(document.getFileUrl().lastIndexOf("/") + 1);
-                Path filePath = Paths.get("uploads").resolve(storedFileName);
-                Files.deleteIfExists(filePath);
+                if (document.getFileUrl() != null && document.getFileUrl().contains("/")) {
+                    String storedFileName = document.getFileUrl().substring(document.getFileUrl().lastIndexOf("/") + 1);
+                    storageService.deleteFile(storedFileName);
+                }
             } catch (Exception e) {
                 // Ignore file deletion error and proceed with DB deletion
             }
@@ -295,14 +319,25 @@ public class TripService {
         String longestTrip = null;
         long maxDuration = 0;
 
+        // Grouped expense aggregation: 1 query instead of N individual queries
+        List<Long> tripIds = completedTrips.stream().map(Trip::getId).collect(Collectors.toList());
+        Map<Long, Double> expenseMap = new HashMap<>();
+        if (!tripIds.isEmpty()) {
+            List<Object[]> totals = expenseRepository.findTotalExpensesByTripIds(tripIds);
+            for (Object[] row : totals) {
+                if (row != null && row.length >= 2 && row[0] instanceof Long) {
+                    double amount = row[1] instanceof Number ? ((Number) row[1]).doubleValue() : 0.0;
+                    expenseMap.put((Long) row[0], amount);
+                }
+            }
+        }
+
         for (Trip trip : completedTrips) {
             destinationsVisited.add(trip.getDestination());
 
             Long tripId = trip.getId();
-            Double tripExpenses = expenseRepository.getTotalExpenseByTripId(tripId);
-            if (tripExpenses != null) {
-                totalAmountSpent += tripExpenses;
-            }
+            Double tripExpenses = expenseMap.getOrDefault(tripId, 0.0);
+            totalAmountSpent += tripExpenses;
 
             String destination = trip.getDestination();
             destinationCount.put(destination, destinationCount.getOrDefault(destination, 0) + 1);

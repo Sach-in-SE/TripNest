@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import CollaboratorModal from "../components/CollaboratorModal";
 import api from "../services/api";
 
 const Trips = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [collaboratorTrip, setCollaboratorTrip] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -98,6 +100,15 @@ const Trips = () => {
                     </button>
                   )}
                   {(!trip.permission || trip.permission === "OWNER") && (
+                    <button
+                      className="btn-compact"
+                      onClick={() => setCollaboratorTrip(trip)}
+                      title="Share and collaborate"
+                    >
+                      🤝 Share
+                    </button>
+                  )}
+                  {(!trip.permission || trip.permission === "OWNER") && (
                     <button className="btn-compact danger" onClick={() => handleDelete(trip.id)}>
                       🗑️ Delete
                     </button>
@@ -106,6 +117,16 @@ const Trips = () => {
               </div>
             ))}
           </div>
+        )}
+
+        {collaboratorTrip && (
+          <CollaboratorModal
+            tripId={collaboratorTrip.id}
+            tripTitle={collaboratorTrip.title}
+            canManageShares={true}
+            onClose={() => setCollaboratorTrip(null)}
+            onSuccess={fetchTrips}
+          />
         )}
       </main>
     </div>

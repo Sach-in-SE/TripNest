@@ -20,7 +20,8 @@ const Notifications = () => {
         api.get("/notifications"),
         api.get("/notifications/unread/count"),
       ]);
-      setNotifications(notifRes.data);
+      const notifData = notifRes.data;
+      setNotifications(Array.isArray(notifData) ? notifData : (notifData?.content || []));
       setUnreadCount(countRes.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }

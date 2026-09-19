@@ -79,17 +79,15 @@ class AdminInitializerTest {
     }
 
     @Test
-    void testRun_WhenAdminAlreadyExistsWithOutdatedPassword_SynchronizesPasswordAndRole() throws Exception {
+    void testRun_WhenAdminAlreadyExistsWithChangedPassword_PreservesPasswordAndEnsuresRoleAndEnabled() throws Exception {
         User existingAdmin = new User();
         existingAdmin.setId(1L);
         existingAdmin.setUsername("customadmin");
         existingAdmin.setEmail("customadmin@tripnest.com");
-        existingAdmin.setPassword("oldEncodedPassword");
+        existingAdmin.setPassword("userModifiedPasswordHash");
         existingAdmin.setEnabled(false);
 
         when(userRepository.findByEmailIgnoreCase("customadmin@tripnest.com")).thenReturn(Optional.of(existingAdmin));
-        when(passwordEncoder.matches("SecretEnvPassword123!", "oldEncodedPassword")).thenReturn(false);
-        when(passwordEncoder.encode("SecretEnvPassword123!")).thenReturn("newEncodedPassword");
 
         adminInitializer.run();
 
@@ -97,7 +95,7 @@ class AdminInitializerTest {
         verify(userRepository).save(userCaptor.capture());
 
         User updatedAdmin = userCaptor.getValue();
-        assertEquals("newEncodedPassword", updatedAdmin.getPassword());
+        assertEquals("userModifiedPasswordHash", updatedAdmin.getPassword());
         assertTrue(updatedAdmin.isEnabled());
         assertTrue(updatedAdmin.getRoles().contains(adminRole));
     }
@@ -115,7 +113,6 @@ class AdminInitializerTest {
         upToDateAdmin.setRoles(roles);
 
         when(userRepository.findByEmailIgnoreCase("customadmin@tripnest.com")).thenReturn(Optional.of(upToDateAdmin));
-        when(passwordEncoder.matches("SecretEnvPassword123!", "currentEncodedPassword")).thenReturn(true);
 
         adminInitializer.run();
 

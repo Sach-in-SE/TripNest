@@ -55,6 +55,7 @@ public class WeatherService {
         cache.clear();
     }
 
+    @org.springframework.cache.annotation.Cacheable(value = "weather", sync = true)
     public WeatherResponse getCurrentWeather(Double latitude, Double longitude) {
         if (latitude == null || longitude == null) {
             return WeatherResponse.builder()

@@ -5,6 +5,7 @@ import com.tripnest.dto.ActivityResponse;
 import com.tripnest.dto.MessageResponse;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.ActivityService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -12,7 +13,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/activities")
 public class ActivityController {
@@ -21,7 +21,7 @@ public class ActivityController {
     private ActivityService activityService;
 
     @PostMapping
-    public ResponseEntity<?> createActivity(@RequestBody ActivityRequest request) {
+    public ResponseEntity<?> createActivity(@Valid @RequestBody ActivityRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         ActivityResponse response = activityService.createActivity(request, userDetails.getId());
         return ResponseEntity.ok(response);
@@ -36,7 +36,7 @@ public class ActivityController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateActivity(@PathVariable Long id,
-            @RequestBody ActivityRequest request) {
+            @Valid @RequestBody ActivityRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         ActivityResponse response = activityService.updateActivity(id, request, userDetails.getId());
         return ResponseEntity.ok(response);

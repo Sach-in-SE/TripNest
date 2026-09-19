@@ -41,7 +41,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException("Email not found from Google account");
         }
 
-        User user = userRepository.findByEmail(email).orElse(null);
+        User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
 
         if (user == null) {
             user = new User();
@@ -52,10 +52,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
             user.setProvider(AuthProvider.GOOGLE);
 
-            Role travelerRole = roleRepository.findByName(ERole.ROLE_TRAVELER)
-                    .orElseThrow(() -> new RuntimeException("Default role ROLE_TRAVELER not found"));
+            Role defaultRole = roleRepository.findByName(ERole.ROLE_USER)
+                    .or(() -> roleRepository.findByName(ERole.ROLE_TRAVELER))
+                    .orElseGet(() -> {
+                        Role r = new Role();
+                        r.setName(ERole.ROLE_USER);
+                        return roleRepository.save(r);
+                    });
             Set<Role> roles = new HashSet<>();
-            roles.add(travelerRole);
+            roles.add(defaultRole);
             user.setRoles(roles);
 
             userRepository.save(user);

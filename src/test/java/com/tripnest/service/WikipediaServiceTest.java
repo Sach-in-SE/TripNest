@@ -45,7 +45,9 @@ class WikipediaServiceTest {
         mockResponse.put("extract", "Delhi, officially the National Capital Territory of Delhi, is a city and a union territory of India.");
         mockResponse.put("content_urls", contentUrlsMap);
 
-        when(restTemplate.getForObject(anyString(), eq(Map.class))).thenReturn(mockResponse);
+        org.springframework.http.ResponseEntity<Map> entity = new org.springframework.http.ResponseEntity<>(mockResponse, org.springframework.http.HttpStatus.OK);
+        when(restTemplate.exchange(any(java.net.URI.class), eq(org.springframework.http.HttpMethod.GET), any(org.springframework.http.HttpEntity.class), eq(Map.class)))
+                .thenReturn(entity);
 
         WikipediaResponse result = wikipediaService.getWikipediaSummary("Delhi");
 
@@ -63,19 +65,22 @@ class WikipediaServiceTest {
         mockResponse.put("title", "Delhi");
         mockResponse.put("extract", "Capital of India");
 
-        when(restTemplate.getForObject(anyString(), eq(Map.class))).thenReturn(mockResponse);
+        org.springframework.http.ResponseEntity<Map> entity = new org.springframework.http.ResponseEntity<>(mockResponse, org.springframework.http.HttpStatus.OK);
+        when(restTemplate.exchange(any(java.net.URI.class), eq(org.springframework.http.HttpMethod.GET), any(org.springframework.http.HttpEntity.class), eq(Map.class)))
+                .thenReturn(entity);
 
         WikipediaResponse first = wikipediaService.getWikipediaSummary("Delhi");
         WikipediaResponse second = wikipediaService.getWikipediaSummary("Delhi");
 
         assertSame(first, second);
-        verify(restTemplate, times(1)).getForObject(anyString(), eq(Map.class));
+        verify(restTemplate, times(1)).exchange(any(java.net.URI.class), eq(org.springframework.http.HttpMethod.GET), any(org.springframework.http.HttpEntity.class), eq(Map.class));
         assertEquals(1, wikipediaService.getCacheSize());
     }
 
     @Test
     void getWikipediaSummary_NotFound_ReturnsFallback() {
-        when(restTemplate.getForObject(anyString(), eq(Map.class))).thenReturn(null);
+        when(restTemplate.exchange(any(java.net.URI.class), eq(org.springframework.http.HttpMethod.GET), any(org.springframework.http.HttpEntity.class), eq(Map.class)))
+                .thenReturn(new org.springframework.http.ResponseEntity<>(null, org.springframework.http.HttpStatus.OK));
 
         WikipediaResponse result = wikipediaService.getWikipediaSummary("NonExistentPlace12345");
 
@@ -87,7 +92,7 @@ class WikipediaServiceTest {
 
     @Test
     void getWikipediaSummary_ApiFailure_ReturnsFallback() {
-        when(restTemplate.getForObject(anyString(), eq(Map.class)))
+        when(restTemplate.exchange(any(java.net.URI.class), eq(org.springframework.http.HttpMethod.GET), any(org.springframework.http.HttpEntity.class), eq(Map.class)))
                 .thenThrow(new RestClientException("Network Error"));
 
         WikipediaResponse result = wikipediaService.getWikipediaSummary("Agra");

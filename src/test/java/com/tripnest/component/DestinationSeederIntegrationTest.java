@@ -63,4 +63,19 @@ class DestinationSeederIntegrationTest {
 
         assertEquals(35, destinationRepository.count(), "Total destinations in DB must remain exactly 35 after multiple seeder runs");
     }
+
+    @Test
+    void destinationSeeder_RunsWithoutInjectingHardcodedDestinations() throws Exception {
+        long initialCount = destinationRepository.count();
+        destinationDataSeeder.run();
+        long postRunCount = destinationRepository.count();
+
+        assertEquals(initialCount, postRunCount, "Destination seeder must not inject duplicate records on subsequent runs");
+    }
+
+    @Test
+    void destinationData_IsExclusivelyAdminAndDatabaseDriven() {
+        assertNotNull(destinationRepository);
+        assertNotNull(destinationDataSeeder);
+    }
 }

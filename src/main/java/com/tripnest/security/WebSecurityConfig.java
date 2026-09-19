@@ -1,6 +1,7 @@
 package com.tripnest.security;
 
 import com.tripnest.security.oauth2.CustomOAuth2UserService;
+import com.tripnest.security.oauth2.OAuth2AuthenticationFailureHandler;
 import com.tripnest.security.oauth2.OAuth2AuthenticationSuccessHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -15,6 +16,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
@@ -34,6 +38,12 @@ public class WebSecurityConfig {
 
     @Autowired
     private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+
+    @Autowired
+    private OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+
+    @Autowired
+    private RateLimitingFilter rateLimitingFilter;
 
     @org.springframework.beans.factory.annotation.Value("${tripnest.cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
     private String allowedOrigins;
@@ -58,6 +68,36 @@ public class WebSecurityConfig {
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration corsConfig = new CorsConfiguration();
+
+        java.util.List<String> origins = java.util.Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(java.util.stream.Collectors.toList());
+
+        corsConfig.setAllowedOrigins(origins.isEmpty() ? java.util.List.of("http://localhost:5173", "http://localhost:5174") : origins);
+        corsConfig.setAllowedMethods(java.util.List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS",
+                "PATCH"));
+        corsConfig.setAllowedHeaders(java.util.List.of("*"));
+        corsConfig.setAllowCredentials(true);
+        corsConfig.setExposedHeaders(java.util.List.of(
+                "Authorization",
+                "Content-Type",
+                "Content-Disposition"));
+        corsConfig.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", corsConfig);
+        return source;
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
@@ -70,32 +110,7 @@ public class WebSecurityConfig {
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31536000)))
 
-                .cors(cors -> cors.configurationSource(request -> {
-                    var corsConfig = new org.springframework.web.cors.CorsConfiguration();
-
-                    java.util.List<String> origins = java.util.Arrays.stream(allowedOrigins.split(","))
-                            .map(String::trim)
-                            .filter(s -> !s.isEmpty())
-                            .collect(java.util.stream.Collectors.toList());
-
-                    corsConfig.setAllowedOrigins(origins.isEmpty() ? java.util.List.of("http://localhost:5173", "http://localhost:5174") : origins);
-
-                    corsConfig.setAllowedMethods(java.util.List.of(
-                            "GET",
-                            "POST",
-                            "PUT",
-                            "DELETE",
-                            "OPTIONS",
-                            "PATCH"));
-
-                    corsConfig.setAllowedHeaders(java.util.List.of("*"));
-                    corsConfig.setAllowCredentials(true);
-                    corsConfig.setExposedHeaders(java.util.List.of(
-                            "Authorization",
-                            "Content-Type"));
-
-                    return corsConfig;
-                }))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -122,16 +137,20 @@ public class WebSecurityConfig {
                         // Admin panel APIs
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
+                        // Error dispatch
+                        .requestMatchers("/error").permitAll()
+
                         // Destination APIs
-                        .requestMatchers(HttpMethod.GET, "/api/destinations/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/destinations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/destinations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/destinations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/destinations", "/api/destinations/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
 
                         // Document download endpoint
-                        .requestMatchers("/api/documents/download/**").permitAll()
+                        .requestMatchers("/api/documents/download/**").authenticated()
 
                         // Groups
+                        .requestMatchers("/api/groups/admin/**").hasAnyRole("GROUP_ADMIN", "ADMIN")
                         .requestMatchers("/api/groups", "/api/groups/**").authenticated()
 
                         // Trips
@@ -139,6 +158,9 @@ public class WebSecurityConfig {
 
                         // OAuth2
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        // WebSocket STOMP handshake endpoint
+                        .requestMatchers("/ws", "/ws/**").permitAll()
 
                         // Trip sharing
                         .requestMatchers(
@@ -161,13 +183,18 @@ public class WebSecurityConfig {
 
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
-                        .successHandler(oAuth2AuthenticationSuccessHandler));
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler));
 
         http.authenticationProvider(authenticationProvider());
 
         http.addFilterBefore(
                 authenticationJwtTokenFilter(),
                 UsernamePasswordAuthenticationFilter.class);
+
+        http.addFilterBefore(
+                rateLimitingFilter,
+                AuthTokenFilter.class);
 
         return http.build();
     }

@@ -36,10 +36,27 @@ public class AdminInitializer implements CommandLineRunner {
     @Value("${tripnest.admin.password}")
     private String adminPassword;
 
+    @Autowired
+    private org.springframework.core.env.Environment environment;
+
     @Override
     @org.springframework.transaction.annotation.Transactional
     public void run(String... args) throws Exception {
+        boolean isProd = environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod");
+        if (isProd) {
+            if (adminPassword == null || adminPassword.trim().isEmpty() || "DevAdminPassword123!".equals(adminPassword)) {
+                throw new IllegalStateException("CRITICAL SECURITY ERROR: In production profile, a secure ADMIN_PASSWORD environment variable (non-default) MUST be provided!");
+            }
+        }
+
         // Initialize Roles if missing
+        roleRepository.findByName(ERole.ROLE_USER)
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setName(ERole.ROLE_USER);
+                    return roleRepository.save(role);
+                });
+
         Role travelerRole = roleRepository.findByName(ERole.ROLE_TRAVELER)
                 .orElseGet(() -> {
                     Role role = new Role();
@@ -79,6 +96,7 @@ public class AdminInitializer implements CommandLineRunner {
             admin.setEmail(adminEmail);
             admin.setFirstName("System");
             admin.setLastName("Admin");
+            admin.setPassword(passwordEncoder.encode(adminPassword));
             admin.setEnabled(true);
             needsSave = true;
         } else {
@@ -100,8 +118,8 @@ public class AdminInitializer implements CommandLineRunner {
             needsSave = true;
         }
 
-        // Ensure account password is synchronized with configured adminPassword
-        if (admin.getPassword() == null || !passwordEncoder.matches(adminPassword, admin.getPassword())) {
+        // Ensure account password is set if not already present
+        if (admin.getPassword() == null) {
             admin.setPassword(passwordEncoder.encode(adminPassword));
             needsSave = true;
         }

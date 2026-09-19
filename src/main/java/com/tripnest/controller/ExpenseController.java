@@ -5,6 +5,7 @@ import com.tripnest.dto.ExpenseResponse;
 import com.tripnest.dto.MessageResponse;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.ExpenseService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -13,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/expenses")
 public class ExpenseController {
@@ -22,7 +22,7 @@ public class ExpenseController {
     private ExpenseService expenseService;
 
     @PostMapping
-    public ResponseEntity<?> createExpense(@RequestBody ExpenseRequest request) {
+    public ResponseEntity<?> createExpense(@Valid @RequestBody ExpenseRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         ExpenseResponse response = expenseService.createExpense(request, userDetails.getId());
         return ResponseEntity.ok(response);
@@ -35,8 +35,15 @@ public class ExpenseController {
         return ResponseEntity.ok(expenses);
     }
 
+    @GetMapping("/user")
+    public ResponseEntity<?> getUserExpenses() {
+        UserDetailsImpl userDetails = getCurrentUser();
+        List<ExpenseResponse> expenses = expenseService.getUserExpenses(userDetails.getId());
+        return ResponseEntity.ok(expenses);
+    }
+
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateExpense(@PathVariable Long id, @RequestBody ExpenseRequest request) {
+    public ResponseEntity<?> updateExpense(@PathVariable Long id, @Valid @RequestBody ExpenseRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         ExpenseResponse response = expenseService.updateExpense(id, request, userDetails.getId());
         return ResponseEntity.ok(response);
@@ -51,7 +58,8 @@ public class ExpenseController {
 
     @GetMapping("/trip/{tripId}/total")
     public ResponseEntity<?> getTotalExpenses(@PathVariable Long tripId) {
-        Double total = expenseService.getTotalExpenses(tripId);
+        UserDetailsImpl userDetails = getCurrentUser();
+        Double total = expenseService.getTotalExpenses(tripId, userDetails.getId());
         return ResponseEntity.ok(total);
     }
 

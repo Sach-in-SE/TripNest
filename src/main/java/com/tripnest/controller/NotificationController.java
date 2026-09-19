@@ -13,9 +13,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/notifications")
 public class NotificationController {
@@ -25,13 +27,30 @@ public class NotificationController {
 
     @PostMapping
     public ResponseEntity<?> createNotification(@RequestBody NotificationRequest request) {
+        UserDetailsImpl userDetails = getCurrentUser();
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin && (request.getUserId() != null && !request.getUserId().equals(userDetails.getId()))) {
+            throw new org.springframework.security.access.AccessDeniedException("Cannot create notifications for other users");
+        }
+        if (request.getUserId() == null) {
+            request.setUserId(userDetails.getId());
+        }
         NotificationResponse response = notificationService.createNotification(request);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    public ResponseEntity<?> getUserNotifications() {
+    public ResponseEntity<?> getUserNotifications(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         UserDetailsImpl userDetails = getCurrentUser();
+        if (page != null) {
+            int pageSize = (size != null && size > 0 && size <= 100) ? size : 20;
+            Page<NotificationResponse> result = notificationService.getUserNotifications(
+                    userDetails.getId(), PageRequest.of(page, pageSize));
+            return ResponseEntity.ok(result);
+        }
         List<NotificationResponse> notifications = notificationService.getUserNotifications(userDetails.getId());
         return ResponseEntity.ok(notifications);
     }

@@ -45,9 +45,6 @@ public class User {
     @Size(max = 15)
     private String phone;
 
-    @Size(max = 500)
-    private String profilePictureUrl;
-
     @Size(max = 300)
     private String bio;
 

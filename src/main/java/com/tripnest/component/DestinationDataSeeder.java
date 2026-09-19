@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,8 +22,9 @@ public class DestinationDataSeeder implements CommandLineRunner {
     private DestinationRepository destinationRepository;
 
     @Override
+    @Transactional
     public void run(String... args) throws Exception {
-        logger.info("Initializing production-quality demo destination dataset...");
+        logger.info("Synchronizing TripNest canonical 35-destination dataset...");
         List<DestinationSeedDto> seeds = getSeedDataset();
 
         int seededCount = 0;
@@ -54,12 +56,14 @@ public class DestinationDataSeeder implements CommandLineRunner {
             dest.setLatitude(dto.latitude);
             dest.setLongitude(dto.longitude);
             dest.setRating(dto.rating);
-            dest.setPopular(false);
+            if (dest.getPopular() == null) {
+                dest.setPopular(false);
+            }
 
             destinationRepository.save(dest);
         }
 
-        logger.info("Destination dataset initialization complete. Seeded: {}, Updated: {}, Total DB: {}",
+        logger.info("Destination dataset synchronization complete. Seeded: {}, Updated/Preserved: {}, Total DB: {}",
                 seededCount, updatedCount, destinationRepository.count());
     }
 
@@ -69,12 +73,12 @@ public class DestinationDataSeeder implements CommandLineRunner {
         // 1. BEACH (5 destinations)
         list.add(new DestinationSeedDto("Goa", "Goa", "India", "Beach",
                 "India's premier beach state featuring golden sand beaches, coconut palm groves, vibrant nightlife, UNESCO-listed Portuguese colonial architecture, and fresh seafood along the Arabian Sea coast.",
-                "https://images.unsplash.com/photo-1512343879190-7a5ed04faecf?w=800",
+                "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=800",
                 "November to February", 30000.0, 5, 15.4909, 73.8278, 4.7));
 
         list.add(new DestinationSeedDto("Kovalam", "Kerala", "India", "Beach",
                 "Famous coastal town near Thiruvananthapuram featuring crescent-shaped beaches like Lighthouse Beach, traditional Ayurvedic wellness resorts, and tranquil backwaters.",
-                "https://images.unsplash.com/photo-1609216302363-585840f519d0?w=800",
+                "https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=800",
                 "September to March", 35000.0, 5, 8.4004, 76.9787, 4.8));
 
         list.add(new DestinationSeedDto("Andaman Islands", "Andaman and Nicobar", "India", "Beach",
@@ -89,18 +93,18 @@ public class DestinationDataSeeder implements CommandLineRunner {
 
         list.add(new DestinationSeedDto("Gokarna", "Karnataka", "India", "Beach",
                 "Serene coastal town famous for Om Beach, Kudle Beach, cliffside hiking trails, and the ancient Mahabaleshwar Shiva temple.",
-                "https://images.unsplash.com/photo-1600100397608-f010e423b971?w=800",
+                "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800",
                 "October to March", 15000.0, 3, 14.5479, 74.3188, 4.6));
 
         // 2. MOUNTAINS (5 destinations)
         list.add(new DestinationSeedDto("Manali", "Himachal Pradesh", "India", "Mountains",
                 "Picturesque Himalayan resort town along the Beas River, serving as a gateway to Solang Valley, Rohtang Pass, and High-altitude alpine treks.",
-                "https://images.unsplash.com/photo-1626628053695-4609c029e9b6?w=800",
+                "https://images.unsplash.com/photo-1586500036706-41963de24d8b?w=800",
                 "March to June", 25000.0, 5, 32.2432, 77.1892, 4.6));
 
         list.add(new DestinationSeedDto("Shimla", "Himachal Pradesh", "India", "Mountains",
                 "Former British summer capital perched on pine-clad hills, featuring Victorian colonial architecture, the Mall Road, Christ Church, and Kalka-Shimla Toy Train.",
-                "https://images.unsplash.com/photo-1593162758928-8f5d48432c02?w=800",
+                "https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?w=800",
                 "March to June", 22000.0, 3, 31.1048, 77.1734, 4.5));
 
         list.add(new DestinationSeedDto("Srinagar", "Jammu and Kashmir", "India", "Mountains",
@@ -121,27 +125,27 @@ public class DestinationDataSeeder implements CommandLineRunner {
         // 3. HISTORICAL (5 destinations)
         list.add(new DestinationSeedDto("Agra", "Uttar Pradesh", "India", "Historical",
                 "Historic Mughal capital home to the majestic Taj Mahal, Agra Fort, and nearby Fatehpur Sikri, showcasing world-renowned Indo-Islamic marble architecture.",
-                "https://images.unsplash.com/photo-1564507592333-c60657eea5ee?w=800",
+                "https://images.unsplash.com/photo-1548013146-72479768bada?w=800",
                 "October to March", 15000.0, 2, 27.1751, 78.0421, 4.8));
 
         list.add(new DestinationSeedDto("Jaipur", "Rajasthan", "India", "Historical",
                 "The Pink City of Rajasthan, famous for Hawa Mahal, hilltop Amber Fort, City Palace, Jantar Mantar observatory, and traditional block-printed crafts.",
-                "https://images.unsplash.com/photo-1477584110986-447958bb8a22?w=800",
+                "https://images.unsplash.com/photo-1599661046289-e31897846e41?w=800",
                 "October to March", 20000.0, 3, 26.9124, 75.7873, 4.6));
 
         list.add(new DestinationSeedDto("Delhi", "Delhi", "India", "Historical",
                 "India's capital city blending ancient empires and modern governance, featuring UNESCO monuments Red Fort, Humayun's Tomb, Qutub Minar, and Lotus Temple.",
-                "https://images.unsplash.com/photo-1587475915356-5ea01c8d9f3d?w=800",
+                "https://images.unsplash.com/photo-1587474260584-136574528ed5?w=800",
                 "October to March", 25000.0, 4, 28.6139, 77.2090, 4.5));
 
         list.add(new DestinationSeedDto("Udaipur", "Rajasthan", "India", "Historical",
                 "The City of Lakes known for royal romantic palaces, Lake Pichola boat cruises, Jag Mandir, and the towering City Palace complex.",
-                "https://images.unsplash.com/photo-1615837137326-0c2132d7870a?w=800",
+                "https://images.unsplash.com/photo-1595815771614-ade9d652a65d?w=800",
                 "September to March", 25000.0, 3, 24.5854, 73.7125, 4.8));
 
         list.add(new DestinationSeedDto("Hampi", "Karnataka", "India", "Historical",
                 "UNESCO World Heritage site featuring the boulder-strewn ruins of the 14th-century Vijayanagara Empire, Virupaksha Temple, and Stone Chariot.",
-                "https://images.unsplash.com/photo-1600100395168-d01c80084363?w=800",
+                "https://images.unsplash.com/photo-1627894483216-2138af692e32?w=800",
                 "October to February", 16000.0, 3, 15.3350, 76.4600, 4.8));
 
         // 4. ADVENTURE (5 destinations)
@@ -152,7 +156,7 @@ public class DestinationDataSeeder implements CommandLineRunner {
 
         list.add(new DestinationSeedDto("Spiti Valley", "Himachal Pradesh", "India", "Adventure",
                 "Remote cold desert valley offering high-pass trekking, Key Monastery visits, Chandratal Lake camping, and rugged off-road Himalayan expeditions.",
-                "https://images.unsplash.com/photo-1626628053695-4609c029e9b6?w=800",
+                "https://images.unsplash.com/photo-1571401835393-8c5f35328320?w=800",
                 "June to September", 35000.0, 6, 32.2461, 78.0349, 4.9));
 
         list.add(new DestinationSeedDto("Auli", "Uttarakhand", "India", "Adventure",
@@ -162,7 +166,7 @@ public class DestinationDataSeeder implements CommandLineRunner {
 
         list.add(new DestinationSeedDto("Cherrapunji", "Meghalaya", "India", "Adventure",
                 "Rainforest adventure destination famous for living root bridges, Nohkalikai Falls, caving expeditions, and lush green Meghalayan canyons.",
-                "https://images.unsplash.com/photo-1596409755449-473d599613f0?w=800",
+                "https://images.unsplash.com/photo-1448375240586-882707db888b?w=800",
                 "October to April", 24000.0, 4, 25.2702, 91.7323, 4.8));
 
         list.add(new DestinationSeedDto("Bir Billing", "Himachal Pradesh", "India", "Adventure",
@@ -183,7 +187,7 @@ public class DestinationDataSeeder implements CommandLineRunner {
 
         list.add(new DestinationSeedDto("Amritsar", "Punjab", "India", "Spiritual",
                 "The spiritual center of Sikhism, home to the resplendent Golden Temple (Sri Harmandir Sahib), Langar community kitchen, and Wagah Border ceremony.",
-                "https://images.unsplash.com/photo-1609946850022-77ebfb27c731?w=800",
+                "https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=800",
                 "October to March", 16000.0, 2, 31.6200, 74.8765, 4.9));
 
         list.add(new DestinationSeedDto("Madurai", "Tamil Nadu", "India", "Spiritual",
@@ -193,7 +197,7 @@ public class DestinationDataSeeder implements CommandLineRunner {
 
         list.add(new DestinationSeedDto("Puri", "Odisha", "India", "Spiritual",
                 "Coastal holy city famous for the sacred 12th-century Jagannath Temple, annual Rath Yatra chariot festival, and Golden Beach along the Bay of Bengal.",
-                "https://images.unsplash.com/photo-1600100397608-f010e423b971?w=800",
+                "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800",
                 "October to March", 14000.0, 3, 19.8135, 85.8312, 4.6));
 
         // 6. WILDLIFE (5 destinations)
@@ -204,7 +208,7 @@ public class DestinationDataSeeder implements CommandLineRunner {
 
         list.add(new DestinationSeedDto("Ranthambore", "Rajasthan", "India", "Wildlife",
                 "Famous tiger reserve set around a 10th-century hill fort, offering prime jungle safaris to spot Royal Bengal tigers, leopards, and marsh crocodiles.",
-                "https://images.unsplash.com/photo-1547920979-6ce268d7765b?w=800",
+                "https://images.unsplash.com/photo-1534177616072-ef7dc120449d?w=800",
                 "October to June", 30000.0, 3, 26.0173, 76.5026, 4.8));
 
         list.add(new DestinationSeedDto("Kaziranga", "Assam", "India", "Wildlife",

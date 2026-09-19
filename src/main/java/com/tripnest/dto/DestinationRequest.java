@@ -10,24 +10,28 @@ import lombok.Data;
 @Data
 public class DestinationRequest {
     @NotBlank(message = "Destination name is required")
-    @Size(max = 100)
+    @Size(max = 100, message = "Destination name cannot exceed 100 characters")
     private String name;
 
-    @Size(max = 100)
+    @Size(max = 100, message = "State/Region cannot exceed 100 characters")
     private String state;
 
-    @Size(max = 100)
+    @NotBlank(message = "Country is required")
+    @Size(max = 100, message = "Country cannot exceed 100 characters")
     private String country;
 
+    @NotBlank(message = "Description is required")
+    @Size(max = 2000, message = "Description cannot exceed 2000 characters")
     private String description;
 
-    @Size(max = 100)
+    @NotBlank(message = "Category is required")
+    @Size(max = 100, message = "Category cannot exceed 100 characters")
     private String category;
 
-    @Size(max = 500)
+    @Size(max = 1000, message = "Image URL cannot exceed 1000 characters")
     private String imageUrl;
 
-    @Size(max = 100)
+    @Size(max = 100, message = "Best season cannot exceed 100 characters")
     private String bestSeason;
 
     @Min(value = 0, message = "Estimated budget cannot be negative")

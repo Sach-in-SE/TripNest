@@ -129,6 +129,54 @@ CREATE TABLE `expenses` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `expense_splits`
+--
+
+DROP TABLE IF EXISTS `expense_splits`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `expense_splits` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `amount` decimal(10,2) NOT NULL,
+  `is_settled` bit(1) NOT NULL DEFAULT b'0',
+  `settled_at` datetime(6) DEFAULT NULL,
+  `expense_id` bigint NOT NULL,
+  `user_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_expense_splits_expense` (`expense_id`),
+  KEY `FK_expense_splits_user` (`user_id`),
+  CONSTRAINT `FK_expense_splits_expense` FOREIGN KEY (`expense_id`) REFERENCES `expenses` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_expense_splits_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `settlements`
+--
+
+DROP TABLE IF EXISTS `settlements`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `settlements` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `amount` decimal(10,2) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'PENDING',
+  `created_at` datetime(6) DEFAULT NULL,
+  `settled_at` datetime(6) DEFAULT NULL,
+  `payee_id` bigint NOT NULL,
+  `payer_id` bigint NOT NULL,
+  `trip_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_settlements_trip` (`trip_id`),
+  KEY `FK_settlements_payer` (`payer_id`),
+  KEY `FK_settlements_payee` (`payee_id`),
+  CONSTRAINT `FK_settlements_trip` FOREIGN KEY (`trip_id`) REFERENCES `trips` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_settlements_payer` FOREIGN KEY (`payer_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `FK_settlements_payee` FOREIGN KEY (`payee_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `favorite_destinations`
 --
 
@@ -329,7 +377,7 @@ DROP TABLE IF EXISTS `roles`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `roles` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` enum('ROLE_ADMIN','ROLE_GROUP_ADMIN','ROLE_TRAVELER') DEFAULT NULL,
+  `name` enum('ROLE_ADMIN','ROLE_GROUP_ADMIN','ROLE_TRAVELER','ROLE_USER') DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -406,10 +454,35 @@ CREATE TABLE `travel_memories` (
   KEY `idx_memory_visibility` (`visibility`),
   KEY `idx_memory_trip_id` (`trip_id`),
   KEY `idx_memory_dest_id` (`destination_id`),
+  KEY `idx_memory_dest_vis_created` (`destination_id`,`visibility`,`created_at`),
   CONSTRAINT `FKhjms6yycob4ltnyyke9m2pgmq` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `FKid4diyrtlg9vnq6awaqifrdb9` FOREIGN KEY (`trip_id`) REFERENCES `trips` (`id`),
   CONSTRAINT `FKrl5f4yqc17t3v5me4p3w2hodf` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `travel_memory_images`
+--
+
+DROP TABLE IF EXISTS `travel_memory_images`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `travel_memory_images` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `content_type` varchar(100) DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `display_order` int NOT NULL DEFAULT '0',
+  `file_size` bigint DEFAULT NULL,
+  `file_url` varchar(500) NOT NULL,
+  `original_file_name` varchar(255) DEFAULT NULL,
+  `stored_file_name` varchar(255) NOT NULL,
+  `memory_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_mem_img_memory_id` (`memory_id`),
+  KEY `idx_mem_img_stored_name` (`stored_file_name`),
+  CONSTRAINT `FK_travel_memory_images_memory` FOREIGN KEY (`memory_id`) REFERENCES `travel_memories` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -552,6 +625,34 @@ CREATE TABLE `users` (
   UNIQUE KEY `UKr43af9ap4edm43mmtq01oddj6` (`username`),
   UNIQUE KEY `UK6dotkott2kjsp8vw4d0m25fb7` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `contact_messages`
+--
+
+DROP TABLE IF EXISTS `contact_messages`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `contact_messages` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `category` enum('BUG_REPORT','FEATURE_REQUEST','FEEDBACK','GENERAL_INQUIRY','OTHER') NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `message` varchar(3000) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `status` enum('ARCHIVED','NEW','READ','RESOLVED') NOT NULL,
+  `subject` varchar(200) NOT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `user_id` bigint DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_contact_status` (`status`),
+  KEY `idx_contact_created_at` (`created_at`),
+  KEY `idx_contact_email` (`email`),
+  KEY `idx_contact_category` (`category`),
+  KEY `idx_contact_user_id` (`user_id`),
+  CONSTRAINT `FKj305kltauaydco2n00yr55nbk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

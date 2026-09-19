@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @ComponentScan(basePackages = "com.tripnest")
 @EnableJpaRepositories(basePackages = "com.tripnest.repository")
-@EntityScan(basePackages = "com.tripnest.entity")
+@EntityScan(basePackages = {"com.tripnest.entity", "com.tripnest.model"})
 @EnableScheduling
 public class TripnestApplication {
 

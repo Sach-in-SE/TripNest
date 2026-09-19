@@ -1,0 +1,212 @@
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    sendfile on;
+    tcp_nopush on;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+
+    gzip_types
+        text/plain
+        text/css
+        application/json
+        application/javascript
+        text/xml
+        application/xml
+        application/xml+rss
+        image/svg+xml;
+
+    # Preserve upstream SSL/TLS protocol when behind reverse proxies / load balancers
+    map $http_x_forwarded_proto $forwarded_proto {
+        default $http_x_forwarded_proto;
+        ''      $scheme;
+    }
+
+    # Map forwarded port based on scheme (ensures standard HTTPS port 443 so :80 is not appended)
+    map $forwarded_proto $forwarded_port {
+        https   443;
+        default $server_port;
+    }
+
+    # Rate limiting zones
+    limit_req_zone $binary_remote_addr zone=auth_limit:10m rate=5r/s;
+    limit_req_zone $binary_remote_addr zone=contact_limit:10m rate=2r/s;
+
+    server {
+        listen 80;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        client_max_body_size 15M;
+
+        # Standard Security Headers
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+        # ============================================
+        # React SPA Root & Route Fallback
+        # ============================================
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Do not cache index.html to guarantee clients always load latest JS/CSS hashes
+        location = /index.html {
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Pragma "no-cache";
+            add_header Expires "0";
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        }
+
+        # ============================================
+        # Rate-Limited Auth Endpoints
+        # ============================================
+        location ^~ /api/auth/ {
+            limit_req zone=auth_limit burst=10 nodelay;
+
+            proxy_pass ${BACKEND_URL}/api/auth/;
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+        }
+
+        location ^~ /api/admin/auth/ {
+            limit_req zone=auth_limit burst=10 nodelay;
+
+            proxy_pass ${BACKEND_URL}/api/admin/auth/;
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+        }
+
+        location = /api/contact {
+            limit_req zone=contact_limit burst=5 nodelay;
+
+            proxy_pass ${BACKEND_URL}/api/contact;
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+        }
+
+        # ============================================
+        # Backend REST API
+        # ============================================
+        location ^~ /api/ {
+            proxy_pass ${BACKEND_URL}/api/;
+
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+        }
+
+        # ============================================
+        # WebSocket STOMP Endpoint
+        # ============================================
+        location ^~ /ws {
+            proxy_pass ${BACKEND_URL}/ws;
+
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+
+            proxy_read_timeout 86400s;
+            proxy_send_timeout 86400s;
+        }
+
+        # ============================================
+        # Google OAuth2
+        # ============================================
+        location ^~ /oauth2/authorization/ {
+            proxy_pass ${BACKEND_URL}/oauth2/authorization/;
+
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+        }
+
+        location ^~ /login/oauth2/ {
+            proxy_pass ${BACKEND_URL}/login/oauth2/;
+
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+        }
+
+        # ============================================
+        # Actuator Health
+        # ============================================
+        location ^~ /actuator/health {
+            proxy_pass ${BACKEND_URL}/actuator/health;
+
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+        }
+
+        # ============================================
+        # Static Asset Caching (Hashed Vite Bundles)
+        # ============================================
+        location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2)$ {
+            expires 1y;
+            add_header Cache-Control "public, no-transform, immutable";
+            add_header X-Content-Type-Options "nosniff" always;
+        }
+    }
+}

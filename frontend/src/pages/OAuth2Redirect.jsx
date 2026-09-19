@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import api from "../services/api";
+import AuthService from "../services/authService";
 
 const OAuth2Redirect = () => {
   const navigate = useNavigate();
@@ -10,48 +10,31 @@ const OAuth2Redirect = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-
-    if (!token) {
-      setError("No token received from Google login.");
+    const oauthError = params.get("oauth_error") || params.get("error");
+    if (oauthError) {
+      setError("Google sign-in was cancelled or encountered an error. Please try again.");
       return;
     }
 
-    // Store token first
-    localStorage.setItem("token", token);
+    const code = params.get("code");
+    if (!code) {
+      setError("No authorization code received from Google login.");
+      return;
+    }
 
-    // Fetch user profile to get complete user information
-    api.get("/user/profile")
-      .then((res) => {
-        const profile = res.data;
-
-        // Normalize roles - handle both string arrays and object arrays
-        let roles = [];
-        if (Array.isArray(profile.roles)) {
-          roles = profile.roles.map((r) => (typeof r === "string" ? r : r.name));
-        }
-
-        // Create user object matching the expected format
-        const userObject = {
-          token,
-          id: profile.id,
-          username: profile.username,
-          email: profile.email,
-          roles,
-        };
-
-        // Store user object in localStorage
-        localStorage.setItem("user", JSON.stringify(userObject));
-
+    AuthService.exchangeOAuthCode(code)
+      .then(() => {
         // Refresh AuthContext to pick up new authentication state
         refreshUser();
-
-        // Navigate to dashboard
+        // Replace URL in browser history to prevent code or token persistence
         navigate("/dashboard", { replace: true });
       })
       .catch((err) => {
-        console.error("Profile fetch error:", err);
-        setError("Failed to fetch profile after Google login.");
+        console.error("OAuth exchange error:", err);
+        const errorMsg =
+          err.response?.data?.message ||
+          "Failed to complete Google authentication. The authorization code may be expired or already used.";
+        setError(errorMsg);
         localStorage.removeItem("token");
         localStorage.removeItem("user");
       });

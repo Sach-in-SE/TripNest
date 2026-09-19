@@ -8,6 +8,7 @@ import com.tripnest.dto.UpdateMemberPermissionRequest;
 import com.tripnest.entity.SharePermission;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.TripShareService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/trip-shares")
 public class TripShareController {
@@ -30,7 +30,7 @@ public class TripShareController {
      * (kept for backward-compat with ShareTripModal which calls this URL).
      */
     @PostMapping
-    public ResponseEntity<?> shareTrip(@RequestBody TripShareRequest request) {
+    public ResponseEntity<?> shareTrip(@Valid @RequestBody TripShareRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         TripShareResponse response = tripShareService.inviteUser(request, userDetails.getId());
         return ResponseEntity.ok(response);
@@ -41,7 +41,7 @@ public class TripShareController {
      * Explicit invite endpoint (same logic, separate URL as per spec).
      */
     @PostMapping("/invite")
-    public ResponseEntity<?> inviteUser(@RequestBody TripShareRequest request) {
+    public ResponseEntity<?> inviteUser(@Valid @RequestBody TripShareRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         TripShareResponse response = tripShareService.inviteUser(request, userDetails.getId());
         return ResponseEntity.ok(response);
@@ -55,7 +55,7 @@ public class TripShareController {
     @PostMapping("/{shareId}/respond")
     public ResponseEntity<?> respondToInvitation(
             @PathVariable Long shareId,
-            @RequestBody RespondRequest request) {
+            @Valid @RequestBody RespondRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         TripShareResponse response = tripShareService.respondToInvitation(
                 shareId, request.getAction(), userDetails.getId());

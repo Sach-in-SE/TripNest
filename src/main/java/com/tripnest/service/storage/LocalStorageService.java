@@ -18,17 +18,44 @@ public class LocalStorageService implements StorageService {
     @Value("${tripnest.upload.dir:uploads}")
     private String uploadDir;
 
-    @Override
-    public String storeFile(MultipartFile file, String storedFileName) throws IOException {
+    private void validateFileName(String storedFileName) {
+        if (storedFileName == null || storedFileName.isBlank()
+                || storedFileName.contains("..")
+                || storedFileName.contains("/")
+                || storedFileName.contains("\\")
+                || storedFileName.contains("\0")) {
+            throw new SecurityException("Illegal filename path traversal detected.");
+        }
+    }
+
+    private Path getUploadPath() throws IOException {
         Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
+        return uploadPath;
+    }
 
+    private Path resolveSafePath(String storedFileName) throws IOException {
+        validateFileName(storedFileName);
+        Path uploadPath = getUploadPath();
+        Path filePath = uploadPath.resolve(storedFileName).normalize();
+
+        // Path Traversal Security Verification
+        if (filePath.equals(uploadPath) || !filePath.startsWith(uploadPath)) {
+            throw new SecurityException("Cannot access file outside upload directory.");
+        }
+        return filePath;
+    }
+
+    @Override
+    public String storeFile(MultipartFile file, String storedFileName) throws IOException {
+        validateFileName(storedFileName);
+        Path uploadPath = getUploadPath();
         Path targetPath = uploadPath.resolve(storedFileName).normalize();
 
         // Path Traversal Security Verification
-        if (!targetPath.startsWith(uploadPath)) {
+        if (targetPath.equals(uploadPath) || !targetPath.startsWith(uploadPath)) {
             throw new SecurityException("Cannot store file outside specified target directory.");
         }
 
@@ -38,13 +65,7 @@ public class LocalStorageService implements StorageService {
 
     @Override
     public Resource loadFileAsResource(String storedFileName) throws IOException {
-        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-        Path filePath = uploadPath.resolve(storedFileName).normalize();
-
-        // Path Traversal Security Verification
-        if (!filePath.startsWith(uploadPath)) {
-            throw new SecurityException("Cannot access file outside upload directory.");
-        }
+        Path filePath = resolveSafePath(storedFileName);
 
         Resource resource = new UrlResource(filePath.toUri());
         if (resource.exists() && resource.isReadable()) {
@@ -56,14 +77,7 @@ public class LocalStorageService implements StorageService {
 
     @Override
     public void deleteFile(String storedFileName) throws IOException {
-        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-        Path filePath = uploadPath.resolve(storedFileName).normalize();
-
-        // Path Traversal Security Verification
-        if (!filePath.startsWith(uploadPath)) {
-            throw new SecurityException("Cannot delete file outside upload directory.");
-        }
-
+        Path filePath = resolveSafePath(storedFileName);
         Files.deleteIfExists(filePath);
     }
 

@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
+import { websocketService } from "../services/websocketService";
 
 const GroupDiscussion = () => {
   const { id } = useParams();
@@ -12,21 +13,52 @@ const GroupDiscussion = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
+  const [user, setUser] = useState(null);
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const isInitialLoadRef = useRef(true);
+  const isFetchingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const pollingIntervalRef = useRef(null);
+  const isPollingStoppedRef = useRef(false);
 
   useEffect(() => {
-    fetchGroupInfo();
-    fetchMessages(true);
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        setUser(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.warn("Failed to parse user session", e);
+    }
+  }, []);
 
-    const interval = setInterval(() => {
+  const stopPolling = () => {
+    isPollingStoppedRef.current = true;
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
+
+  const startPolling = () => {
+    if (isPollingStoppedRef.current) return;
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    const intervalMs = typeof window !== "undefined" && window.__POLL_INTERVAL__ ? window.__POLL_INTERVAL__ : 4000;
+    pollingIntervalRef.current = setInterval(() => {
       fetchMessages(false);
-    }, 4000);
+    }, intervalMs);
+  };
 
-    return () => clearInterval(interval);
-  }, [id]);
+  const pausePolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  };
 
   const isNearBottom = () => {
     if (!messagesContainerRef.current) return true;
@@ -40,23 +72,133 @@ const GroupDiscussion = () => {
     }
   };
 
+  /**
+   * Real-time STOMP message handler with strict message ID deduplication.
+   */
+  const handleIncomingMessage = useCallback(
+    (incomingMsg) => {
+      if (!incomingMsg || !incomingMsg.id) return;
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === incomingMsg.id)) {
+          return prev;
+        }
+
+        const isSelf = user?.id
+          ? incomingMsg.senderId === user.id
+          : Boolean(incomingMsg.isSelf);
+
+        const msgWithSelf = {
+          ...incomingMsg,
+          isSelf,
+        };
+
+        return [...prev, msgWithSelf];
+      });
+
+      setTimeout(() => {
+        if (isMountedRef.current && (isInitialLoadRef.current || isNearBottom())) {
+          scrollToBottom(!isInitialLoadRef.current);
+          if (isInitialLoadRef.current) {
+            isInitialLoadRef.current = false;
+          }
+        }
+      }, 30);
+    },
+    [user]
+  );
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    isPollingStoppedRef.current = false;
+
+    fetchGroupInfo();
+    fetchMessages(true);
+    startPolling();
+
+    // Subscribe to STOMP destination /topic/groups/{groupId}
+    const unsubscribe = websocketService.subscribeToGroup(id, handleIncomingMessage);
+
+    const handleVisibilityChange = () => {
+      if (isPollingStoppedRef.current) return;
+      if (document.visibilityState === "hidden") {
+        pausePolling();
+      } else if (document.visibilityState === "visible") {
+        fetchMessages(false);
+        startPolling();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      isMountedRef.current = false;
+      pausePolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [id, handleIncomingMessage]);
+
   const fetchGroupInfo = async () => {
     try {
       const res = await api.get(`/groups/${id}`);
+      if (!isMountedRef.current) return;
       setGroup(res.data);
     } catch (err) {
+      if (!isMountedRef.current) return;
       console.error("Failed to load group info:", err);
-      setError(err.response?.data?.message || "Failed to load group details");
+      const status = err.response?.status;
+      if (status === 401) {
+        stopPolling();
+        setError("Session expired or unauthenticated. Please log in again.");
+      } else if (status === 403) {
+        stopPolling();
+        setError("You no longer have access to this group.");
+      } else if (status === 404) {
+        stopPolling();
+        setError("Group not found.");
+      } else {
+        setError(err.response?.data?.message || "Failed to load group details");
+      }
     }
   };
 
+  /**
+   * Fetches latest group messages. Uses standard unparameterized endpoint which
+   * defaults to the latest 50 messages on the backend.
+   */
   const fetchMessages = async (isInitial = false) => {
+    if (isPollingStoppedRef.current && !isInitial) return;
+    if (isFetchingRef.current) return;
+
+    isFetchingRef.current = true;
     try {
       const res = await api.get(`/groups/${id}/messages`);
-      const newMessages = res.data || [];
+      if (!isMountedRef.current) return;
+
+      const newMessages = (res.data || []).map((m) => ({
+        ...m,
+        isSelf: user?.id ? m.senderId === user.id : Boolean(m.isSelf),
+      }));
+
       const shouldScroll = isInitial || isInitialLoadRef.current || isNearBottom();
-      
-      setMessages(newMessages);
+
+      setMessages((prev) => {
+        if (isInitial || prev.length === 0) {
+          if (newMessages.length >= 50) {
+            setHasMoreOlder(true);
+          }
+          return newMessages;
+        }
+
+        // Deduplicate against already loaded messages
+        const prevIds = new Set(prev.map((m) => m.id));
+        const additions = newMessages.filter((m) => !prevIds.has(m.id));
+        if (additions.length === 0) return prev;
+        return [...prev, ...additions];
+      });
 
       if (isInitial) {
         setLoading(false);
@@ -64,38 +206,135 @@ const GroupDiscussion = () => {
 
       if (shouldScroll) {
         setTimeout(() => {
-          scrollToBottom(!isInitialLoadRef.current);
-          if (isInitialLoadRef.current) {
-            isInitialLoadRef.current = false;
+          if (isMountedRef.current) {
+            scrollToBottom(!isInitialLoadRef.current);
+            if (isInitialLoadRef.current) {
+              isInitialLoadRef.current = false;
+            }
           }
         }, 50);
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
       console.error("Failed to fetch messages:", err);
+
+      const status = err.response?.status;
+      if (status === 401) {
+        stopPolling();
+        setError("Session expired or unauthenticated. Please log in again.");
+      } else if (status === 403) {
+        stopPolling();
+        setError("You no longer have access to this discussion. You may have been removed from the group.");
+      } else if (status === 404) {
+        stopPolling();
+        setError("Group or discussion not found.");
+      } else {
+        if (isInitial) {
+          setError(err.response?.data?.message || "Failed to load messages. Please check your connection.");
+        }
+      }
+
       if (isInitial) {
-        setError(err.response?.data?.message || "Failed to load messages");
         setLoading(false);
+      }
+    } finally {
+      isFetchingRef.current = false;
+    }
+  };
+
+  /**
+   * Loads older messages before the oldest known message ID.
+   */
+  const loadOlderMessages = async () => {
+    if (loadingOlder || messages.length === 0) return;
+    const oldestId = messages[0].id;
+    setLoadingOlder(true);
+    try {
+      const container = messagesContainerRef.current;
+      const prevScrollHeight = container ? container.scrollHeight : 0;
+
+      const res = await api.get(`/groups/${id}/messages?beforeId=${oldestId}&limit=50`);
+      if (!isMountedRef.current) return;
+
+      const older = res.data || [];
+      if (older.length < 50) {
+        setHasMoreOlder(false);
+      }
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const filteredOlder = older
+          .filter((m) => !existingIds.has(m.id))
+          .map((m) => ({
+            ...m,
+            isSelf: user?.id ? m.senderId === user.id : Boolean(m.isSelf),
+          }));
+        return [...filteredOlder, ...prev];
+      });
+
+      setTimeout(() => {
+        if (container && isMountedRef.current) {
+          const newScrollHeight = container.scrollHeight;
+          container.scrollTop = newScrollHeight - prevScrollHeight;
+        }
+      }, 20);
+    } catch (err) {
+      console.error("Failed to load older messages:", err);
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingOlder(false);
       }
     }
   };
 
+  /**
+   * Sends a group message.
+   * If STOMP is connected, publishes over WebSocket; otherwise sends via REST fallback.
+   */
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
     if (!newMessageContent || !newMessageContent.trim() || sendingMessage) return;
 
     const contentToSend = newMessageContent.trim();
+    setSendingMessage(true);
+    setError(null);
+
     try {
-      setSendingMessage(true);
-      setError(null);
+      if (websocketService.isConnected()) {
+        const sent = websocketService.sendMessage(id, contentToSend);
+        if (sent) {
+          setNewMessageContent("");
+          return;
+        }
+      }
+
       await api.post(`/groups/${id}/messages`, { content: contentToSend });
+      if (!isMountedRef.current) return;
+
       setNewMessageContent("");
       await fetchMessages(false);
-      setTimeout(() => scrollToBottom(true), 50);
+      setTimeout(() => {
+        if (isMountedRef.current) scrollToBottom(true);
+      }, 50);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to send message");
-      console.error(err);
+      if (!isMountedRef.current) return;
+      console.error("Failed to send message:", err);
+      const status = err.response?.status;
+      if (status === 401) {
+        stopPolling();
+        setError("Session expired. Please log in again.");
+      } else if (status === 403) {
+        stopPolling();
+        setError("You do not have permission to post in this discussion.");
+      } else if (status === 404) {
+        stopPolling();
+        setError("Group not found.");
+      } else {
+        setError(err.response?.data?.message || "Failed to send message");
+      }
     } finally {
-      setSendingMessage(false);
+      if (isMountedRef.current) {
+        setSendingMessage(false);
+      }
     }
   };
 
@@ -130,7 +369,7 @@ const GroupDiscussion = () => {
           <div style={styles.headerTitleGroup}>
             <h1 style={styles.title}>💬 {group?.name ? `${group.name} Discussion` : "Group Discussion"}</h1>
             <p style={styles.subtitle}>
-              {group?.tripTitle ? `Trip: ${group.tripTitle}` : "Persistent Group Chat"}
+              {group?.tripTitle ? `Trip: ${group.tripTitle}` : "Real-Time Group Chat"}
               {group?.memberCount ? ` • ${group.memberCount} members` : ""}
             </p>
           </div>
@@ -145,6 +384,26 @@ const GroupDiscussion = () => {
 
         <div style={styles.chatCard} className="glass-card">
           <div ref={messagesContainerRef} style={styles.messageList}>
+            {hasMoreOlder && (
+              <div style={{ textAlign: "center", padding: "8px 0" }}>
+                <button
+                  type="button"
+                  onClick={loadOlderMessages}
+                  disabled={loadingOlder}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.1)",
+                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                    borderRadius: "6px",
+                    color: "#94a3b8",
+                    padding: "4px 12px",
+                    fontSize: "0.8rem",
+                    cursor: loadingOlder ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {loadingOlder ? "Loading older messages..." : "Load older messages"}
+                </button>
+              </div>
+            )}
             {messages.length === 0 ? (
               <div style={styles.emptyChat}>
                 No messages in this group yet. Start the conversation!

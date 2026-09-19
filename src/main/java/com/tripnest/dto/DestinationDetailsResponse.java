@@ -14,6 +14,8 @@ import java.util.List;
 public class DestinationDetailsResponse {
     private DestinationResponse destination;
     private WeatherResponse weather;
-    private List<DestinationResponse> nearbyDestinations;
     private WikipediaResponse wikipedia;
+    private TravelGuideResponse travelGuide;
+    private List<TravelMemoryResponse> travelerExperiences;
 }
+

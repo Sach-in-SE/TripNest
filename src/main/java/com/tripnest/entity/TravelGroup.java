@@ -2,17 +2,22 @@ package com.tripnest.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
 @Data
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"createdBy", "trip", "members"})
 @Entity
 @Table(name = "travel_groups")
 public class TravelGroup {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(length = 100)

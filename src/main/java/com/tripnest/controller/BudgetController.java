@@ -4,13 +4,13 @@ import com.tripnest.dto.BudgetRequest;
 import com.tripnest.dto.BudgetResponse;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.BudgetService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/budget")
 public class BudgetController {
@@ -19,7 +19,7 @@ public class BudgetController {
     private BudgetService budgetService;
 
     @PostMapping
-    public ResponseEntity<?> createOrUpdateBudget(@RequestBody BudgetRequest request) {
+    public ResponseEntity<?> createOrUpdateBudget(@Valid @RequestBody BudgetRequest request) {
         UserDetailsImpl userDetails = getCurrentUser();
         BudgetResponse response = budgetService.createOrUpdateBudget(request, userDetails.getId());
         return ResponseEntity.ok(response);

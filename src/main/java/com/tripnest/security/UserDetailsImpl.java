@@ -40,9 +40,19 @@ public class UserDetailsImpl implements UserDetails {
     }
 
     public static UserDetailsImpl build(User user) {
-        List<GrantedAuthority> authorities = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority(role.getName().name()))
-                .collect(Collectors.toList());
+        java.util.Set<GrantedAuthority> authorities = new java.util.LinkedHashSet<>();
+        if (user.getRoles() != null) {
+            for (com.tripnest.entity.Role role : user.getRoles()) {
+                if (role != null && role.getName() != null) {
+                    authorities.add(new SimpleGrantedAuthority(role.getName().name()));
+                    if (role.getName() == com.tripnest.entity.ERole.ROLE_USER) {
+                        authorities.add(new SimpleGrantedAuthority(com.tripnest.entity.ERole.ROLE_TRAVELER.name()));
+                    } else if (role.getName() == com.tripnest.entity.ERole.ROLE_TRAVELER) {
+                        authorities.add(new SimpleGrantedAuthority(com.tripnest.entity.ERole.ROLE_USER.name()));
+                    }
+                }
+            }
+        }
 
         return new UserDetailsImpl(
                 user.getId(),

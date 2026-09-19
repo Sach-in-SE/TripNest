@@ -1,20 +1,20 @@
 services:
 
   # ==========================================
-  # MySQL Database
+  # PostgreSQL Database (Production)
   # ==========================================
-  mysql:
-    image: mysql:8.0
-    container_name: tripnest-mysql
+  postgres:
+    image: postgres:16-alpine
+    container_name: tripnest-postgres
+    restart: unless-stopped
 
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: tripnest_db
-      MYSQL_USER: tripnest_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-tripnest_db}
+      POSTGRES_USER: ${POSTGRES_USER:-tripnest_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tripnest_password}
 
     volumes:
-      - tripnest-mysql-data:/var/lib/mysql
+      - tripnest-postgres-data:/var/lib/postgresql/data
 
     networks:
       - tripnest-network
@@ -23,7 +23,41 @@ services:
       test:
         [
           "CMD-SHELL",
-          "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"
+          "pg_isready -U $${POSTGRES_USER:-tripnest_user} -d $${POSTGRES_DB:-tripnest_db}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+  # ==========================================
+  # MySQL Database (Local Development Setup)
+  # ==========================================
+  mysql:
+    image: mysql:8.0
+    container_name: tripnest-mysql
+    restart: unless-stopped
+    profiles: ["dev", "mysql"]
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-tripnest_db}
+      MYSQL_USER: ${MYSQL_USER:-tripnest_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tripnest_password}
+
+    volumes:
+      - tripnest-mysql-data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    networks:
+      - tripnest-network
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD:-rootpassword}"
         ]
       interval: 10s
       timeout: 5s
@@ -40,29 +74,32 @@ services:
       dockerfile: Dockerfile
 
     container_name: tripnest-backend
-    user: "root"
+    restart: unless-stopped
 
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-default}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
 
       # Real Proxy Header Recognition Fix
       SERVER_FORWARD_HEADERS_STRATEGY: native
 
-      SPRING_DATASOURCE_URL: jdbc:mysql://tripnest-mysql:3306/tripnest_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      # Production PostgreSQL Datasource Configuration
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://tripnest-postgres:5432/tripnest_db?sslmode=disable}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-tripnest_user}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-tripnest_password}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:-org.postgresql.Driver}
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: ${SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT:-org.hibernate.dialect.PostgreSQLDialect}
 
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:-d9f83a21e4c7b80562e148a0f9b37c2e5d1a8f9c0e4b7a2d6f8e1c3b5a7d9e2f}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
 
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
 
-      TRIPNEST_UPLOAD_DIR: /app/uploads
+      TRIPNEST_UPLOAD_DIR: ${TRIPNEST_UPLOAD_DIR:-/app/uploads}
 
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@tripnest.com}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPassword123!}
 
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -75,11 +112,18 @@ services:
 
       STORAGE_TYPE: ${STORAGE_TYPE:-local}
 
+      STORAGE_AZURE_CONNECTION_STRING: ${STORAGE_AZURE_CONNECTION_STRING:-}
+      STORAGE_AZURE_CONTAINER: ${STORAGE_AZURE_CONTAINER:-tripnest-media}
+      STORAGE_AZURE_ENDPOINT: ${STORAGE_AZURE_ENDPOINT:-}
+
       STORAGE_S3_BUCKET: ${STORAGE_S3_BUCKET:-}
       STORAGE_S3_REGION: ${STORAGE_S3_REGION:-}
       STORAGE_S3_ACCESS_KEY: ${STORAGE_S3_ACCESS_KEY:-}
       STORAGE_S3_SECRET_KEY: ${STORAGE_S3_SECRET_KEY:-}
       STORAGE_S3_ENDPOINT: ${STORAGE_S3_ENDPOINT:-}
+
+      TRAVEL_POI_API_KEY: ${TRAVEL_POI_API_KEY:-}
+      TRAVEL_GUIDE_SEARCH_RADIUS_KM: ${TRAVEL_GUIDE_SEARCH_RADIUS_KM:-10.0}
 
     volumes:
       - tripnest-uploads:/app/uploads
@@ -88,7 +132,7 @@ services:
       - tripnest-network
 
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
 
     healthcheck:
@@ -115,6 +159,10 @@ services:
         VITE_BACKEND_URL: ""
 
     container_name: tripnest-frontend
+    restart: unless-stopped
+
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://tripnest-backend:8080}
 
     ports:
       - "80:80"
@@ -130,7 +178,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget -q --spider http://127.0.0 || exit 1"
+          "wget -q --spider http://127.0.0.1/ || exit 1"
         ]
       interval: 15s
       timeout: 3s
@@ -150,6 +198,9 @@ networks:
 # Persistent Volumes
 # ==========================================
 volumes:
+  tripnest-postgres-data:
+    driver: local
+
   tripnest-mysql-data:
     driver: local
 

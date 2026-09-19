@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import CollaboratorModal from "../components/CollaboratorModal";
 import api from "../services/api";
 
 const GroupDetails = () => {
@@ -9,10 +10,7 @@ const GroupDetails = () => {
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
   const [pendingInvitations, setPendingInvitations] = useState([]);
-  const [inviteEmail, setInviteEmail] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [shareTrip, setShareTrip] = useState(false);
-  const [tripPermission, setTripPermission] = useState("VIEW");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -57,25 +55,6 @@ const GroupDetails = () => {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const sendInvite = async () => {
-    try {
-      setError(null);
-      await api.post(`/groups/${id}/invite`, { 
-        email: inviteEmail,
-        shareTrip: shareTrip,
-        tripPermission: tripPermission
-      });
-      setInviteEmail("");
-      setShareTrip(false);
-      setTripPermission("VIEW");
-      setInviteOpen(false);
-      fetchData();
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to send invitation");
-      console.error(err);
     }
   };
 
@@ -405,68 +384,14 @@ const GroupDetails = () => {
         </section>
 
         {inviteOpen && (
-          <div style={styles.modal}>
-            <div style={styles.modalCard} className="glass-card">
-              <h3 style={styles.sectionTitle}>Invite Member</h3>
-              <input
-                className="aurora-input"
-                placeholder="registered user email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-              />
-              
-              <div style={styles.shareTripSection}>
-                <label style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={shareTrip}
-                    onChange={(e) => setShareTrip(e.target.checked)}
-                    style={styles.checkbox}
-                  />
-                  Share Trip with this member?
-                </label>
-              </div>
-
-              {shareTrip && (
-                <div style={styles.tripPermissionSection}>
-                  <p style={styles.permissionLabel}>Trip Permissions:</p>
-                  <div style={styles.permissionOptions}>
-                    <label style={styles.radioLabel}>
-                      <input
-                        type="radio"
-                        name="tripPermission"
-                        value="VIEW"
-                        checked={tripPermission === "VIEW"}
-                        onChange={(e) => setTripPermission(e.target.value)}
-                        style={styles.radio}
-                      />
-                      View Trip
-                    </label>
-                    <label style={styles.radioLabel}>
-                      <input
-                        type="radio"
-                        name="tripPermission"
-                        value="EDIT"
-                        checked={tripPermission === "EDIT"}
-                        onChange={(e) => setTripPermission(e.target.value)}
-                        style={styles.radio}
-                      />
-                      Edit Trip
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              <div style={styles.modalActions}>
-                <button className="btn-ghost" onClick={() => {
-                  setInviteOpen(false);
-                  setShareTrip(false);
-                  setTripPermission("VIEW");
-                }}>Cancel</button>
-                <button className="btn-aurora" onClick={sendInvite}>Send Invite</button>
-              </div>
-            </div>
-          </div>
+          <CollaboratorModal
+            tripId={group.tripId}
+            tripTitle={group.tripTitle}
+            canManageShares={canInvite}
+            defaultAddToGroup={true}
+            onClose={() => setInviteOpen(false)}
+            onSuccess={fetchData}
+          />
         )}
 
         {confirmDelete && (

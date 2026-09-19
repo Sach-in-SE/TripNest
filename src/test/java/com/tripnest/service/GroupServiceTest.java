@@ -4,14 +4,18 @@ import com.tripnest.dto.GroupMessageRequest;
 import com.tripnest.dto.GroupMessageResponse;
 import com.tripnest.entity.*;
 import com.tripnest.repository.*;
+import com.tripnest.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -203,15 +207,47 @@ class GroupServiceTest {
         msg2.setContent("Second msg");
         msg2.setCreatedAt(LocalDateTime.now());
 
-        when(groupMessageRepository.findByTravelGroupIdOrderByCreatedAtAsc(100L)).thenReturn(List.of(msg1, msg2));
+        // findRecent returns newest first [msg2, msg1]; service reverses to chronological [msg1, msg2]
+        when(groupMessageRepository.findRecentByTravelGroupIdWithSender(eq(100L), any(Pageable.class)))
+                .thenReturn(new ArrayList<>(List.of(msg2, msg1)));
 
         List<GroupMessageResponse> responses = groupService.getGroupMessages(100L, 2L);
 
         assertEquals(2, responses.size());
         assertEquals("First msg", responses.get(0).getContent());
         assertFalse(responses.get(0).getIsSelf());
+        assertEquals("owner", responses.get(0).getSenderUsername());
+        assertEquals(1L, responses.get(0).getSenderId());
+        assertNotNull(responses.get(0).getCreatedAt());
+
         assertEquals("Second msg", responses.get(1).getContent());
         assertTrue(responses.get(1).getIsSelf());
+        assertEquals("newowner", responses.get(1).getSenderUsername());
+        assertEquals(2L, responses.get(1).getSenderId());
+        assertNotNull(responses.get(1).getCreatedAt());
+
+        verify(groupMessageRepository).findRecentByTravelGroupIdWithSender(eq(100L), any(Pageable.class));
+    }
+
+    @Test
+    void testGetGroupMessages_Owner_Success() {
+        when(groupRepository.findById(100L)).thenReturn(Optional.of(group));
+
+        GroupMessage msg = new GroupMessage();
+        msg.setId(10L);
+        msg.setTravelGroup(group);
+        msg.setSender(currentOwner);
+        msg.setContent("Owner message");
+        msg.setCreatedAt(LocalDateTime.now());
+
+        when(groupMessageRepository.findRecentByTravelGroupIdWithSender(eq(100L), any(Pageable.class)))
+                .thenReturn(new ArrayList<>(List.of(msg)));
+
+        List<GroupMessageResponse> responses = groupService.getGroupMessages(100L, 1L);
+
+        assertEquals(1, responses.size());
+        assertEquals("Owner message", responses.get(0).getContent());
+        assertTrue(responses.get(0).getIsSelf());
     }
 
     @Test
@@ -222,7 +258,7 @@ class GroupServiceTest {
         GroupMessageRequest request = new GroupMessageRequest();
         request.setContent("Sneaky message");
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> {
             groupService.sendGroupMessage(100L, request, 99L);
         });
 
@@ -235,7 +271,7 @@ class GroupServiceTest {
         when(groupRepository.findById(100L)).thenReturn(Optional.of(group));
         when(groupMemberRepository.findByTravelGroupIdAndUserId(100L, 99L)).thenReturn(Optional.empty());
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> {
             groupService.getGroupMessages(100L, 99L);
         });
 
@@ -253,12 +289,82 @@ class GroupServiceTest {
         GroupMessageRequest request = new GroupMessageRequest();
         request.setContent("Inactive member msg");
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class, () -> {
             groupService.sendGroupMessage(100L, request, 2L);
         });
 
         assertTrue(ex.getMessage().contains("Your membership is not active"));
         verify(groupMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void testSendGroupMessage_BindsAuthenticatedUserIdToSender() {
+        when(groupRepository.findById(100L)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.findByTravelGroupIdAndUserId(100L, 2L)).thenReturn(Optional.of(newOwnerMembership));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(newOwner));
+        when(groupMessageRepository.save(any(GroupMessage.class))).thenAnswer(i -> {
+            GroupMessage m = i.getArgument(0);
+            m.setId(999L);
+            m.setCreatedAt(LocalDateTime.now());
+            return m;
+        });
+
+        GroupMessageRequest request = new GroupMessageRequest();
+        request.setContent("Authentic sender verification");
+
+        GroupMessageResponse response = groupService.sendGroupMessage(100L, request, 2L);
+
+        assertEquals(2L, response.getSenderId());
+        assertEquals("newowner", response.getSenderUsername());
+        assertTrue(response.getIsSelf());
+        verify(userRepository).findById(2L);
+    }
+
+    @Test
+    void testSendGroupMessage_BlankContent_ThrowsIllegalArgumentException() {
+        GroupMessageRequest blankRequest = new GroupMessageRequest();
+        blankRequest.setContent("   ");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            groupService.sendGroupMessage(100L, blankRequest, 2L);
+        });
+
+        assertEquals("Message content cannot be blank", ex.getMessage());
+        verify(groupMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void testSendGroupMessage_ContentOver1000Chars_ThrowsIllegalArgumentException() {
+        GroupMessageRequest longRequest = new GroupMessageRequest();
+        longRequest.setContent("a".repeat(1001));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            groupService.sendGroupMessage(100L, longRequest, 2L);
+        });
+
+        assertEquals("Message content cannot exceed 1000 characters", ex.getMessage());
+        verify(groupMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void testGetGroupMessages_NonExistentGroup_ThrowsResourceNotFoundException() {
+        when(groupRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            groupService.getGroupMessages(999L, 1L);
+        });
+    }
+
+    @Test
+    void testSendGroupMessage_NonExistentGroup_ThrowsResourceNotFoundException() {
+        GroupMessageRequest request = new GroupMessageRequest();
+        request.setContent("Valid message");
+
+        when(groupRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            groupService.sendGroupMessage(999L, request, 1L);
+        });
     }
 
     @Test

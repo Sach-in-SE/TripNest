@@ -5,7 +5,6 @@ import TripService from "../services/tripService";
 import ShareTripModal from "../components/ShareTripModal";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
-import { generateTripReportPDF } from "../utils/reportGenerator";
 
 const Itineraries = () => {
   const [showShareModal, setShowShareModal] = useState(false);
@@ -47,8 +46,19 @@ const Itineraries = () => {
     }
   };
 
-  const generatePDF = () => {
-    generateTripReportPDF({ trip, itineraries, expenses });
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const generatePDF = async () => {
+    try {
+      setGeneratingPdf(true);
+      const { generateTripReportPDF } = await import("../utils/reportGenerator");
+      generateTripReportPDF({ trip, itineraries, expenses });
+    } catch (err) {
+      console.error("Failed to generate trip PDF report:", err);
+      alert("Failed to generate PDF report. Please try again.");
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   const handleCreateItinerary = async () => {
@@ -159,9 +169,13 @@ const Itineraries = () => {
               <span className={`badge badge-${trip?.status?.toLowerCase()}`} style={{ fontSize: "13px", padding: "6px 14px" }}>
                 {trip?.status}
               </span>
-              <button className="btn-aurora" onClick={generatePDF}
-                style={{ fontSize: "13px", padding: "6px 14px" }}>
-                📄 Export Report
+              <button
+                className="btn-aurora"
+                onClick={generatePDF}
+                disabled={generatingPdf}
+                style={{ fontSize: "13px", padding: "6px 14px" }}
+              >
+                {generatingPdf ? "⏳ Generating..." : "📄 Export Report"}
               </button>
               {(!trip?.permission || trip?.permission === "OWNER") && (
                 <button className="btn-aurora" onClick={() => setShowShareModal(true)}

@@ -2,7 +2,12 @@ package com.tripnest.repository;
 
 import com.tripnest.entity.Notification;
 import com.tripnest.entity.NotificationType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,6 +16,7 @@ import java.util.Optional;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     List<Notification> findByUserIdOrderByCreatedAtDesc(Long userId);
+    Page<Notification> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
     List<Notification> findByUserIdAndIsReadFalse(Long userId);
     long countByUserIdAndIsReadFalse(Long userId);
     
@@ -19,4 +25,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     boolean existsByUserIdAndTypeAndReferenceId(Long userId, NotificationType type, Long referenceId);
     boolean existsByUserIdAndTypeAndTitleAndReferenceId(Long userId, NotificationType type, String title, Long referenceId);
     boolean existsByUserIdAndTypeAndTitleAndMessageAndReferenceId(Long userId, NotificationType type, String title, String message, Long referenceId);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.user.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 }

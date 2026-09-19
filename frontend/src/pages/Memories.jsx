@@ -1,12 +1,70 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
 import "./Memories.css";
 
-// In-memory cache for memory photo Object URLs
-// Key: canonical endpoint string (e.g. /memories/photo/memory_uuid.jpg)
-// Value: { status: 'loaded' | 'loading' | 'error', objectUrl?: string, error?: any, promise?: Promise<string> }
-const memoryBlobCache = new Map();
+// Bounded LRU cache for memory photo Object URLs (max 40 entries)
+// Evicted entries have their Object URLs revoked via URL.revokeObjectURL to avoid memory leaks
+class BoundedBlobCache {
+  constructor(maxSize = 40) {
+    this.maxSize = maxSize;
+    this.cache = new Map();
+  }
+
+  has(key) {
+    return this.cache.has(key);
+  }
+
+  get(key) {
+    if (!this.cache.has(key)) return undefined;
+    const value = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key, value) {
+    if (this.cache.has(key)) {
+      const existing = this.cache.get(key);
+      if (existing?.objectUrl && existing.objectUrl !== value.objectUrl) {
+        try { URL.revokeObjectURL(existing.objectUrl); } catch (_) {}
+      }
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      const oldestEntry = this.cache.get(oldestKey);
+      if (oldestEntry?.objectUrl) {
+        try { URL.revokeObjectURL(oldestEntry.objectUrl); } catch (_) {}
+      }
+      this.cache.delete(oldestKey);
+    }
+    this.cache.set(key, value);
+  }
+
+  delete(key) {
+    const existing = this.cache.get(key);
+    if (existing?.objectUrl) {
+      try { URL.revokeObjectURL(existing.objectUrl); } catch (_) {}
+    }
+    return this.cache.delete(key);
+  }
+
+  forEach(callback) {
+    this.cache.forEach(callback);
+  }
+
+  clear() {
+    this.cache.forEach((entry) => {
+      if (entry?.objectUrl) {
+        try { URL.revokeObjectURL(entry.objectUrl); } catch (_) {}
+      }
+    });
+    this.cache.clear();
+  }
+}
+
+const memoryBlobCache = new BoundedBlobCache(40);
 
 /**
  * Fetch a memory photo blob via Axios with the Authorization header and return an object URL.
@@ -202,11 +260,14 @@ const Memories = () => {
   const [userTrips, setUserTrips] = useState([]);
   const [destinations, setDestinations] = useState([]);
 
-  // Modals
+    // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMemory, setEditingMemory] = useState(null);
   const [previewMemory, setPreviewMemory] = useState(null);
   const [deletingMemory, setDeletingMemory] = useState(null);
+
+  const [searchParams] = useSearchParams();
+  const paramDestId = searchParams.get("destinationId");
 
   // Form State
   const [formData, setFormData] = useState({
@@ -217,10 +278,23 @@ const Memories = () => {
     destinationId: "",
     visibility: "PRIVATE",
   });
-  const [selectedPhotoFile, setSelectedPhotoFile] = useState(null);
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
+  const [selectedPhotoFiles, setSelectedPhotoFiles] = useState([]);
+  const [photoPreviewUrls, setPhotoPreviewUrls] = useState([]);
+  const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const [formError, setFormError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-open modal and preselect destination if query parameter is present
+  useEffect(() => {
+    if (paramDestId) {
+      setFormData((prev) => ({
+        ...prev,
+        destinationId: String(paramDestId),
+        visibility: "PUBLIC",
+      }));
+      setShowAddModal(true);
+    }
+  }, [paramDestId]);
 
   // Fetch memories based on active tab
   const fetchMemories = useCallback(async () => {
@@ -229,10 +303,12 @@ const Memories = () => {
     try {
       if (activeTab === "my") {
         const res = await api.get("/memories");
-        setUserMemories(res.data || []);
+        const data = res.data;
+        setUserMemories(Array.isArray(data) ? data : (data?.content || []));
       } else {
         const res = await api.get("/memories/public");
-        setPublicMemories(res.data || []);
+        const data = res.data;
+        setPublicMemories(Array.isArray(data) ? data : (data?.content || []));
       }
     } catch (err) {
       console.error("Failed to load travel memories:", err);
@@ -266,11 +342,37 @@ const Memories = () => {
   // Cleanup object URLs for local photo previews
   useEffect(() => {
     return () => {
-      if (photoPreviewUrl && photoPreviewUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(photoPreviewUrl);
+      photoPreviewUrls.forEach((url) => {
+        if (url && url.startsWith("blob:")) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [photoPreviewUrls]);
+
+  // Keyboard navigation for lightbox preview (Escape, ArrowLeft, ArrowRight)
+  useEffect(() => {
+    if (!previewMemory) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setPreviewMemory(null);
+      } else if (e.key === "ArrowLeft") {
+        const total = previewMemory.images?.length || 1;
+        if (total > 1) {
+          setPreviewImageIndex((prev) => (prev > 0 ? prev - 1 : total - 1));
+        }
+      } else if (e.key === "ArrowRight") {
+        const total = previewMemory.images?.length || 1;
+        if (total > 1) {
+          setPreviewImageIndex((prev) => (prev < total - 1 ? prev + 1 : 0));
+        }
       }
     };
-  }, [photoPreviewUrl]);
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [previewMemory]);
 
   // Cleanup cached blob URLs on unmount of Memories page to prevent memory leaks
   useEffect(() => {
@@ -285,42 +387,45 @@ const Memories = () => {
   }, []);
 
   const handlePhotoSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const incoming = Array.from(e.target.files || []);
+    if (incoming.length === 0) return;
 
-    // Check size limit (< 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setFormError("Photo exceeds maximum size of 10MB.");
+    const totalCount = selectedPhotoFiles.length + incoming.length;
+    if (totalCount > 5) {
+      setFormError("You can select up to 5 photos.");
       e.target.value = "";
       return;
     }
 
     const validTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
-    if (!validTypes.includes(file.type.toLowerCase())) {
-      setFormError("Only JPEG, PNG, and WEBP image formats are supported.");
-      e.target.value = "";
-      return;
-    }
-
-    // Revoke previous local object URL if replacing
-    if (photoPreviewUrl && photoPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(photoPreviewUrl);
+    for (const file of incoming) {
+      if (file.size > 10 * 1024 * 1024) {
+        setFormError(`"${file.name}" exceeds maximum size of 10MB.`);
+        e.target.value = "";
+        return;
+      }
+      if (!validTypes.includes(file.type.toLowerCase())) {
+        setFormError(`"${file.name}" has unsupported format. Only JPEG, PNG, and WEBP are supported.`);
+        e.target.value = "";
+        return;
+      }
     }
 
     setFormError(null);
-    setSelectedPhotoFile(file);
-    setPhotoPreviewUrl(URL.createObjectURL(file));
+    const newBlobUrls = incoming.map((f) => URL.createObjectURL(f));
+    setSelectedPhotoFiles((prev) => [...prev, ...incoming]);
+    setPhotoPreviewUrls((prev) => [...prev, ...newBlobUrls]);
 
-    // Reset native input value so selecting the exact same file again reliably fires onChange
     e.target.value = "";
   };
 
-  const handleRemoveSelectedPhoto = () => {
-    setSelectedPhotoFile(null);
-    if (photoPreviewUrl && photoPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(photoPreviewUrl);
+  const handleRemovePhoto = (index) => {
+    const urlToRemove = photoPreviewUrls[index];
+    if (urlToRemove && urlToRemove.startsWith("blob:")) {
+      URL.revokeObjectURL(urlToRemove);
     }
-    setPhotoPreviewUrl(null);
+    setSelectedPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleOpenAddModal = () => {
@@ -333,11 +438,11 @@ const Memories = () => {
       destinationId: "",
       visibility: "PRIVATE",
     });
-    setSelectedPhotoFile(null);
-    if (photoPreviewUrl && photoPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(photoPreviewUrl);
-    }
-    setPhotoPreviewUrl(null);
+    photoPreviewUrls.forEach((url) => {
+      if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
+    });
+    setSelectedPhotoFiles([]);
+    setPhotoPreviewUrls([]);
     setFormError(null);
     setShowAddModal(true);
   };
@@ -352,11 +457,11 @@ const Memories = () => {
       destinationId: mem.destinationId ? String(mem.destinationId) : "",
       visibility: mem.visibility || "PRIVATE",
     });
-    setSelectedPhotoFile(null);
-    if (photoPreviewUrl && photoPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(photoPreviewUrl);
-    }
-    setPhotoPreviewUrl(null);
+    photoPreviewUrls.forEach((url) => {
+      if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
+    });
+    setSelectedPhotoFiles([]);
+    setPhotoPreviewUrls([]);
     setFormError(null);
     setShowAddModal(true);
   };
@@ -364,11 +469,11 @@ const Memories = () => {
   const handleCloseModal = () => {
     setShowAddModal(false);
     setEditingMemory(null);
-    setSelectedPhotoFile(null);
-    if (photoPreviewUrl && photoPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(photoPreviewUrl);
-    }
-    setPhotoPreviewUrl(null);
+    photoPreviewUrls.forEach((url) => {
+      if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
+    });
+    setSelectedPhotoFiles([]);
+    setPhotoPreviewUrls([]);
     setFormError(null);
   };
 
@@ -379,8 +484,8 @@ const Memories = () => {
       return;
     }
 
-    if (!editingMemory && !selectedPhotoFile) {
-      setFormError("Please select a photo to upload.");
+    if (!editingMemory && selectedPhotoFiles.length === 0) {
+      setFormError("Please select at least one photo to upload.");
       return;
     }
 
@@ -389,7 +494,7 @@ const Memories = () => {
 
     try {
       if (editingMemory) {
-        // Update existing memory
+        // Update existing memory metadata
         const payload = {
           title: formData.title.trim(),
           caption: formData.caption?.trim() || null,
@@ -406,9 +511,11 @@ const Memories = () => {
           fetchMemories();
         }
       } else {
-        // Upload new memory
+        // Upload new multi-image memory
         const data = new FormData();
-        data.append("photo", selectedPhotoFile);
+        selectedPhotoFiles.forEach((file) => {
+          data.append("photos", file);
+        });
         data.append("title", formData.title.trim());
         if (formData.caption?.trim()) data.append("caption", formData.caption.trim());
         if (formData.locationName?.trim()) data.append("locationName", formData.locationName.trim());
@@ -685,11 +792,17 @@ const Memories = () => {
                     {/* Image Box */}
                     <div
                       className="tn-memory-img-box"
-                      onClick={() => setPreviewMemory(mem)}
+                      onClick={() => {
+                        setPreviewMemory(mem);
+                        setPreviewImageIndex(0);
+                      }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") setPreviewMemory(mem);
+                        if (e.key === "Enter" || e.key === " ") {
+                          setPreviewMemory(mem);
+                          setPreviewImageIndex(0);
+                        }
                       }}
                       aria-label={`Preview photo for ${mem.title}`}
                     >
@@ -705,6 +818,13 @@ const Memories = () => {
                       <span className={`tn-memory-badge-vis ${mem.visibility?.toLowerCase()}`}>
                         {mem.visibility === "PUBLIC" ? "🌐 Public" : "🔒 Private"}
                       </span>
+
+                      {/* Multi-Photo Count Badge */}
+                      {mem.images && mem.images.length > 1 && (
+                        <span className="tn-memory-badge-count" title={`${mem.images.length} photos`}>
+                          📷 {mem.images.length} photos
+                        </span>
+                      )}
 
                       {/* Owner Quick Actions */}
                       {isOwner && (
@@ -812,14 +932,80 @@ const Memories = () => {
                   ✕
                 </button>
 
-                <div className="tn-memory-preview-img-wrap">
-                  <MemoryImage
-                    src={previewMemory.imageUrl}
-                    storedFileName={previewMemory.storedFileName}
-                    alt={previewMemory.title}
-                    className="tn-memory-preview-img"
-                  />
-                </div>
+                {(() => {
+                  const images = previewMemory.images && previewMemory.images.length > 0
+                    ? previewMemory.images
+                    : [{ imageUrl: previewMemory.imageUrl, fileUrl: previewMemory.imageUrl, storedFileName: previewMemory.storedFileName }];
+                  const curIdx = Math.min(previewImageIndex, images.length - 1);
+                  const curImg = images[curIdx] || images[0];
+
+                  return (
+                    <>
+                      <div className="tn-memory-preview-img-wrap">
+                        {images.length > 1 && (
+                          <button
+                            type="button"
+                            className="tn-memory-preview-nav prev"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImageIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+                            }}
+                            aria-label="Previous photo"
+                            title="Previous photo (←)"
+                          >
+                            ‹
+                          </button>
+                        )}
+
+                        <MemoryImage
+                          key={curImg?.storedFileName || curImg?.imageUrl || curImg?.fileUrl || curIdx}
+                          src={curImg?.imageUrl || curImg?.fileUrl || previewMemory.imageUrl}
+                          storedFileName={curImg?.storedFileName || previewMemory.storedFileName}
+                          alt={`${previewMemory.title} - Photo ${curIdx + 1}`}
+                          className="tn-memory-preview-img"
+                        />
+
+                        {images.length > 1 && (
+                          <button
+                            type="button"
+                            className="tn-memory-preview-nav next"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImageIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+                            }}
+                            aria-label="Next photo"
+                            title="Next photo (→)"
+                          >
+                            ›
+                          </button>
+                        )}
+
+                        {images.length > 1 && (
+                          <div className="tn-memory-preview-counter">
+                            {curIdx + 1} / {images.length}
+                          </div>
+                        )}
+                      </div>
+
+                      {images.length > 1 && (
+                        <div className="tn-memory-preview-dots">
+                          {images.map((img, idx) => (
+                            <button
+                              key={img.id || idx}
+                              type="button"
+                              className={`tn-memory-dot ${idx === curIdx ? "active" : ""}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewImageIndex(idx);
+                              }}
+                              aria-label={`View photo ${idx + 1}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 <div className="tn-memory-preview-info">
                   <div className="tn-memory-preview-header">
@@ -917,26 +1103,11 @@ const Memories = () => {
                   {/* Photo Dropzone / Selector (Only in Create Mode) */}
                   {!editingMemory ? (
                     <div className="tn-memories-upload-zone">
-                      {photoPreviewUrl ? (
-                        <div className="tn-memories-photo-preview-box">
-                          <img
-                            src={photoPreviewUrl}
-                            alt="Selected upload preview"
-                            className="tn-memories-photo-preview-img"
-                          />
-                          <button
-                            type="button"
-                            className="tn-memories-remove-photo-btn"
-                            onClick={handleRemoveSelectedPhoto}
-                            aria-label="Remove selected photo"
-                          >
-                            ✕ Change Photo
-                          </button>
-                        </div>
-                      ) : (
+                      {selectedPhotoFiles.length === 0 ? (
                         <label className="tn-memories-file-label">
                           <input
                             type="file"
+                            multiple
                             accept="image/jpeg,image/png,image/webp,image/jpg"
                             onChange={handlePhotoSelect}
                             className="tn-memories-file-input"
@@ -945,13 +1116,58 @@ const Memories = () => {
                           <div className="tn-memories-upload-content">
                             <div className="tn-memories-upload-icon">📷</div>
                             <span className="tn-memories-upload-text">
-                              Click or drag a travel photo here
+                              Click or drag travel photos here
                             </span>
                             <span className="tn-memories-upload-hint">
-                              JPEG, PNG, WEBP up to 10MB
+                              Select 1 to 5 photos (JPEG, PNG, WEBP up to 10MB each)
                             </span>
                           </div>
                         </label>
+                      ) : (
+                        <div>
+                          <div className="tn-memories-thumbnails-grid">
+                            {photoPreviewUrls.map((url, idx) => (
+                              <div key={idx} className="tn-memories-thumb-card">
+                                <img
+                                  src={url}
+                                  alt={`Selected upload ${idx + 1}`}
+                                  className="tn-memories-thumb-img"
+                                />
+                                {idx === 0 && (
+                                  <span className="tn-memories-thumb-cover-tag">Cover</span>
+                                )}
+                                <button
+                                  type="button"
+                                  className="tn-memories-thumb-remove-btn"
+                                  onClick={() => handleRemovePhoto(idx)}
+                                  aria-label={`Remove photo ${idx + 1}`}
+                                  title="Remove photo"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+
+                            {selectedPhotoFiles.length < 5 && (
+                              <label className="tn-memories-add-more-card">
+                                <input
+                                  type="file"
+                                  multiple
+                                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                                  onChange={handlePhotoSelect}
+                                  className="tn-memories-file-input"
+                                />
+                                <div className="tn-memories-add-more-icon">+</div>
+                                <span className="tn-memories-add-more-text">
+                                  Add ({5 - selectedPhotoFiles.length} left)
+                                </span>
+                              </label>
+                            )}
+                          </div>
+                          <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "#94a3b8" }}>
+                            {selectedPhotoFiles.length} of 5 photos selected. The first photo is the cover.
+                          </div>
+                        </div>
                       )}
                     </div>
                   ) : (

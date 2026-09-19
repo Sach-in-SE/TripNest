@@ -2,6 +2,7 @@ package com.tripnest.dto;
 
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class TravelMemoryResponse {
@@ -11,6 +12,7 @@ public class TravelMemoryResponse {
     private String locationName;
     private String imageUrl;
     private String storedFileName;
+    private List<MemoryImageResponse> images;
     private String visibility;
     private Long tripId;
     private String tripTitle;

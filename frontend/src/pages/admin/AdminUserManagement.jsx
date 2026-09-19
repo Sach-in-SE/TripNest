@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
+import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
 import "./AdminLayout.css";
 
@@ -10,6 +11,7 @@ const ALL_ROLES = [
 ];
 
 function AdminUserManagement() {
+  const { user: currentUser } = useAuth();
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +28,7 @@ function AdminUserManagement() {
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [resetPasswordResult, setResetPasswordResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(null);
 
   // Action state & Feedback
   const [actionLoading, setActionLoading] = useState(false);
@@ -41,7 +44,8 @@ function AdminUserManagement() {
       if (roleFilter) params.role = roleFilter;
 
       const response = await api.get("/admin/users", { params });
-      setUsers(response.data);
+      const data = response.data;
+      setUsers(Array.isArray(data) ? data : (data?.content || []));
     } catch (err) {
       console.error("Failed to fetch admin users:", err);
       setError(
@@ -145,6 +149,24 @@ function AdminUserManagement() {
     }
   };
 
+  // Permanent Delete Action
+  const handleConfirmDelete = async () => {
+    if (!deletingUser) return;
+
+    setActionLoading(true);
+    try {
+      await api.delete(`/admin/users/${deletingUser.id}`);
+      showToast("success", `User "${deletingUser.username}" has been permanently deleted.`);
+      setDeletingUser(null);
+      fetchUsers();
+    } catch (err) {
+      console.error("Failed to delete user:", err);
+      showToast("error", err.response?.data?.message || "Failed to permanently delete user.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // View Details Modal
   const handleViewUser = async (userId) => {
     setActionLoading(true);
@@ -171,6 +193,7 @@ function AdminUserManagement() {
         return <span key={roleName} className="admin-badge admin-badge-admin">🛡️ Admin</span>;
       case "ROLE_GROUP_ADMIN":
         return <span key={roleName} className="admin-badge admin-badge-group-admin">👑 Group Admin</span>;
+      case "ROLE_USER":
       case "ROLE_TRAVELER":
       default:
         return <span key={roleName} className="admin-badge admin-badge-traveler">✈️ Traveler</span>;
@@ -345,6 +368,17 @@ function AdminUserManagement() {
                               >
                                 🔑 Reset Pwd
                               </button>
+                              {!Boolean(currentUser && (u.id === currentUser.id || u.username === currentUser.username)) &&
+                               !(u.roles && u.roles.includes("ROLE_ADMIN")) && (
+                                <button
+                                  onClick={() => setDeletingUser(u)}
+                                  className="admin-action-btn delete"
+                                  title="Delete User Permanently"
+                                  aria-label={`Delete ${u.username}`}
+                                >
+                                  🗑️ Delete
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -532,6 +566,104 @@ function AdminUserManagement() {
                 className="admin-btn-primary"
               >
                 I Have Copied The Password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 4: PERMANENT USER DELETION CONFIRMATION --- */}
+      {deletingUser && (
+        <div
+          className="admin-modal-overlay"
+          onClick={() => !actionLoading && setDeletingUser(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="admin-delete-modal-title"
+        >
+          <div
+            className="admin-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "480px" }}
+          >
+            <div className="admin-modal-header" style={{ borderColor: "rgba(239, 68, 68, 0.3)" }}>
+              <h3 id="admin-delete-modal-title" className="admin-modal-title" style={{ color: "#ef4444" }}>
+                ⚠️ Permanently Delete User
+              </h3>
+              <button
+                onClick={() => !actionLoading && setDeletingUser(null)}
+                className="admin-modal-close"
+                aria-label="Close delete modal"
+                disabled={actionLoading}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <div
+                style={{
+                  background: "rgba(239, 68, 68, 0.12)",
+                  border: "1px solid rgba(239, 68, 68, 0.25)",
+                  borderRadius: "8px",
+                  padding: "1rem",
+                  marginBottom: "1.25rem",
+                  color: "#fca5a5",
+                  fontSize: "0.875rem",
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Warning: This action is permanent and cannot be undone.</strong>
+                <br />
+                All trips, itineraries, activities, expenses, budgets, documents, and memory photos belonging to this user will be permanently deleted from the database and storage.
+              </div>
+
+              <div className="admin-detail-grid" style={{ marginBottom: "1rem" }}>
+                <div className="admin-detail-item">
+                  <div className="admin-detail-label">Username</div>
+                  <div className="admin-detail-val"><strong>{deletingUser.username}</strong></div>
+                </div>
+                <div className="admin-detail-item">
+                  <div className="admin-detail-label">Email</div>
+                  <div className="admin-detail-val">{deletingUser.email}</div>
+                </div>
+                <div className="admin-detail-item">
+                  <div className="admin-detail-label">User ID</div>
+                  <div className="admin-detail-val">#{deletingUser.id}</div>
+                </div>
+                <div className="admin-detail-item">
+                  <div className="admin-detail-label">Assigned Roles</div>
+                  <div className="admin-detail-val">
+                    {deletingUser.roles?.join(", ") || "ROLE_USER"}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                onClick={() => setDeletingUser(null)}
+                className="admin-modal-btn cancel"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="admin-modal-btn"
+                style={{
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "0.55rem 1.2rem",
+                  fontWeight: "600",
+                  cursor: actionLoading ? "not-allowed" : "pointer",
+                  opacity: actionLoading ? 0.7 : 1,
+                }}
+                disabled={actionLoading}
+              >
+                {actionLoading ? "Deleting..." : "Permanently Delete"}
               </button>
             </div>
           </div>

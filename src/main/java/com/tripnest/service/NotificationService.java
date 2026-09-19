@@ -8,8 +8,12 @@ import com.tripnest.entity.User;
 import com.tripnest.repository.NotificationRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import com.tripnest.exception.ResourceNotFoundException;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,7 +28,7 @@ public class NotificationService {
 
     public NotificationResponse createNotification(NotificationRequest request) {
         User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Notification notification = new Notification();
         notification.setTitle(request.getTitle());
@@ -46,6 +50,11 @@ public class NotificationService {
                 .collect(Collectors.toList());
     }
 
+    public Page<NotificationResponse> getUserNotifications(Long userId, Pageable pageable) {
+        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(this::mapToResponse);
+    }
+
     public List<NotificationResponse> getUnreadNotifications(Long userId) {
         return notificationRepository.findByUserIdAndIsReadFalse(userId)
                 .stream()
@@ -59,10 +68,10 @@ public class NotificationService {
 
     public NotificationResponse markAsRead(Long id, Long userId) {
         Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Notification not found"));
 
         if (!notification.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new AccessDeniedException("Unauthorized");
         }
 
         notification.setRead(true);
@@ -78,10 +87,10 @@ public class NotificationService {
 
     public void deleteNotification(Long id, Long userId) {
         Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Notification not found"));
 
         if (!notification.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Unauthorized");
+            throw new AccessDeniedException("Unauthorized");
         }
 
         notificationRepository.delete(notification);

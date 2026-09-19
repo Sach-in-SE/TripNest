@@ -4,6 +4,7 @@ import com.tripnest.dto.MessageResponse;
 import com.tripnest.dto.TripRequest;
 import com.tripnest.dto.TripResponse;
 import com.tripnest.dto.TravelHistoryResponse;
+import com.tripnest.exception.UnauthorizedAccessException;
 import com.tripnest.security.UserDetailsImpl;
 import com.tripnest.service.TripService;
 import jakarta.validation.Valid;
@@ -14,7 +15,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/trips")
 public class TripController {
@@ -68,11 +68,11 @@ public class TripController {
     private UserDetailsImpl getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {
-            throw new RuntimeException("Authentication is missing");
+            throw new UnauthorizedAccessException("Authentication is missing");
         }
         Object principal = authentication.getPrincipal();
         if (!(principal instanceof UserDetailsImpl)) {
-            throw new RuntimeException("Invalid authentication principal type: " + principal.getClass().getName());
+            throw new UnauthorizedAccessException("Invalid authentication principal type: " + principal.getClass().getName());
         }
         return (UserDetailsImpl) principal;
     }

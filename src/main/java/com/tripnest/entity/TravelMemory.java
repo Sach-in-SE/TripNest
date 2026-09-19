@@ -6,6 +6,9 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import org.hibernate.annotations.BatchSize;
 
 @Data
 @Entity
@@ -15,7 +18,8 @@ import java.time.LocalDateTime;
         @Index(name = "idx_memory_user_id", columnList = "user_id"),
         @Index(name = "idx_memory_visibility", columnList = "visibility"),
         @Index(name = "idx_memory_trip_id", columnList = "trip_id"),
-        @Index(name = "idx_memory_dest_id", columnList = "destination_id")
+        @Index(name = "idx_memory_dest_id", columnList = "destination_id"),
+        @Index(name = "idx_memory_dest_vis_created", columnList = "destination_id, visibility, createdAt")
     }
 )
 public class TravelMemory {
@@ -42,6 +46,16 @@ public class TravelMemory {
 
     @Column(length = 255)
     private String storedFileName;
+
+    @OneToMany(
+        mappedBy = "travelMemory",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true,
+        fetch = FetchType.LAZY
+    )
+    @OrderBy("displayOrder ASC")
+    @BatchSize(size = 50)
+    private List<TravelMemoryImage> images = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

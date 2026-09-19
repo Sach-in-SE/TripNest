@@ -133,11 +133,12 @@ const Documents = () => {
       if (endpoint?.startsWith("/api/")) {
         endpoint = endpoint.substring(4);
       } else if (!endpoint) {
-        endpoint = `/documents/download/${encodeURIComponent(doc.fileName)}`;
+        setErrorMessage("Download URL is not available for this document.");
+        return;
       }
 
       const response = await api.get(endpoint, { responseType: "blob" });
-      const contentType = doc.fileType || response.headers["content-type"] || "application/octet-stream";
+      const contentType = response.headers["content-type"] || doc.fileType || "application/octet-stream";
       const blob = new Blob([response.data], { type: contentType });
       const url = window.URL.createObjectURL(blob);
 
@@ -155,9 +156,21 @@ const Documents = () => {
       }
     } catch (err) {
       console.error(`Failed to ${mode} document:`, err);
-      setErrorMessage(
-        err.response?.data?.message || `Failed to ${mode} document. Access denied or file not found.`
-      );
+      let msg = `Failed to ${mode} document. Access denied or file not found.`;
+      if (err.response?.data) {
+        if (err.response.data instanceof Blob) {
+          try {
+            const text = await err.response.data.text();
+            const json = JSON.parse(text);
+            if (json.message) msg = json.message;
+          } catch {
+            // Not JSON or unreadable text
+          }
+        } else if (err.response.data.message) {
+          msg = err.response.data.message;
+        }
+      }
+      setErrorMessage(msg);
     }
   };
 

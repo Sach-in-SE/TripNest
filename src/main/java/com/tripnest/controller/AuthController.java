@@ -27,10 +27,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import com.tripnest.dto.ForgotPasswordRequest;
+import com.tripnest.dto.OAuth2ExchangeRequest;
 import com.tripnest.dto.ResetPasswordRequest;
+import com.tripnest.security.oauth2.OAuth2ExchangeCodeService;
 import com.tripnest.service.PasswordResetService;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -58,10 +59,14 @@ public class AuthController {
     @Autowired
     private com.tripnest.service.DisposableEmailService disposableEmailService;
 
+    @Autowired
+    private OAuth2ExchangeCodeService oAuth2ExchangeCodeService;
+
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        User user = userRepository.findByUsername(loginRequest.getUsername())
-                .orElseGet(() -> userRepository.findByEmail(loginRequest.getUsername()).orElse(null));
+        String loginIdentifier = loginRequest.getUsername() != null ? loginRequest.getUsername().trim() : "";
+        User user = userRepository.findByUsernameIgnoreCase(loginIdentifier)
+                .orElseGet(() -> userRepository.findByEmailIgnoreCase(loginIdentifier).orElse(null));
 
         if (user != null && user.isPasswordChangeRequired() && user.getTemporaryPasswordExpiry() != null) {
             if (java.time.LocalDateTime.now().isAfter(user.getTemporaryPasswordExpiry())) {
@@ -72,16 +77,17 @@ public class AuthController {
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUsername(),
+                        loginIdentifier,
                         loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(authentication.getName());
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
+        String jwt = jwtUtils.generateJwtToken(userDetails.getUsername());
+
+        List<String> roles = (user != null && user.getRoles() != null && !user.getRoles().isEmpty())
+                ? user.getRoles().stream().map(r -> r.getName().name()).collect(Collectors.toList())
+                : userDetails.getAuthorities().stream().map(item -> item.getAuthority()).collect(Collectors.toList());
 
         boolean passwordChangeRequired = (user != null) && user.isPasswordChangeRequired();
 
@@ -119,29 +125,51 @@ public class AuthController {
         user.setLastName(signUpRequest.getLastName());
         user.setPhone(signUpRequest.getPhone());
 
-        Set<String> strRoles = signUpRequest.getRoles();
-        Set<Role> roles = new HashSet<>();
-
-        if (strRoles == null) {
-            Role travelerRole = roleRepository.findByName(ERole.ROLE_TRAVELER)
-                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-            roles.add(travelerRole);
-        } else {
-            strRoles.forEach(role -> {
-                switch (role) {
-                    case "group_admin":
-                        Role groupAdminRole = roleRepository.findByName(ERole.ROLE_GROUP_ADMIN)
-                                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                        roles.add(groupAdminRole);
-                        break;
-                    default:
-                        Role travelerRole = roleRepository.findByName(ERole.ROLE_TRAVELER)
-                                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                        roles.add(travelerRole);
-                }
-            });
+        // Determine requested role from signUpRequest.getRole() or signUpRequest.getRoles()
+        String requestedRole = null;
+        if (signUpRequest.getRole() != null && !signUpRequest.getRole().isBlank()) {
+            requestedRole = signUpRequest.getRole().trim();
+        } else if (signUpRequest.getRoles() != null && !signUpRequest.getRoles().isEmpty()) {
+            requestedRole = signUpRequest.getRoles().iterator().next().trim();
         }
 
+        ERole assignedERole;
+        if (requestedRole == null || requestedRole.isBlank()) {
+            // 1. Default role: newly registered user has ROLE_USER
+            assignedERole = ERole.ROLE_USER;
+        } else {
+            String normalized = requestedRole.toUpperCase();
+            // Check for unauthorized admin role attempts (case-insensitive)
+            boolean attemptsAdmin = normalized.equals("ADMIN") || normalized.equals("ROLE_ADMIN")
+                    || (signUpRequest.getRoles() != null && signUpRequest.getRoles().stream()
+                            .anyMatch(r -> r.toUpperCase().contains("ADMIN") && !r.toUpperCase().contains("GROUP_ADMIN")));
+
+            if (attemptsAdmin) {
+                // 4. Signup attempting ROLE_ADMIN -> rejected
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Error: Admin role cannot be requested through public registration."));
+            } else if (normalized.equals("GROUP_ADMIN") || normalized.equals("ROLE_GROUP_ADMIN")) {
+                // 3. Signup as Group Admin -> creates ROLE_GROUP_ADMIN
+                assignedERole = ERole.ROLE_GROUP_ADMIN;
+            } else if (normalized.equals("TRAVELER") || normalized.equals("ROLE_TRAVELER")
+                    || normalized.equals("USER") || normalized.equals("ROLE_USER")) {
+                // 2. Signup as Traveler -> creates ROLE_USER
+                assignedERole = ERole.ROLE_USER;
+            } else {
+                // 5. Signup with an invalid/unknown role -> safely defaults to ROLE_USER
+                assignedERole = ERole.ROLE_USER;
+            }
+        }
+
+        Role roleEntity = roleRepository.findByName(assignedERole)
+                .orElseGet(() -> {
+                    Role r = new Role();
+                    r.setName(assignedERole);
+                    return roleRepository.save(r);
+                });
+
+        Set<Role> roles = new HashSet<>();
+        roles.add(roleEntity);
         user.setRoles(roles);
         userRepository.save(user);
 
@@ -149,7 +177,7 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         try {
             passwordResetService.createResetToken(request.getEmail());
             return ResponseEntity.ok(new MessageResponse("If this email exists, a reset token has been generated. Check server logs for now."));
@@ -161,7 +189,7 @@ public class AuthController {
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         try {
             passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
             return ResponseEntity.ok(new MessageResponse("Password reset successfully!"));
@@ -179,5 +207,30 @@ public class AuthController {
 
         boolean isAvailable = !userRepository.existsByUsername(username.trim());
         return ResponseEntity.ok(new MessageResponse(isAvailable ? "Username is available" : "Username is already taken"));
+    }
+
+    @PostMapping("/oauth2/exchange")
+    public ResponseEntity<?> exchangeOAuthCode(@Valid @RequestBody OAuth2ExchangeRequest request) {
+        String username = oAuth2ExchangeCodeService.consumeExchangeCode(request.getCode());
+        if (username == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Error: Invalid or expired OAuth exchange code"));
+        }
+
+        User user = userRepository.findByUsernameWithRoles(username)
+                .or(() -> userRepository.findByUsernameIgnoreCase(username))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String jwt = jwtUtils.generateJwtToken(user.getUsername());
+        List<String> roles = (user.getRoles() != null && !user.getRoles().isEmpty())
+                ? user.getRoles().stream().map(r -> r.getName().name()).collect(Collectors.toList())
+                : List.of(ERole.ROLE_USER.name());
+
+        return ResponseEntity.ok(new JwtResponse(jwt,
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                roles,
+                user.isPasswordChangeRequired()));
     }
 }

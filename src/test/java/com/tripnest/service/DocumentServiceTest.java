@@ -1,8 +1,10 @@
 package com.tripnest.service;
 
+import com.tripnest.dto.DocumentDownloadResult;
 import com.tripnest.dto.DocumentResponse;
 import com.tripnest.entity.DocumentType;
 import com.tripnest.entity.TravelDocument;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.entity.Trip;
 import com.tripnest.entity.User;
 import com.tripnest.repository.DocumentRepository;
@@ -166,11 +168,12 @@ public class DocumentServiceTest {
         TravelDocument doc = new TravelDocument();
         doc.setId(100L);
         doc.setFileName("passport.pdf");
+        doc.setFileType("application/pdf");
         doc.setFileUrl("/api/documents/download/uuid-passport.pdf");
         doc.setTrip(trip);
         doc.setUser(owner);
 
-        when(documentRepository.findAll()).thenReturn(Collections.singletonList(doc));
+        when(documentRepository.findByFileUrlEndingWith("/uuid-passport.pdf")).thenReturn(Optional.of(doc));
         Resource mockResource = new ByteArrayResource("%PDF content".getBytes());
         when(storageService.loadFileAsResource("uuid-passport.pdf")).thenReturn(mockResource);
 
@@ -178,6 +181,129 @@ public class DocumentServiceTest {
 
         assertNotNull(result);
         verify(storageService).loadFileAsResource("uuid-passport.pdf");
+    }
+
+    @Test
+    @DisplayName("Get document download returns correct metadata including original filename and content type")
+    void testGetDocumentDownload_ReturnsCorrectMetadata() throws IOException {
+        TravelDocument doc = new TravelDocument();
+        doc.setId(100L);
+        doc.setFileName("boarding_pass.pdf");
+        doc.setFileType("application/pdf");
+        doc.setFileUrl("/api/documents/download/uuid-pass.pdf");
+        doc.setTrip(trip);
+        doc.setUser(owner);
+
+        when(documentRepository.findByFileUrlEndingWith("/uuid-pass.pdf")).thenReturn(Optional.of(doc));
+        Resource mockResource = new ByteArrayResource("%PDF-1.5 content".getBytes());
+        when(storageService.loadFileAsResource("uuid-pass.pdf")).thenReturn(mockResource);
+
+        DocumentDownloadResult result = documentService.getDocumentDownload("uuid-pass.pdf", 1L);
+
+        assertNotNull(result);
+        assertEquals("boarding_pass.pdf", result.getOriginalFileName());
+        assertEquals("application/pdf", result.getContentType());
+        assertEquals(mockResource, result.getResource());
+    }
+
+    @Test
+    @DisplayName("Get document resource succeeds for shared trip recipient")
+    void testGetDocumentResource_TripShareAccess_Success() throws IOException {
+        TravelDocument doc = new TravelDocument();
+        doc.setId(100L);
+        doc.setFileName("hotel.pdf");
+        doc.setFileType("application/pdf");
+        doc.setFileUrl("/api/documents/download/uuid-hotel.pdf");
+        doc.setTrip(trip);
+        doc.setUser(owner);
+
+        when(documentRepository.findByFileUrlEndingWith("/uuid-hotel.pdf")).thenReturn(Optional.of(doc));
+        when(tripShareService.hasAccess(10L, 2L)).thenReturn(true);
+        Resource mockResource = new ByteArrayResource("%PDF content".getBytes());
+        when(storageService.loadFileAsResource("uuid-hotel.pdf")).thenReturn(mockResource);
+
+        Resource result = documentService.getDocumentResource("uuid-hotel.pdf", 2L);
+
+        assertNotNull(result);
+        verify(storageService).loadFileAsResource("uuid-hotel.pdf");
+    }
+
+    @Test
+    @DisplayName("Get document resource succeeds for travel group member")
+    void testGetDocumentResource_GroupMemberAccess_Success() throws IOException {
+        TravelDocument doc = new TravelDocument();
+        doc.setId(100L);
+        doc.setFileName("visa.pdf");
+        doc.setFileType("application/pdf");
+        doc.setFileUrl("/api/documents/download/uuid-visa.pdf");
+        doc.setTrip(trip);
+        doc.setUser(owner);
+
+        when(documentRepository.findByFileUrlEndingWith("/uuid-visa.pdf")).thenReturn(Optional.of(doc));
+        when(tripShareService.hasAccess(10L, 3L)).thenReturn(false);
+        when(groupRepository.existsByTripIdAndMembersId(10L, 3L)).thenReturn(true);
+        Resource mockResource = new ByteArrayResource("%PDF content".getBytes());
+        when(storageService.loadFileAsResource("uuid-visa.pdf")).thenReturn(mockResource);
+
+        Resource result = documentService.getDocumentResource("uuid-visa.pdf", 3L);
+
+        assertNotNull(result);
+        verify(storageService).loadFileAsResource("uuid-visa.pdf");
+    }
+
+    @Test
+    @DisplayName("Get document resource throws AccessDeniedException and NEVER calls storage for unauthorized user")
+    void testGetDocumentResource_Unauthorized_ThrowsAccessDeniedException() throws IOException {
+        TravelDocument doc = new TravelDocument();
+        doc.setId(100L);
+        doc.setFileName("secret.pdf");
+        doc.setFileType("application/pdf");
+        doc.setFileUrl("/api/documents/download/uuid-secret.pdf");
+        doc.setTrip(trip);
+        doc.setUser(owner);
+
+        when(documentRepository.findByFileUrlEndingWith("/uuid-secret.pdf")).thenReturn(Optional.of(doc));
+        when(tripShareService.hasAccess(10L, 2L)).thenReturn(false);
+        when(groupRepository.existsByTripIdAndMembersId(10L, 2L)).thenReturn(false);
+
+        assertThrows(AccessDeniedException.class, () ->
+                documentService.getDocumentResource("uuid-secret.pdf", 2L)
+        );
+
+        // Security assertion: Storage is NEVER accessed if authorization fails
+        verify(storageService, never()).loadFileAsResource(anyString());
+    }
+
+    @Test
+    @DisplayName("VULNERABILITY REGRESSION TEST: Missing DB document throws ResourceNotFoundException and NEVER calls storage")
+    void testGetDocumentResource_DBRecordNotFound_ThrowsResourceNotFoundException_StorageNeverCalled() throws IOException {
+        when(documentRepository.findByFileUrlEndingWith("/unregistered-file.jpg")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                documentService.getDocumentResource("unregistered-file.jpg", 1L)
+        );
+
+        // Critical Security Assertion: Storage MUST NEVER be called if the entity does not exist in DB!
+        verify(storageService, never()).loadFileAsResource(anyString());
+    }
+
+    @Test
+    @DisplayName("Get document resource propagates IOException when physical file is missing from storage")
+    void testGetDocumentResource_PhysicalFileMissing_ThrowsIOException() throws IOException {
+        TravelDocument doc = new TravelDocument();
+        doc.setId(100L);
+        doc.setFileName("lost.pdf");
+        doc.setFileType("application/pdf");
+        doc.setFileUrl("/api/documents/download/uuid-lost.pdf");
+        doc.setTrip(trip);
+        doc.setUser(owner);
+
+        when(documentRepository.findByFileUrlEndingWith("/uuid-lost.pdf")).thenReturn(Optional.of(doc));
+        when(storageService.loadFileAsResource("uuid-lost.pdf")).thenThrow(new IOException("File not found or not readable"));
+
+        assertThrows(IOException.class, () ->
+                documentService.getDocumentResource("uuid-lost.pdf", 1L)
+        );
     }
 
     @Test
@@ -220,5 +346,81 @@ public class DocumentServiceTest {
         assertThrows(AccessDeniedException.class, () ->
                 documentService.deleteDocument(100L, 2L)
         );
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Compensating Cleanup & Orphan Prevention Tests
+    // ---------------------------------------------------------------------------------------------
+    @Test
+    @DisplayName("Orphan Cleanup: Database save failure attempts physical file deletion and propagates original DB exception")
+    void testUploadDocument_DatabaseSaveFails_TriggersStorageCleanupAndPropagatesOriginalException() throws IOException {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "receipt.pdf", "application/pdf", "%PDF-1.5 test".getBytes()
+        );
+
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(storageService.storeFile(any(), anyString())).thenReturn("uuid-receipt.pdf");
+
+        RuntimeException dbException = new RuntimeException("Database constraint violation on documents table");
+        when(documentRepository.save(any(TravelDocument.class))).thenThrow(dbException);
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () ->
+                documentService.uploadDocument(file, 10L, "RECEIPT", 1L)
+        );
+
+        assertSame(dbException, thrown, "Original database exception MUST be propagated as the primary failure");
+        // Verify storage cleanup was attempted with the generated filename
+        verify(storageService).deleteFile(argThat(name -> name.endsWith(".pdf")));
+    }
+
+    @Test
+    @DisplayName("Orphan Cleanup: Storage cleanup failure does not swallow original DB exception")
+    void testUploadDocument_DatabaseSaveFails_StorageCleanupAlsoFails_PropagatesOriginalDBException() throws IOException {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "receipt.pdf", "application/pdf", "%PDF-1.5 test".getBytes()
+        );
+
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(storageService.storeFile(any(), anyString())).thenReturn("uuid-receipt.pdf");
+
+        RuntimeException dbException = new RuntimeException("DB deadlock error");
+        when(documentRepository.save(any(TravelDocument.class))).thenThrow(dbException);
+        doThrow(new IOException("Storage service connection timeout")).when(storageService).deleteFile(anyString());
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () ->
+                documentService.uploadDocument(file, 10L, "RECEIPT", 1L)
+        );
+
+        assertSame(dbException, thrown, "Original DB exception must remain the primary exception even if cleanup fails");
+        verify(storageService).deleteFile(argThat(name -> name.endsWith(".pdf")));
+    }
+
+    @Test
+    @DisplayName("Get document download uses direct storedFileName index lookup without wildcard fallback")
+    void testGetDocumentDownload_ByStoredFileName_DirectO1Lookup() throws IOException {
+        TravelDocument doc = new TravelDocument();
+        doc.setId(200L);
+        doc.setFileName("pass.pdf");
+        doc.setStoredFileName("uuid-direct-pass.pdf");
+        doc.setFileType("application/pdf");
+        doc.setFileUrl("/api/documents/download/uuid-direct-pass.pdf");
+        doc.setTrip(trip);
+        doc.setUser(owner);
+
+        when(documentRepository.findByStoredFileName("uuid-direct-pass.pdf")).thenReturn(Optional.of(doc));
+        Resource mockResource = new ByteArrayResource("%PDF direct".getBytes());
+        when(storageService.loadFileAsResource("uuid-direct-pass.pdf")).thenReturn(mockResource);
+
+        DocumentDownloadResult result = documentService.getDocumentDownload("uuid-direct-pass.pdf", 1L);
+
+        assertNotNull(result);
+        assertEquals("pass.pdf", result.getOriginalFileName());
+        assertEquals("application/pdf", result.getContentType());
+        assertEquals(mockResource, result.getResource());
+
+        verify(documentRepository).findByStoredFileName("uuid-direct-pass.pdf");
+        verify(documentRepository, never()).findByFileUrlEndingWith(anyString());
     }
 }

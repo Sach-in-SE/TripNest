@@ -1,8 +1,10 @@
 package com.tripnest.service;
 
+import com.tripnest.dto.DocumentDownloadResult;
 import com.tripnest.dto.DocumentResponse;
 import com.tripnest.entity.DocumentType;
 import com.tripnest.entity.TravelDocument;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.entity.Trip;
 import com.tripnest.entity.User;
 import com.tripnest.repository.DocumentRepository;
@@ -11,6 +13,8 @@ import com.tripnest.repository.TripRepository;
 import com.tripnest.repository.UserRepository;
 import com.tripnest.service.storage.DocumentFileValidator;
 import com.tripnest.service.storage.StorageService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.security.access.AccessDeniedException;
@@ -21,9 +25,13 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class DocumentService {
+
+    private static final Logger logger = LoggerFactory.getLogger(DocumentService.class);
 
     @Autowired
     private DocumentRepository documentRepository;
@@ -78,6 +86,7 @@ public class DocumentService {
         // 5. Persist Document Entity
         TravelDocument document = new TravelDocument();
         document.setFileName(originalFileName);
+        document.setStoredFileName(storedFileName);
         document.setFileType(file.getContentType());
         document.setFileUrl("/api/documents/download/" + storedFileName);
         document.setTrip(trip);
@@ -92,7 +101,18 @@ public class DocumentService {
             document.setDocumentType(DocumentType.OTHER);
         }
 
-        TravelDocument saved = documentRepository.save(document);
+        TravelDocument saved;
+        try {
+            saved = documentRepository.save(document);
+        } catch (Exception e) {
+            // Compensating storage cleanup if database persistence fails to prevent orphan files
+            try {
+                storageService.deleteFile(storedFileName);
+            } catch (Exception cleanupEx) {
+                logger.error("Failed to clean up stored file '{}' after database persistence failure", storedFileName, cleanupEx);
+            }
+            throw e;
+        }
         return mapToResponse(saved);
     }
 
@@ -113,32 +133,35 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
-    public Resource getDocumentResource(String storedFileName, Long userId) throws IOException {
-        // Sanitize stored filename parameter against path traversal
+    public DocumentDownloadResult getDocumentDownload(String storedFileName, Long userId) throws IOException {
+        // 1. Sanitize stored filename parameter against path traversal
         if (storedFileName == null || storedFileName.contains("..") || storedFileName.contains("/") || storedFileName.contains("\\")) {
             throw new SecurityException("Illegal filename path traversal attempt.");
         }
 
-        // Verify document authorization in database
-        List<TravelDocument> docs = documentRepository.findAll();
-        TravelDocument doc = docs.stream()
-                .filter(d -> d.getFileUrl() != null && d.getFileUrl().endsWith("/" + storedFileName))
-                .findFirst()
-                .orElse(null);
+        // 2. Look up document in database by indexed storedFileName with fallback for legacy records
+        TravelDocument doc = documentRepository.findByStoredFileName(storedFileName)
+                .or(() -> documentRepository.findByFileUrlEndingWith("/" + storedFileName))
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with filename: " + storedFileName));
 
-        if (doc != null) {
-            Trip trip = doc.getTrip();
-            Long tripId = trip.getId();
-            boolean isOwner = trip.getUser().getId().equals(userId);
-            boolean hasAccess = tripShareService.hasAccess(tripId, userId);
-            boolean isGroupMember = groupRepository.existsByTripIdAndMembersId(tripId, userId);
+        // 3. Verify authorization rules before storage access
+        Trip trip = doc.getTrip();
+        Long tripId = trip != null ? trip.getId() : null;
+        boolean isOwner = trip != null && trip.getUser() != null && trip.getUser().getId().equals(userId);
+        boolean hasAccess = tripId != null && tripShareService.hasAccess(tripId, userId);
+        boolean isGroupMember = tripId != null && groupRepository.existsByTripIdAndMembersId(tripId, userId);
 
-            if (!isOwner && !hasAccess && !isGroupMember) {
-                throw new AccessDeniedException("Unauthorized: You do not have permission to download this document.");
-            }
+        if (!isOwner && !hasAccess && !isGroupMember) {
+            throw new AccessDeniedException("Unauthorized: You do not have permission to download this document.");
         }
 
-        return storageService.loadFileAsResource(storedFileName);
+        // 4. Load physical resource only after successful authorization
+        Resource resource = storageService.loadFileAsResource(storedFileName);
+        return new DocumentDownloadResult(resource, doc.getFileName(), doc.getFileType());
+    }
+
+    public Resource getDocumentResource(String storedFileName, Long userId) throws IOException {
+        return getDocumentDownload(storedFileName, userId).getResource();
     }
 
     public void deleteDocument(Long id, Long userId) throws IOException {
@@ -154,8 +177,11 @@ public class DocumentService {
             throw new AccessDeniedException("Unauthorized: You do not have permission to delete this document.");
         }
 
-        String fileUrl = document.getFileUrl();
-        String storedFileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+        String storedFileName = document.getStoredFileName();
+        if (storedFileName == null || storedFileName.trim().isEmpty()) {
+            String fileUrl = document.getFileUrl();
+            storedFileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+        }
 
         storageService.deleteFile(storedFileName);
         documentRepository.delete(document);
@@ -165,6 +191,7 @@ public class DocumentService {
         DocumentResponse response = new DocumentResponse();
         response.setId(document.getId());
         response.setFileName(document.getFileName());
+        response.setStoredFileName(document.getStoredFileName());
         response.setFileType(document.getFileType());
         response.setFileUrl(document.getFileUrl());
         response.setDocumentType(document.getDocumentType() != null ? document.getDocumentType().name() : null);
