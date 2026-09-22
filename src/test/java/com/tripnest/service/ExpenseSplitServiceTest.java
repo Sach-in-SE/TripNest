@@ -1,10 +1,12 @@
 package com.tripnest.service;
 
 import com.tripnest.dto.DebtSummaryResponse;
+import com.tripnest.dto.ExpenseSplitResponse;
 import com.tripnest.dto.SettlementHistoryResponse;
 import com.tripnest.dto.TripMemberResponse;
 import com.tripnest.entity.*;
 import com.tripnest.exception.BadRequestException;
+import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.exception.UnauthorizedAccessException;
 import com.tripnest.model.ExpenseSplit;
 import com.tripnest.model.Settlement;
@@ -95,9 +97,17 @@ class ExpenseSplitServiceTest {
     @Test
     @DisplayName("splitExpense divides amount equally and distributes remainder cents correctly")
     void testSplitExpense_RemainderDistribution() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(alice));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(bob));
-        when(userRepository.findById(3L)).thenReturn(Optional.of(charlie));
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        TripShare shareBob = new TripShare();
+        shareBob.setStatus(ShareStatus.ACCEPTED);
+        shareBob.setSharedWithUser(bob);
+
+        TripShare shareCharlie = new TripShare();
+        shareCharlie.setStatus(ShareStatus.ACCEPTED);
+        shareCharlie.setSharedWithUser(charlie);
+
+        when(tripShareRepository.findByTripId(10L)).thenReturn(List.of(shareBob, shareCharlie));
+        when(groupRepository.findByTripIdWithDetails(10L)).thenReturn(Collections.emptyList());
         when(expenseSplitRepository.save(any(ExpenseSplit.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         List<ExpenseSplit> splits = expenseSplitService.splitExpense(expense, List.of(1L, 2L, 3L), alice.getId());
@@ -218,5 +228,117 @@ class ExpenseSplitServiceTest {
         assertThrows(BadRequestException.class, () -> {
             expenseSplitService.settleDebt(77L, bob.getId());
         });
+    }
+
+    @Test
+    @DisplayName("splitExpense throws BadRequestException when a split recipient is not an active trip member")
+    void testSplitExpense_UnauthorizedSplitRecipient_ThrowsBadRequestException() {
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(tripShareRepository.findByTripId(10L)).thenReturn(Collections.emptyList());
+        when(groupRepository.findByTripIdWithDetails(10L)).thenReturn(Collections.emptyList());
+
+        // Trip only has Alice. Split includes Bob (2L) who is not an active member.
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                expenseSplitService.splitExpense(expense, List.of(1L, 2L), alice.getId())
+        );
+
+        assertEquals("One or more split participants are not active members of this trip", ex.getMessage());
+        // Verify atomicity: no splits deleted or saved
+        verify(expenseSplitRepository, never()).deleteByExpenseId(any());
+        verify(expenseSplitRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("splitExpense throws BadRequestException when payer is not an active trip member")
+    void testSplitExpense_UnauthorizedPayer_ThrowsBadRequestException() {
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(tripShareRepository.findByTripId(10L)).thenReturn(Collections.emptyList());
+        when(groupRepository.findByTripIdWithDetails(10L)).thenReturn(Collections.emptyList());
+
+        // Trip only has Alice. Payer is 999L who is not an active member.
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                expenseSplitService.splitExpense(expense, List.of(1L), 999L)
+        );
+
+        assertEquals("Payer is not an active member of this trip", ex.getMessage());
+        verify(expenseSplitRepository, never()).deleteByExpenseId(any());
+        verify(expenseSplitRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("splitExpense deduplicates splitUserIds before calculating shares")
+    void testSplitExpense_DuplicateSplitUserIds_DeduplicatesCorrectly() {
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        TripShare shareBob = new TripShare();
+        shareBob.setStatus(ShareStatus.ACCEPTED);
+        shareBob.setSharedWithUser(bob);
+        when(tripShareRepository.findByTripId(10L)).thenReturn(List.of(shareBob));
+        when(groupRepository.findByTripIdWithDetails(10L)).thenReturn(Collections.emptyList());
+        when(expenseSplitRepository.save(any(ExpenseSplit.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Pass duplicates: Alice, Bob, Alice, Bob
+        List<ExpenseSplit> splits = expenseSplitService.splitExpense(expense, List.of(1L, 2L, 1L, 2L), alice.getId());
+
+        assertEquals(2, splits.size());
+        assertEquals(new BigDecimal("50.00"), splits.get(0).getAmount());
+        assertEquals(new BigDecimal("50.00"), splits.get(1).getAmount());
+    }
+
+    @Test
+    @DisplayName("splitExpense falls back to all active trip members when splitUserIds is null or empty")
+    void testSplitExpense_NullOrEmptySplitUserIds_DefaultsToActiveTripMembers() {
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        TripShare shareBob = new TripShare();
+        shareBob.setStatus(ShareStatus.ACCEPTED);
+        shareBob.setSharedWithUser(bob);
+        when(tripShareRepository.findByTripId(10L)).thenReturn(List.of(shareBob));
+        when(groupRepository.findByTripIdWithDetails(10L)).thenReturn(Collections.emptyList());
+        when(expenseSplitRepository.save(any(ExpenseSplit.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<ExpenseSplit> splits = expenseSplitService.splitExpense(expense, null, alice.getId());
+
+        assertEquals(2, splits.size());
+        assertEquals(new BigDecimal("50.00"), splits.get(0).getAmount());
+        assertEquals(new BigDecimal("50.00"), splits.get(1).getAmount());
+    }
+
+    @Test
+    @DisplayName("getSplitsByExpenseId returns splits when user has trip access")
+    void testGetSplitsByExpenseId_AuthorizedUser_ReturnsSplits() {
+        when(expenseRepository.findById(100L)).thenReturn(Optional.of(expense));
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+
+        ExpenseSplit split = new ExpenseSplit(1L, expense, alice, new BigDecimal("50.00"), true, null);
+        when(expenseSplitRepository.findByExpenseIdWithUser(100L)).thenReturn(List.of(split));
+
+        List<ExpenseSplitResponse> responses = expenseSplitService.getSplitsByExpenseId(100L, alice.getId());
+
+        assertNotNull(responses);
+        assertEquals(1, responses.size());
+        assertEquals(alice.getId(), responses.get(0).getUserId());
+        assertEquals(new BigDecimal("50.00"), responses.get(0).getAmount());
+    }
+
+    @Test
+    @DisplayName("getSplitsByExpenseId throws ResourceNotFoundException when expense does not exist")
+    void testGetSplitsByExpenseId_NonExistentExpense_ThrowsResourceNotFoundException() {
+        when(expenseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                expenseSplitService.getSplitsByExpenseId(999L, alice.getId())
+        );
+    }
+
+    @Test
+    @DisplayName("getSplitsByExpenseId throws UnauthorizedAccessException when user has no trip access")
+    void testGetSplitsByExpenseId_UnauthorizedUser_ThrowsUnauthorizedAccessException() {
+        when(expenseRepository.findById(100L)).thenReturn(Optional.of(expense));
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(tripShareService.hasAccess(10L, 999L)).thenReturn(false);
+        when(groupRepository.existsByTripIdAndMembersId(10L, 999L)).thenReturn(false);
+
+        assertThrows(UnauthorizedAccessException.class, () ->
+                expenseSplitService.getSplitsByExpenseId(100L, 999L)
+        );
     }
 }

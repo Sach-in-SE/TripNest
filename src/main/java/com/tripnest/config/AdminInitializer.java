@@ -44,8 +44,8 @@ public class AdminInitializer implements CommandLineRunner {
     public void run(String... args) throws Exception {
         boolean isProd = environment != null && java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod");
         if (isProd) {
-            if (adminPassword == null || adminPassword.trim().isEmpty() || "DevAdminPassword123!".equals(adminPassword)) {
-                throw new IllegalStateException("CRITICAL SECURITY ERROR: In production profile, a secure ADMIN_PASSWORD environment variable (non-default) MUST be provided!");
+            if (adminPassword == null || adminPassword.trim().isEmpty() || "DevAdminPassword123!".equals(adminPassword) || adminPassword.length() < 8) {
+                throw new IllegalStateException("CRITICAL SECURITY ERROR: In production profile, a secure ADMIN_PASSWORD environment variable (minimum 8 characters, non-default) MUST be provided!");
             }
         }
 

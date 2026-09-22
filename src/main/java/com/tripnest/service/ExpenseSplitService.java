@@ -58,25 +58,45 @@ public class ExpenseSplitService {
             throw new BadRequestException("Expense must be persisted before splitting");
         }
 
+        if (expense.getTrip() == null || expense.getTrip().getId() == null) {
+            throw new BadRequestException("Expense is not associated with any trip");
+        }
+
         Long tripId = expense.getTrip().getId();
+        List<User> activeTripUsers = getActiveTripUsers(tripId);
+        Map<Long, User> activeUserMap = activeTripUsers.stream()
+                .filter(u -> u.getId() != null)
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+
+        if (payerId != null && !activeUserMap.containsKey(payerId)) {
+            throw new BadRequestException("Payer is not an active member of this trip");
+        }
+
         List<User> targetMembers = new ArrayList<>();
 
         if (splitUserIds != null && !splitUserIds.isEmpty()) {
             List<Long> distinctIds = splitUserIds.stream().distinct().collect(Collectors.toList());
             for (Long uid : distinctIds) {
-                userRepository.findById(uid).ifPresent(targetMembers::add);
+                if (uid == null) {
+                    throw new BadRequestException("One or more split participants are not active members of this trip");
+                }
+                User member = activeUserMap.get(uid);
+                if (member == null) {
+                    throw new BadRequestException("One or more split participants are not active members of this trip");
+                }
+                targetMembers.add(member);
             }
-        }
-
-        // Fallback: If no split users specified, default to all active trip members
-        if (targetMembers.isEmpty()) {
-            targetMembers = getActiveTripUsers(tripId);
+        } else {
+            // Fallback: If no split users specified, default to all active trip members
+            targetMembers = new ArrayList<>(activeTripUsers);
         }
 
         // Secondary Fallback: If still empty, use the payer/creator
         if (targetMembers.isEmpty()) {
-            userRepository.findById(payerId != null ? payerId : expense.getUser().getId())
-                    .ifPresent(targetMembers::add);
+            Long fallbackUserId = payerId != null ? payerId : (expense.getUser() != null ? expense.getUser().getId() : null);
+            if (fallbackUserId != null) {
+                userRepository.findById(fallbackUserId).ifPresent(targetMembers::add);
+            }
         }
 
         // Delete existing splits for this expense
@@ -418,7 +438,16 @@ public class ExpenseSplitService {
         );
     }
 
-    public List<ExpenseSplitResponse> getSplitsByExpenseId(Long expenseId) {
+    public List<ExpenseSplitResponse> getSplitsByExpenseId(Long expenseId, Long currentUserId) {
+        Expense expense = expenseRepository.findById(expenseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense", "id", expenseId));
+
+        if (expense.getTrip() == null || expense.getTrip().getId() == null) {
+            throw new BadRequestException("Expense is not associated with any trip");
+        }
+
+        validateTripAccess(expense.getTrip().getId(), currentUserId);
+
         return expenseSplitRepository.findByExpenseIdWithUser(expenseId)
                 .stream()
                 .map(s -> new ExpenseSplitResponse(
@@ -433,12 +462,14 @@ public class ExpenseSplitService {
                 .collect(Collectors.toList());
     }
 
-    private List<User> getActiveTripUsers(Long tripId) {
+    List<User> getActiveTripUsers(Long tripId) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip", "id", tripId));
 
         Map<Long, User> userMap = new LinkedHashMap<>();
-        userMap.put(trip.getUser().getId(), trip.getUser());
+        if (trip.getUser() != null) {
+            userMap.put(trip.getUser().getId(), trip.getUser());
+        }
 
         List<TripShare> shares = tripShareRepository.findByTripId(tripId);
         for (TripShare share : shares) {
@@ -466,7 +497,7 @@ public class ExpenseSplitService {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip", "id", tripId));
 
-        boolean isOwner = trip.getUser().getId().equals(userId);
+        boolean isOwner = trip.getUser() != null && trip.getUser().getId().equals(userId);
         boolean hasAccess = tripShareService.hasAccess(tripId, userId);
         boolean isGroupMember = groupRepository.existsByTripIdAndMembersId(tripId, userId);
 

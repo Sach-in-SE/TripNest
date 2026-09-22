@@ -16,7 +16,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tripnest_db}
       POSTGRES_USER: ${POSTGRES_USER:-tripnest_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tripnest_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be provided in production}
 
     volumes:
       - tripnest-postgres-data:/var/lib/postgresql/data
@@ -54,14 +54,14 @@ services:
       # Production PostgreSQL Datasource Configuration
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://tripnest-postgres:5432/tripnest_db?sslmode=disable}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-tripnest_user}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-tripnest_password}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be provided in production}}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:-org.postgresql.Driver}
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: ${SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT:-org.hibernate.dialect.PostgreSQLDialect}
 
       # Flyway & Hibernate Settings
       SPRING_FLYWAY_ENABLED: ${SPRING_FLYWAY_ENABLED:-true}
 
-      JWT_SECRET: ${JWT_SECRET:-d9f83a21e4c7b80562e148a0f9b37c2e5d1a8f9c0e4b7a2d6f8e1c3b5a7d9e2f}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided in production}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
 
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
@@ -71,7 +71,7 @@ services:
 
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@tripnest.com}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPassword123!}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD must be provided in production}
 
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}

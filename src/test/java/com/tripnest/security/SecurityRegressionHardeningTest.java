@@ -3,6 +3,7 @@ package com.tripnest.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tripnest.dto.*;
 import com.tripnest.entity.*;
+import com.tripnest.model.ExpenseSplit;
 import com.tripnest.repository.*;
 import com.tripnest.service.*;
 import com.tripnest.tripnest.TripnestApplication;
@@ -18,6 +19,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -72,6 +74,9 @@ public class SecurityRegressionHardeningTest {
     private ExpenseRepository expenseRepository;
 
     @MockitoBean
+    private ExpenseSplitRepository expenseSplitRepository;
+
+    @MockitoBean
     private NotificationRepository notificationRepository;
 
     @MockitoBean
@@ -90,6 +95,7 @@ public class SecurityRegressionHardeningTest {
     private User attackerUser;
     private User adminUser;
     private Trip victimTrip;
+    private Expense victimExpense;
 
     private UserDetailsImpl victimPrincipal;
     private UserDetailsImpl attackerPrincipal;
@@ -120,6 +126,13 @@ public class SecurityRegressionHardeningTest {
         victimTrip.setUser(victimUser);
         victimTrip.setStartDate(LocalDate.now());
         victimTrip.setEndDate(LocalDate.now().plusDays(5));
+
+        victimExpense = new Expense();
+        victimExpense.setId(200L);
+        victimExpense.setTitle("Museum Tickets");
+        victimExpense.setAmount(100.0);
+        victimExpense.setTrip(victimTrip);
+        victimExpense.setUser(victimUser);
 
         victimPrincipal = new UserDetailsImpl(
                 victimUser.getId(),
@@ -493,5 +506,61 @@ public class SecurityRegressionHardeningTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Error: Disposable email addresses are not allowed. Please use a permanent email address."));
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // 10. Expense Splits Authorization & IDOR Hardening (GET /api/expenses/{expenseId}/splits)
+    // ---------------------------------------------------------------------------------------------
+    @Test
+    @DisplayName("Splits Security: Unauthenticated request to get expense splits returns 401 Unauthorized")
+    void testGetExpenseSplits_Unauthenticated_Returns401() throws Exception {
+        mockMvc.perform(get("/api/expenses/200/splits"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Splits Security: Request for nonexistent expense returns 404 Not Found")
+    void testGetExpenseSplits_NonExistentExpense_Returns404() throws Exception {
+        when(expenseRepository.findById(9999L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/expenses/9999/splits")
+                        .with(user(victimPrincipal)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    @DisplayName("Splits Security: Attacker querying victim's expense splits returns 403 Forbidden")
+    void testGetExpenseSplits_UnauthorizedAttacker_Returns403() throws Exception {
+        when(expenseRepository.findById(200L)).thenReturn(Optional.of(victimExpense));
+        when(tripRepository.findById(100L)).thenReturn(Optional.of(victimTrip));
+        when(tripShareService.hasAccess(100L, 99L)).thenReturn(false);
+        when(groupRepository.existsByTripIdAndMembersId(100L, 99L)).thenReturn(false);
+
+        mockMvc.perform(get("/api/expenses/200/splits")
+                        .with(user(attackerPrincipal)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    @Test
+    @DisplayName("Splits Security: Authorized trip owner querying expense splits returns 200 OK")
+    void testGetExpenseSplits_AuthorizedOwner_Returns200() throws Exception {
+        when(expenseRepository.findById(200L)).thenReturn(Optional.of(victimExpense));
+        when(tripRepository.findById(100L)).thenReturn(Optional.of(victimTrip));
+        ExpenseSplit split = new ExpenseSplit();
+        split.setId(1L);
+        split.setExpense(victimExpense);
+        split.setUser(victimUser);
+        split.setAmount(new BigDecimal("100.00"));
+        split.setSettled(true);
+
+        when(expenseSplitRepository.findByExpenseIdWithUser(200L)).thenReturn(List.of(split));
+
+        mockMvc.perform(get("/api/expenses/200/splits")
+                        .with(user(victimPrincipal)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].userId").value(10L))
+                .andExpect(jsonPath("$[0].amount").value(100.00));
     }
 }

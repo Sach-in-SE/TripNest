@@ -44,12 +44,23 @@ public class ExpenseSplitController {
 
     @GetMapping("/expenses/{expenseId}/splits")
     public ResponseEntity<List<ExpenseSplitResponse>> getExpenseSplits(@PathVariable Long expenseId) {
-        List<ExpenseSplitResponse> splits = expenseSplitService.getSplitsByExpenseId(expenseId);
+        UserDetailsImpl currentUser = getCurrentUser();
+        List<ExpenseSplitResponse> splits = expenseSplitService.getSplitsByExpenseId(expenseId, currentUser.getId());
         return ResponseEntity.ok(splits);
     }
 
     private UserDetailsImpl getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (UserDetailsImpl) authentication.getPrincipal();
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED, "Authenticated principal is missing");
+        }
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserDetailsImpl)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED,
+                    "Authenticated principal is invalid: " + principal.getClass().getName());
+        }
+        return (UserDetailsImpl) principal;
     }
 }

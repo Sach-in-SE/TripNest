@@ -329,10 +329,10 @@ The easiest way to run TripNest is using the multi-container Docker Compose conf
    ```
 
 2. **Create your environment file:**
-   Create a `.env` file in the root directory (alongside `docker-compose.yml`) containing the required configuration:
+   Create a `.env` file in the root directory (alongside `docker-compose.yml` or `docker-compose.prod.yml`) containing the required configuration:
    ```env
-   MYSQL_ROOT_PASSWORD=your_root_password
-   MYSQL_PASSWORD=your_db_password
+   POSTGRES_PASSWORD=your_secure_db_password
+   SPRING_DATASOURCE_PASSWORD=your_secure_db_password
    JWT_SECRET=your_secure_random_jwt_secret_at_least_32_chars_long
    ADMIN_EMAIL=admin@tripnest.com
    ADMIN_USERNAME=admin
@@ -412,16 +412,17 @@ The application is fully configurable through environment variables.
 
 | Variable Name | Required | Default / Example | Purpose |
 |---|---|---|---|
-| `SPRING_DATASOURCE_URL` | Yes | `jdbc:mysql://localhost:3306/tripnest_db` | JDBC connection URL for MySQL |
-| `SPRING_DATASOURCE_USERNAME` | Yes | `root` | Database username |
-| `SPRING_DATASOURCE_PASSWORD` | Yes | — | Database user password |
-| `JWT_SECRET` | Yes (in Prod) | *Development fallback* | Cryptographic signing key for JWT tokens |
+| `POSTGRES_PASSWORD` | **Mandatory (Prod)** | — | PostgreSQL database password (required in production; no default fallback) |
+| `SPRING_DATASOURCE_URL` | Yes | `jdbc:mysql://localhost:3306/tripnest_db` | JDBC connection URL (PostgreSQL in production, MySQL in dev) |
+| `SPRING_DATASOURCE_USERNAME` | Yes | `root` / `postgres` | Database username |
+| `SPRING_DATASOURCE_PASSWORD` | **Mandatory (Prod)** | — | Database user password (defaults to `POSTGRES_PASSWORD` in Compose; required in prod) |
+| `JWT_SECRET` | **Mandatory (Prod)** | *Dev fallback (non-prod only)* | Cryptographic signing key for JWT tokens (minimum 32 characters; no prod fallback) |
 | `JWT_EXPIRATION_MS` | No | `86400000` (24 Hours) | JWT token validity duration in milliseconds |
 | `FRONTEND_URL` | No | `http://localhost:5173` | Base frontend URL for redirects and email links |
 | `CORS_ALLOWED_ORIGINS` | No | `http://localhost:5173,http://localhost:5174` | Comma-separated list of allowed CORS origins |
 | `ADMIN_EMAIL` | No | `admin@tripnest.com` | Email for the auto-provisioned administrator |
 | `ADMIN_USERNAME` | No | `admin` | Username for the auto-provisioned administrator |
-| `ADMIN_PASSWORD` | No | *Dev default* | Password for the auto-provisioned administrator |
+| `ADMIN_PASSWORD` | **Mandatory (Prod)** | *Dev fallback (non-prod only)* | Password for auto-provisioned administrator (minimum 8 characters; no prod fallback) |
 | `GOOGLE_CLIENT_ID` | Optional | — | Google Cloud OAuth2 Client ID |
 | `GOOGLE_CLIENT_SECRET` | Optional | — | Google Cloud OAuth2 Client Secret |
 | `SMTP_HOST` | Optional | `smtp.gmail.com` | SMTP host for outgoing email notifications |

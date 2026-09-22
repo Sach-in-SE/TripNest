@@ -35,6 +35,9 @@ class AdminInitializerTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private org.springframework.core.env.Environment environment;
+
     @InjectMocks
     private AdminInitializer adminInitializer;
 
@@ -42,6 +45,7 @@ class AdminInitializerTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(environment.getActiveProfiles()).thenReturn(new String[]{"dev"});
         ReflectionTestUtils.setField(adminInitializer, "adminEmail", "customadmin@tripnest.com");
         ReflectionTestUtils.setField(adminInitializer, "adminUsername", "customadmin");
         ReflectionTestUtils.setField(adminInitializer, "adminPassword", "SecretEnvPassword123!");
@@ -117,5 +121,54 @@ class AdminInitializerTest {
         adminInitializer.run();
 
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void testRun_WhenProdProfile_AndAdminPasswordNull_ThrowsIllegalStateException() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        ReflectionTestUtils.setField(adminInitializer, "adminPassword", null);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> adminInitializer.run());
+        assertTrue(ex.getMessage().contains("ADMIN_PASSWORD"));
+    }
+
+    @Test
+    void testRun_WhenProdProfile_AndAdminPasswordEmpty_ThrowsIllegalStateException() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        ReflectionTestUtils.setField(adminInitializer, "adminPassword", "   ");
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> adminInitializer.run());
+        assertTrue(ex.getMessage().contains("ADMIN_PASSWORD"));
+    }
+
+    @Test
+    void testRun_WhenProdProfile_AndAdminPasswordIsDevDefault_ThrowsIllegalStateException() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        ReflectionTestUtils.setField(adminInitializer, "adminPassword", "DevAdminPassword123!");
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> adminInitializer.run());
+        assertTrue(ex.getMessage().contains("ADMIN_PASSWORD"));
+    }
+
+    @Test
+    void testRun_WhenProdProfile_AndAdminPasswordTooShort_ThrowsIllegalStateException() {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        ReflectionTestUtils.setField(adminInitializer, "adminPassword", "short1!");
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> adminInitializer.run());
+        assertTrue(ex.getMessage().contains("minimum 8 characters"));
+    }
+
+    @Test
+    void testRun_WhenProdProfile_AndAdminPasswordSecure_Succeeds() throws Exception {
+        when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
+        ReflectionTestUtils.setField(adminInitializer, "adminPassword", "AStrongSecureProdPassword2026!");
+        when(userRepository.findByEmailIgnoreCase("customadmin@tripnest.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("customadmin@tripnest.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("customadmin")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("AStrongSecureProdPassword2026!")).thenReturn("encodedProdPassword");
+
+        assertDoesNotThrow(() -> adminInitializer.run());
+        verify(userRepository).save(any(User.class));
     }
 }
