@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import CollaboratorModal from "../components/CollaboratorModal";
+import TripCard from "../components/trips/TripCard";
 import api from "../services/api";
 
 const Trips = () => {
@@ -65,56 +66,13 @@ const Trips = () => {
         ) : (
           <div style={styles.tripsGrid}>
             {trips.map((trip) => (
-              <div key={trip.id} style={styles.tripCard} className="glass-card">
-                <div style={styles.tripCardHeader}>
-                  <span style={{ fontSize: "28px" }}>🌍</span>
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    {trip.permission && trip.permission !== "OWNER" && (
-                      <span className="badge" style={{ background: "rgba(167, 139, 250, 0.15)", color: "#a78bfa" }}>
-                        🤝 Shared ({trip.permission})
-                      </span>
-                    )}
-                    <span className={`badge badge-${trip.status.toLowerCase()}`}>{trip.status}</span>
-                  </div>
-                </div>
-                <h3 style={styles.tripTitle}>{trip.title}</h3>
-                <p style={styles.tripDest}>📍 {trip.destination}</p>
-                {trip.description && <p style={styles.tripDesc}>{trip.description}</p>}
-                <div style={styles.tripMeta}>
-                  {trip.startDate && trip.endDate && (
-                    <span style={styles.metaItem}>📅 {trip.startDate} → {trip.endDate}</span>
-                  )}
-                  {trip.startDate && !trip.endDate && (
-                    <span style={styles.metaItem}>📅 {trip.startDate}</span>
-                  )}
-                  <span style={styles.metaItem}>👥 {trip.numberOfTravelers}</span>
-                  {trip.budget && <span style={styles.metaItem}>💰 ₹{trip.budget.toLocaleString()}</span>}
-                </div>
-                <div style={styles.tripActions}>
-                  <button className="btn-compact" onClick={() => navigate(`/itineraries/${trip.id}`)}>
-                    👁 View
-                  </button>
-                  {(!trip.permission || trip.permission === "OWNER" || trip.permission === "EDIT") && (
-                    <button className="btn-compact" onClick={() => handleEdit(trip)}>
-                      ✏️ Edit
-                    </button>
-                  )}
-                  {(!trip.permission || trip.permission === "OWNER") && (
-                    <button
-                      className="btn-compact"
-                      onClick={() => setCollaboratorTrip(trip)}
-                      title="Share and collaborate"
-                    >
-                      🤝 Share
-                    </button>
-                  )}
-                  {(!trip.permission || trip.permission === "OWNER") && (
-                    <button className="btn-compact danger" onClick={() => handleDelete(trip.id)}>
-                      🗑️ Delete
-                    </button>
-                  )}
-                </div>
-              </div>
+              <TripCard
+                key={trip.id}
+                trip={trip}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onShare={setCollaboratorTrip}
+              />
             ))}
           </div>
         )}

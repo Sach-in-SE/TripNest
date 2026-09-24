@@ -26,9 +26,9 @@
   --gradient-aurora: var(--tn-brand-gradient, linear-gradient(135deg, #7c3aed, #2563eb, #06b6d4));
   --gradient-card: var(--tn-gradient-subtle, linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(6, 182, 212, 0.05)));
 
-  --text-primary: var(--tn-text-primary, #f1f5f9);
-  --text-secondary: var(--tn-text-secondary, #94a3b8);
-  --text-muted: var(--tn-text-muted, #64748b);
+  --text-primary: var(--tn-text-primary, #ffffff);
+  --text-secondary: var(--tn-text-secondary, #cbd5e1);
+  --text-muted: var(--tn-text-muted, #94a3b8);
 
   --success: #10b981;
   --warning: #f59e0b;
@@ -81,11 +81,13 @@ body::before {
   transition: background 0.5s ease;
 }
 
+[data-theme="emerald"] body::before,
+[data-theme="obsidian"] body::before,
 [data-theme="premium"] body::before {
   background:
     radial-gradient(ellipse at 20% 20%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(13, 148, 136, 0.04) 0%, transparent 70%);
+    radial-gradient(ellipse at 80% 80%, rgba(13, 148, 136, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(5, 150, 105, 0.04) 0%, transparent 70%);
 }
 
 #root {
@@ -111,6 +113,8 @@ body::before {
   background: rgba(124, 58, 237, 0.4);
   border-radius: 3px;
 }
+[data-theme="emerald"] ::-webkit-scrollbar-thumb,
+[data-theme="obsidian"] ::-webkit-scrollbar-thumb,
 [data-theme="premium"] ::-webkit-scrollbar-thumb {
   background: rgba(16, 185, 129, 0.4);
 }
@@ -284,6 +288,15 @@ select.aurora-input option:focus,
 select.aurora-input option:checked {
   background: var(--aurora-1);
   color: #ffffff;
+}
+
+/* Emerald / Obsidian Theme Focus Styles */
+[data-theme="emerald"] .aurora-input:focus,
+[data-theme="obsidian"] .aurora-input:focus,
+[data-theme="premium"] .aurora-input:focus {
+  border-color: var(--tn-brand-primary);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+  background: rgba(16, 185, 129, 0.05);
 }
 
 /* Gradient Text */

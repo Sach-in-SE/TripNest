@@ -141,8 +141,8 @@ const DestinationExperiences = () => {
       ) : experiences.length === 0 ? (
         <div style={styles.emptyState} className="glass-card">
           <span style={{ fontSize: "56px", marginBottom: "12px" }}>📸</span>
-          <h3 style={{ color: "#f1f5f9", margin: "8px 0" }}>No Traveler Stories Yet</h3>
-          <p style={{ color: "#94a3b8", maxWidth: "420px", fontSize: "14px", lineHeight: "1.6", marginBottom: "20px" }}>
+          <h3 style={{ color: "var(--text-primary, #ffffff)", margin: "8px 0" }}>No Traveler Stories Yet</h3>
+          <p style={{ color: "var(--text-secondary, #cbd5e1)", maxWidth: "420px", fontSize: "14px", lineHeight: "1.6", marginBottom: "20px" }}>
             Be the very first traveler to share your authentic photos and memorable moments from visiting {destination?.name || "this destination"}.
           </p>
           <button className="btn-aurora" onClick={handleShareExperience}>
@@ -260,20 +260,20 @@ const styles = {
   topNavRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "12px" },
   headerCard: { padding: "24px", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: "16px", marginBottom: "24px" },
   headerIcon: { fontSize: "36px", background: "rgba(56,189,248,0.12)", padding: "14px", borderRadius: "14px" },
-  headerTitle: { fontSize: "24px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", margin: "0 0 4px 0" },
-  headerSubtitle: { color: "#94a3b8", fontSize: "14px", margin: 0 },
+  headerTitle: { fontSize: "24px", fontWeight: "700", color: "var(--text-primary, #ffffff)", fontFamily: "'Space Grotesk', sans-serif", margin: "0 0 4px 0" },
+  headerSubtitle: { color: "var(--text-secondary, #cbd5e1)", fontSize: "14px", margin: 0 },
   errorBanner: { padding: "14px 18px", borderRadius: "10px", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.2)", color: "#fca5a5", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", fontSize: "14px" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" },
   card: { padding: "20px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", gap: "12px" },
   authorRow: { display: "flex", alignItems: "center", gap: "10px" },
   avatar: { width: "36px", height: "36px", borderRadius: "50%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "700" },
-  authorName: { color: "#f1f5f9", fontSize: "14px", fontWeight: "600", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  authorName: { color: "var(--text-primary, #ffffff)", fontSize: "14px", fontWeight: "600", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   date: { color: "#64748b", fontSize: "11px" },
-  locationBadge: { fontSize: "11px", color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "2px 8px", borderRadius: "4px", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  locationBadge: { fontSize: "11px", color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "2px 6px", borderRadius: "4px", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   imgWrapper: { width: "100%", height: "200px", borderRadius: "10px", overflow: "hidden", background: "rgba(255,255,255,0.02)" },
   img: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-  title: { color: "#f1f5f9", fontSize: "16px", fontWeight: "600", margin: 0, lineHeight: "1.4" },
-  caption: { color: "#cbd5e1", fontSize: "13px", lineHeight: "1.6", margin: 0, whiteSpace: "pre-wrap" },
+  title: { color: "var(--text-primary, #ffffff)", fontSize: "16px", fontWeight: "600", margin: 0, lineHeight: "1.4" },
+  caption: { color: "var(--text-secondary, #cbd5e1)", fontSize: "13px", lineHeight: "1.6", margin: 0, whiteSpace: "pre-wrap" },
   tripBadge: { marginTop: "auto", paddingTop: "8px", borderTop: "1px dashed rgba(255,255,255,0.06)", fontSize: "11px", color: "#a78bfa" },
   emptyState: { padding: "60px 24px", textAlign: "center", borderRadius: "16px", border: "1px dashed rgba(255,255,255,0.1)", display: "flex", flexDirection: "column", alignItems: "center" },
   paginationRow: { display: "flex", justifyContent: "center", alignItems: "center", gap: "16px", marginTop: "32px", padding: "16px 0" },

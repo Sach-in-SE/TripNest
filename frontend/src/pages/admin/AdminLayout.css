@@ -588,20 +588,37 @@
   font-size: 0.9rem;
 }
 
-.admin-select {
-  padding: 0.6rem 1rem;
-  background: #0f172a;
+.admin-select,
+.admin-filter-select {
+  padding: 0.6rem 2.25rem 0.6rem 1rem;
+  background-color: #0f172a;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.15em 1.15em;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   color: #f8fafc;
   font-size: 0.875rem;
-  min-width: 150px;
+  min-width: 160px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.admin-select:focus {
+.admin-select:focus,
+.admin-filter-select:focus {
   outline: none;
   border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.admin-select option,
+.admin-filter-select option {
+  background-color: #0f172a;
+  color: #f8fafc;
 }
 
 /* Table Layout */
@@ -807,7 +824,8 @@
   margin-bottom: 1.5rem;
 }
 
-.admin-modal-actions {
+.admin-modal-actions,
+.admin-modal-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -816,7 +834,9 @@
   padding-top: 1rem;
 }
 
-.admin-btn-secondary {
+.admin-btn-secondary,
+.btn-secondary,
+.admin-modal-btn.cancel {
   padding: 0.5rem 1.25rem;
   background: rgba(148, 163, 184, 0.15);
   color: #cbd5e1;
@@ -825,21 +845,50 @@
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.admin-btn-secondary:hover { background: rgba(148, 163, 184, 0.3); color: #ffffff; }
+.admin-btn-secondary:hover,
+.btn-secondary:hover,
+.admin-modal-btn.cancel:hover {
+  background: rgba(148, 163, 184, 0.3);
+  color: #ffffff;
+}
 
-.admin-btn-primary {
+.admin-btn-primary,
+.btn-primary,
+.admin-modal-btn.save {
   padding: 0.5rem 1.25rem;
-  background: #6366f1;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: #ffffff;
   border: none;
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
-.admin-btn-primary:hover { background: #4f46e5; }
-.admin-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.admin-btn-primary:hover,
+.btn-primary:hover,
+.admin-modal-btn.save:hover {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.45);
+}
+.admin-btn-primary:disabled,
+.btn-primary:disabled,
+.admin-modal-btn.save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 
 /* Warning Box & Temp Password Box */
 .admin-warning-box {

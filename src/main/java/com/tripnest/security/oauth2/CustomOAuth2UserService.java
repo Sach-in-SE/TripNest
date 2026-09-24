@@ -30,6 +30,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired(required = false)
+    private com.tripnest.service.NotificationService notificationService;
+
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         OAuth2User oAuth2User = super.loadUser(userRequest);
@@ -63,7 +66,14 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             roles.add(defaultRole);
             user.setRoles(roles);
 
-            userRepository.save(user);
+            User savedOAuthUser = userRepository.save(user);
+            if (notificationService != null) {
+                try {
+                    notificationService.createDefaultPreferences(savedOAuthUser);
+                } catch (Exception ignored) {
+                    // Non-blocking
+                }
+            }
         }
 
         return oAuth2User;

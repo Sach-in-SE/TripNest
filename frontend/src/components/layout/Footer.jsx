@@ -28,7 +28,7 @@ export const Footer = () => {
               <span className="tn-footer-logo-text">TripNest</span>
             </Link>
             <p className="tn-footer-tagline">
-              Smart travel planning made simple.
+              Smart travel planning made simple. Live weather forecasts, verified destination guides, expense splitting, and collaborative itineraries.
             </p>
           </div>
 
@@ -96,6 +96,7 @@ export const Footer = () => {
           <p className="tn-footer-copyright">
             © {new Date().getFullYear()} TripNest. All rights reserved.
           </p>
+
           <div className="tn-footer-status">
             <span className="tn-status-indicator" aria-hidden="true" />
             <span>Open-Meteo & Wikipedia Verified Data</span>

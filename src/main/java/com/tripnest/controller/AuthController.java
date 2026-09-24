@@ -62,11 +62,15 @@ public class AuthController {
     @Autowired
     private OAuth2ExchangeCodeService oAuth2ExchangeCodeService;
 
+    @Autowired(required = false)
+    private com.tripnest.service.NotificationService notificationService;
+
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         String loginIdentifier = loginRequest.getUsername() != null ? loginRequest.getUsername().trim() : "";
-        User user = userRepository.findByUsernameIgnoreCase(loginIdentifier)
-                .orElseGet(() -> userRepository.findByEmailIgnoreCase(loginIdentifier).orElse(null));
+        User user = userRepository.findByUsernameOrEmailWithRoles(loginIdentifier)
+                .orElseGet(() -> userRepository.findByUsernameIgnoreCase(loginIdentifier)
+                        .orElseGet(() -> userRepository.findByEmailIgnoreCase(loginIdentifier).orElse(null)));
 
         if (user != null && user.isPasswordChangeRequired() && user.getTemporaryPasswordExpiry() != null) {
             if (java.time.LocalDateTime.now().isAfter(user.getTemporaryPasswordExpiry())) {
@@ -85,9 +89,27 @@ public class AuthController {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         String jwt = jwtUtils.generateJwtToken(userDetails.getUsername());
 
-        List<String> roles = (user != null && user.getRoles() != null && !user.getRoles().isEmpty())
-                ? user.getRoles().stream().map(r -> r.getName().name()).collect(Collectors.toList())
-                : userDetails.getAuthorities().stream().map(item -> item.getAuthority()).collect(Collectors.toList());
+        List<String> roles = new java.util.ArrayList<>();
+        try {
+            if (user != null && user.getRoles() != null && !user.getRoles().isEmpty()) {
+                roles = user.getRoles().stream()
+                        .filter(r -> r != null && r.getName() != null)
+                        .map(r -> r.getName().name())
+                        .collect(Collectors.toList());
+            }
+        } catch (Exception ignored) {
+            // Guard against uninitialized lazy collection or detached entity
+        }
+
+        if (roles.isEmpty() && userDetails != null && userDetails.getAuthorities() != null) {
+            roles = userDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList());
+        }
+
+        if (roles.isEmpty()) {
+            roles = List.of(ERole.ROLE_USER.name(), ERole.ROLE_TRAVELER.name());
+        }
 
         boolean passwordChangeRequired = (user != null) && user.isPasswordChangeRequired();
 
@@ -171,7 +193,15 @@ public class AuthController {
         Set<Role> roles = new HashSet<>();
         roles.add(roleEntity);
         user.setRoles(roles);
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        if (notificationService != null) {
+            try {
+                notificationService.createDefaultPreferences(savedUser);
+            } catch (Exception ignored) {
+                // Non-blocking preference initialization
+            }
+        }
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
@@ -217,14 +247,27 @@ public class AuthController {
                     .body(new MessageResponse("Error: Invalid or expired OAuth exchange code"));
         }
 
-        User user = userRepository.findByUsernameWithRoles(username)
-                .or(() -> userRepository.findByUsernameIgnoreCase(username))
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByUsernameOrEmailWithRoles(username)
+                .orElseGet(() -> userRepository.findByUsernameIgnoreCase(username)
+                        .orElseGet(() -> userRepository.findByEmailIgnoreCase(username)
+                                .orElseThrow(() -> new RuntimeException("User not found"))));
 
         String jwt = jwtUtils.generateJwtToken(user.getUsername());
-        List<String> roles = (user.getRoles() != null && !user.getRoles().isEmpty())
-                ? user.getRoles().stream().map(r -> r.getName().name()).collect(Collectors.toList())
-                : List.of(ERole.ROLE_USER.name());
+        List<String> roles = new java.util.ArrayList<>();
+        try {
+            if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+                roles = user.getRoles().stream()
+                        .filter(r -> r != null && r.getName() != null)
+                        .map(r -> r.getName().name())
+                        .collect(Collectors.toList());
+            }
+        } catch (Exception ignored) {
+            // Guard against uninitialized collection
+        }
+
+        if (roles.isEmpty()) {
+            roles = List.of(ERole.ROLE_USER.name(), ERole.ROLE_TRAVELER.name());
+        }
 
         return ResponseEntity.ok(new JwtResponse(jwt,
                 user.getId(),

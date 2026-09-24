@@ -26,6 +26,9 @@ public class TripRequest {
     private Double budget;
     private String status;
 
+    @Size(max = 1000)
+    private String coverImageUrl;
+
     @AssertTrue(message = "End date must be on or after start date")
     private boolean isEndDateValid() {
         if (startDate == null || endDate == null) {

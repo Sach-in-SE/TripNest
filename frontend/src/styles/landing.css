@@ -645,6 +645,8 @@
   box-shadow: 0 0 16px rgba(124, 58, 237, 0.35);
 }
 
+[data-theme="emerald"] .tn-filter-pill.active,
+[data-theme="obsidian"] .tn-filter-pill.active,
 [data-theme="premium"] .tn-filter-pill.active {
   box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
 }

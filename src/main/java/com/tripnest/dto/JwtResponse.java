@@ -10,8 +10,17 @@ public class JwtResponse {
     private Long id;
     private String username;
     private String email;
+    private String firstName;
+    private String lastName;
     private List<String> roles;
     private boolean passwordChangeRequired = false;
+
+    public String getRole() {
+        if (roles != null && !roles.isEmpty()) {
+            return roles.get(0);
+        }
+        return null;
+    }
 
     public JwtResponse() {
     }

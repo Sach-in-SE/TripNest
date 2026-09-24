@@ -18,6 +18,17 @@ const CATEGORY_FALLBACK_IMAGES = {
   Default: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80",
 };
 
+const resolveImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const apiBase = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
+    : (import.meta.env.PROD ? "" : "http://localhost:8080");
+  return `${apiBase}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 const DestinationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -56,6 +67,7 @@ const DestinationDetails = () => {
       if (!res.data?.weather?.available) {
         fetchWeatherProgressive();
       }
+      fetchExperiencesProgressive(res.data?.destination?.id || id);
     } catch (err) {
       if (!initialDest) {
         setError(err.response?.data?.message || "Destination not found or failed to load");
@@ -63,6 +75,36 @@ const DestinationDetails = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchExperiencesProgressive = async (destId) => {
+    const targetId = destId || id;
+    if (!targetId) return;
+    try {
+      const res = await api.get("/memories/public", {
+        params: { destinationId: targetId, isPublic: true },
+      });
+      const memories = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+      if (memories && memories.length > 0) {
+        setDetails((prev) => (prev ? { ...prev, travelerExperiences: memories } : prev));
+      } else {
+        const fallbackRes = await api.get(`/destinations/${targetId}/experiences`);
+        const fallbackMemories = fallbackRes.data?.content || (Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
+        if (fallbackMemories.length > 0) {
+          setDetails((prev) => (prev ? { ...prev, travelerExperiences: fallbackMemories } : prev));
+        }
+      }
+    } catch {
+      try {
+        const fallbackRes = await api.get(`/destinations/${targetId}/experiences`);
+        const fallbackMemories = fallbackRes.data?.content || (Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
+        if (fallbackMemories.length > 0) {
+          setDetails((prev) => (prev ? { ...prev, travelerExperiences: fallbackMemories } : prev));
+        }
+      } catch {
+        // Non-blocking
+      }
     }
   };
 
@@ -152,8 +194,8 @@ const DestinationDetails = () => {
     const errorView = (
       <div style={styles.errorState} className="glass-card">
         <span style={{ fontSize: "56px" }}>🧭</span>
-        <h2 style={{ color: "#f1f5f9", marginTop: "12px", marginBottom: "8px" }}>Destination Not Found</h2>
-        <p style={{ color: "#94a3b8", marginBottom: "20px", maxWidth: "420px" }}>
+        <h2 style={{ color: "var(--text-primary, #ffffff)", marginTop: "12px", marginBottom: "8px" }}>Destination Not Found</h2>
+        <p style={{ color: "var(--text-secondary, #cbd5e1)", marginBottom: "20px", maxWidth: "420px" }}>
           {error || "The destination you are looking for does not exist in the database or may have been removed."}
         </p>
         <button className="btn-aurora" onClick={() => navigate("/destinations")}>
@@ -316,8 +358,8 @@ const DestinationDetails = () => {
             ) : currentTabObj.items.length === 0 ? (
               <div style={styles.tabEmptyState}>
                 <span style={{ fontSize: "32px", marginBottom: "8px" }}>🔍</span>
-                <h4 style={{ color: "#f1f5f9", margin: "4px 0", fontSize: "15px" }}>No Places Found</h4>
-                <p style={{ color: "#94a3b8", fontSize: "13px", maxWidth: "360px", textAlign: "center" }}>
+                <h4 style={{ color: "var(--text-primary, #ffffff)", margin: "4px 0", fontSize: "15px" }}>No Places Found</h4>
+                <p style={{ color: "var(--text-secondary, #cbd5e1)", fontSize: "13px", maxWidth: "360px", textAlign: "center" }}>
                   No verified places found for {currentTabObj.label.toLowerCase()} within the immediate area of {destination.name}.
                 </p>
               </div>
@@ -407,95 +449,117 @@ const DestinationDetails = () => {
                 >
                   ➕ Share Experience
                 </button>
-                {details?.travelerExperiences && details.travelerExperiences.length > 0 && (
-                  <button
-                    className="btn-ghost"
-                    style={{ fontSize: "12px", padding: "6px 12px", color: "#38bdf8" }}
-                    onClick={() => navigate(`/destinations/${destination.id}/experiences`)}
-                  >
-                    View All →
-                  </button>
-                )}
+                {(() => {
+                  const publicExperiences = (details?.travelerExperiences || []).filter(
+                    (exp) => exp && exp.isPublic !== false && (!exp.visibility || exp.visibility === "PUBLIC")
+                  );
+                  return publicExperiences.length > 0 && (
+                    <button
+                      className="btn-ghost"
+                      style={{ fontSize: "12px", padding: "6px 12px", color: "#38bdf8" }}
+                      onClick={() => navigate(`/destinations/${destination.id}/experiences`)}
+                    >
+                      View All →
+                    </button>
+                  );
+                })()}
               </div>
             </div>
 
-            {(!details?.travelerExperiences || details.travelerExperiences.length === 0) ? (
-              <div style={styles.tabEmptyState}>
-                <span style={{ fontSize: "36px", marginBottom: "8px" }}>📸</span>
-                <h4 style={{ color: "#f1f5f9", margin: "4px 0", fontSize: "15px" }}>No Traveler Stories Yet</h4>
-                <p style={{ color: "#94a3b8", fontSize: "13px", maxWidth: "380px", textAlign: "center", marginBottom: "14px" }}>
-                  Be the first to share your journey and inspire others visiting {destination.name}.
-                </p>
-                <button
-                  className="btn-aurora"
-                  style={{ fontSize: "12px", padding: "8px 16px" }}
-                  onClick={() => {
-                    if (!localStorage.getItem("token")) {
-                      navigate("/login");
-                    } else {
-                      navigate(`/memories?destinationId=${destination.id}`);
-                    }
-                  }}
-                >
-                  Share Your Experience
-                </button>
-              </div>
-            ) : (
-              <div style={styles.experiencesGrid}>
-                {details.travelerExperiences.map((exp) => (
-                  <div key={exp.id} style={styles.experienceCard}>
-                    {/* Author Header */}
-                    <div style={styles.expAuthorRow}>
-                      <div style={styles.expAvatar}>
-                        {exp.userAvatarInitial || exp.userName?.substring(0, 1)?.toUpperCase() || "T"}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.expAuthorName} title={exp.userName}>
-                          {exp.userName || "Traveler"}
-                        </div>
-                        <div style={styles.expDate}>
-                          {exp.createdAt
-                            ? new Date(exp.createdAt).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })
-                            : "Recent"}
-                        </div>
-                      </div>
-                      {exp.locationName && (
-                        <span style={styles.expLocationBadge} title={exp.locationName}>
-                          📍 {exp.locationName}
-                        </span>
-                      )}
-                    </div>
+            {(() => {
+              const publicExperiences = (details?.travelerExperiences || []).filter(
+                (exp) => exp && exp.isPublic !== false && (!exp.visibility || exp.visibility === "PUBLIC")
+              );
 
-                    {/* Image Preview */}
-                    {exp.imageUrl && (
-                      <div style={styles.expImgWrapper}>
-                        <img
-                          src={exp.imageUrl}
-                          alt={exp.title}
-                          style={styles.expImg}
-                          loading="lazy"
-                          onError={(e) => {
-                            e.target.parentElement.style.display = "none";
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {/* Content */}
-                    <h4 style={styles.expTitle}>{exp.title}</h4>
-                    {exp.caption && (
-                      <p style={styles.expCaption} title={exp.caption}>
-                        {exp.caption}
-                      </p>
-                    )}
+              if (publicExperiences.length === 0) {
+                return (
+                  <div style={styles.tabEmptyState}>
+                    <span style={{ fontSize: "36px", marginBottom: "8px" }}>📸</span>
+                    <h4 style={{ color: "var(--text-primary, #ffffff)", margin: "4px 0", fontSize: "15px" }}>No Traveler Stories Yet</h4>
+                    <p style={{ color: "var(--text-secondary, #cbd5e1)", fontSize: "13px", maxWidth: "380px", textAlign: "center", marginBottom: "14px" }}>
+                      Be the first to share your journey and inspire others visiting {destination.name}.
+                    </p>
+                    <button
+                      className="btn-aurora"
+                      style={{ fontSize: "12px", padding: "8px 16px" }}
+                      onClick={() => {
+                        if (!localStorage.getItem("token")) {
+                          navigate("/login");
+                        } else {
+                          navigate(`/memories?destinationId=${destination.id}`);
+                        }
+                      }}
+                    >
+                      Share Your Experience
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              }
+
+              return (
+                <div style={styles.experiencesGrid}>
+                  {publicExperiences.map((exp) => {
+                    const authorName = exp.userName || exp.authorName || "Traveler";
+                    const avatarInitial = exp.userAvatarInitial || authorName.charAt(0).toUpperCase() || "T";
+                    const rawImgUrl = exp.imageUrl || (exp.images && exp.images.length > 0 ? (exp.images[0].fileUrl || exp.images[0].imageUrl) : null);
+                    const displayImg = resolveImageUrl(rawImgUrl);
+
+                    return (
+                      <div key={exp.id} style={styles.experienceCard}>
+                        {/* Author Header */}
+                        <div style={styles.expAuthorRow}>
+                          <div style={styles.expAvatar}>
+                            {avatarInitial}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={styles.expAuthorName} title={authorName}>
+                              {authorName.toLowerCase().startsWith("by ") ? authorName : `by ${authorName}`}
+                            </div>
+                            <div style={styles.expDate}>
+                              {exp.createdAt
+                                ? new Date(exp.createdAt).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  })
+                                : "Recent"}
+                            </div>
+                          </div>
+                          {exp.locationName && (
+                            <span style={styles.expLocationBadge} title={exp.locationName}>
+                              📍 {exp.locationName}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Image Preview */}
+                        {displayImg && (
+                          <div style={styles.expImgWrapper}>
+                            <img
+                              src={displayImg}
+                              alt={exp.title || "Travel experience"}
+                              style={styles.expImg}
+                              loading="lazy"
+                              onError={(e) => {
+                                e.target.parentElement.style.display = "none";
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        {/* Content */}
+                        <h4 style={styles.expTitle}>{exp.title}</h4>
+                        {exp.caption && (
+                          <p style={styles.expCaption} title={exp.caption}>
+                            {exp.caption}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* 5. Interactive Location Map */}
@@ -696,18 +760,18 @@ const styles = {
   heroImg: { width: "100%", height: "100%", objectFit: "cover" },
   heroImgPlaceholder: { width: "100%", height: "100%", background: "linear-gradient(135deg, rgba(124,58,237,0.2) 0%, rgba(6,182,212,0.2) 100%)", display: "flex", alignItems: "center", justifyContent: "center" },
   heroOverlay: { position: "absolute", bottom: 0, left: 0, right: 0, padding: "24px", background: "linear-gradient(to top, rgba(10, 15, 30, 0.95) 0%, rgba(10, 15, 30, 0) 100%)" },
-  heroTitle: { fontSize: "32px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
-  heroLocation: { color: "#cbd5e1", fontSize: "15px", marginBottom: "10px" },
+  heroTitle: { fontSize: "32px", fontWeight: "700", color: "var(--text-primary, #ffffff)", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
+  heroLocation: { color: "var(--text-secondary, #cbd5e1)", fontSize: "15px", marginBottom: "10px" },
   heroMetaRow: { display: "flex", gap: "10px", flexWrap: "wrap" },
   categoryBadge: { background: "rgba(6,182,212,0.2)", color: "#7dd3fc", padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", backdropFilter: "blur(4px)" },
   ratingBadge: { background: "rgba(245,158,11,0.2)", color: "#fcd34d", padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", backdropFilter: "blur(4px)" },
   budgetBadge: { background: "rgba(16,185,129,0.2)", color: "#6ee7b7", padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", backdropFilter: "blur(4px)" },
   sectionCard: { padding: "24px", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.08)" },
-  sectionTitle: { fontSize: "18px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "6px" },
-  sectionSubtitle: { color: "#94a3b8", fontSize: "13px", marginBottom: "16px" },
-  cardHeaderTitle: { fontSize: "16px", fontWeight: "600", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "12px" },
+  sectionTitle: { fontSize: "18px", fontWeight: "600", color: "var(--text-primary, #ffffff)", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "6px" },
+  sectionSubtitle: { color: "var(--text-secondary, #94a3b8)", fontSize: "13px", marginBottom: "16px" },
+  cardHeaderTitle: { fontSize: "16px", fontWeight: "600", color: "var(--text-primary, #ffffff)", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "12px" },
   sectionHeaderRow: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" },
-  descriptionText: { color: "#cbd5e1", fontSize: "14px", lineHeight: "1.6" },
+  descriptionText: { color: "var(--text-secondary, #cbd5e1)", fontSize: "14px", lineHeight: "1.6" },
   wikiSection: { marginTop: "20px", paddingTop: "16px", borderTop: "1px solid rgba(148, 163, 184, 0.15)" },
   wikiMetaRow: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "8px", marginTop: "8px", borderTop: "1px dashed rgba(255,255,255,0.08)" },
   attributionBadge: { fontSize: "11px", color: "#64748b", background: "rgba(255,255,255,0.04)", padding: "3px 8px", borderRadius: "4px" },
@@ -722,41 +786,41 @@ const styles = {
   guideCardImgWrapper: { width: "100%", height: "140px", borderRadius: "8px", overflow: "hidden", background: "rgba(255,255,255,0.02)", marginBottom: "4px" },
   guideCardImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
   guideCardHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" },
-  guideCardTitle: { color: "#f1f5f9", fontSize: "15px", fontWeight: "600", lineHeight: "1.3", margin: 0 },
+  guideCardTitle: { color: "var(--text-primary, #ffffff)", fontSize: "15px", fontWeight: "600", lineHeight: "1.3", margin: 0 },
   guideMetaRow: { display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" },
-  guideCardSnippet: { color: "#94a3b8", fontSize: "12px", lineHeight: "1.5", margin: "2px 0" },
+  guideCardSnippet: { color: "var(--text-secondary, #94a3b8)", fontSize: "12px", lineHeight: "1.5", margin: "2px 0" },
   guideCardAddress: { color: "#64748b", fontSize: "11px", lineHeight: "1.4", margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" },
   guideCardLink: { color: "#38bdf8", fontSize: "12px", textDecoration: "none", fontWeight: "500" },
   distanceBadge: { fontSize: "11px", color: "#a78bfa", background: "rgba(124,58,237,0.15)", padding: "2px 8px", borderRadius: "6px", fontWeight: "500", whiteSpace: "nowrap" },
   phoneBadge: { fontSize: "11px", color: "#34d399", background: "rgba(16,185,129,0.12)", padding: "2px 8px", borderRadius: "6px", fontWeight: "500", whiteSpace: "nowrap" },
   weatherMainRow: { display: "flex", alignItems: "center", gap: "16px", marginBottom: "16px" },
-  tempLarge: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9" },
+  tempLarge: { fontSize: "28px", fontWeight: "700", color: "var(--text-primary, #ffffff)" },
   conditionText: { color: "#38bdf8", fontSize: "14px", fontWeight: "500" },
   weatherDetailsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" },
   weatherMiniStat: { background: "rgba(255,255,255,0.03)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: "2px" },
   miniLabel: { color: "#94a3b8", fontSize: "11px" },
-  miniVal: { color: "#f1f5f9", fontSize: "13px", fontWeight: "600" },
+  miniVal: { color: "var(--text-primary, #ffffff)", fontSize: "13px", fontWeight: "600" },
   forecastRow: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "8px" },
   forecastCard: { background: "rgba(255,255,255,0.03)", padding: "10px 6px", borderRadius: "10px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", border: "1px solid rgba(255,255,255,0.04)" },
   forecastDay: { color: "#94a3b8", fontSize: "11px", fontWeight: "600" },
-  forecastHigh: { color: "#f1f5f9", fontSize: "13px", fontWeight: "600" },
+  forecastHigh: { color: "var(--text-primary, #ffffff)", fontSize: "13px", fontWeight: "600" },
   forecastLow: { color: "#64748b", fontSize: "11px" },
   tripInfoList: { display: "flex", flexDirection: "column", gap: "12px" },
   tripInfoItem: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "8px", borderBottom: "1px dashed rgba(255,255,255,0.06)" },
   tripInfoLabel: { color: "#94a3b8", fontSize: "13px" },
-  tripInfoVal: { color: "#f1f5f9", fontSize: "14px", fontWeight: "600" },
+  tripInfoVal: { color: "var(--text-primary, #ffffff)", fontSize: "14px", fontWeight: "600" },
   actionButtonsCol: { display: "flex", flexDirection: "column", gap: "10px" },
   experiencesGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "16px" },
   experienceCard: { background: "rgba(255,255,255,0.03)", padding: "16px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", gap: "10px" },
   expAuthorRow: { display: "flex", alignItems: "center", gap: "10px" },
   expAvatar: { width: "32px", height: "32px", borderRadius: "50%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "700" },
-  expAuthorName: { color: "#f1f5f9", fontSize: "13px", fontWeight: "600", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  expAuthorName: { color: "var(--text-primary, #ffffff)", fontSize: "13px", fontWeight: "600", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   expDate: { color: "#64748b", fontSize: "11px" },
   expLocationBadge: { fontSize: "11px", color: "#38bdf8", background: "rgba(56,189,248,0.1)", padding: "2px 6px", borderRadius: "4px", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   expImgWrapper: { width: "100%", height: "160px", borderRadius: "8px", overflow: "hidden", background: "rgba(255,255,255,0.02)" },
   expImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-  expTitle: { color: "#f1f5f9", fontSize: "14px", fontWeight: "600", margin: 0, lineHeight: "1.4" },
-  expCaption: { color: "#94a3b8", fontSize: "12px", lineHeight: "1.5", margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" },
+  expTitle: { color: "var(--text-primary, #ffffff)", fontSize: "14px", fontWeight: "600", margin: 0, lineHeight: "1.4" },
+  expCaption: { color: "var(--text-secondary, #cbd5e1)", fontSize: "12px", lineHeight: "1.5", margin: 0, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" },
 };
 
 export default DestinationDetails;

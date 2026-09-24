@@ -3,23 +3,27 @@ import { useTheme } from '../../context/ThemeContext';
 
 export const ThemeToggle = ({ className = '', showLabel = true }) => {
   const { theme, toggleTheme } = useTheme();
-  const isPremium = theme === 'premium';
+  const isEmerald = theme === 'emerald' || theme === 'obsidian' || theme === 'premium';
+
+  const themeIcon = isEmerald ? '🌿' : '🌌';
+  const themeName = isEmerald ? 'Emerald' : 'Aurora';
+  const nextThemeName = isEmerald ? 'Aurora' : 'Emerald';
 
   return (
     <button
       type="button"
       className={`tn-theme-toggle ${className}`}
       onClick={toggleTheme}
-      aria-label={`Switch to ${isPremium ? 'Classic Aurora' : 'Premium Travel'} theme`}
-      aria-pressed={isPremium}
-      title={`Theme: ${isPremium ? 'Premium Travel' : 'Classic Aurora'} (Click to switch)`}
+      aria-label={`Current theme: ${themeName}. Switch to ${nextThemeName} theme`}
+      aria-pressed={isEmerald}
+      title={`Theme: ${themeName} (Click to switch to ${nextThemeName})`}
     >
       <span className="tn-theme-toggle-icon" aria-hidden="true">
-        {isPremium ? '🌿' : '✨'}
+        {themeIcon}
       </span>
       {showLabel && (
         <span className="tn-theme-toggle-label">
-          {isPremium ? 'Premium' : 'Aurora'}
+          {themeName}
         </span>
       )}
     </button>

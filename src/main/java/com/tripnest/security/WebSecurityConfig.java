@@ -142,6 +142,7 @@ public class WebSecurityConfig {
 
                         // Destination APIs
                         .requestMatchers(HttpMethod.GET, "/api/destinations", "/api/destinations/**").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/destinations", "/api/destinations/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/destinations", "/api/destinations/**").hasRole("ADMIN")
@@ -175,7 +176,7 @@ public class WebSecurityConfig {
                         .authenticated()
 
                         // Travel Memories public gallery and photo serving
-                        .requestMatchers(HttpMethod.GET, "/api/memories/public", "/api/memories/photo/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/memories/public", "/api/memories/public/**", "/api/memories/photo/**", "/api/memories/destination/**").permitAll()
                         .requestMatchers("/api/memories", "/api/memories/**").authenticated()
 
                         // Everything else requires authentication

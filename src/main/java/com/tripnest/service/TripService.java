@@ -101,6 +101,7 @@ public class TripService {
         trip.setEndDate(request.getEndDate());
         trip.setNumberOfTravelers(request.getNumberOfTravelers());
         trip.setBudget(request.getBudget());
+        trip.setCoverImageUrl(request.getCoverImageUrl());
         trip.setUser(user);
 
         if (request.getStatus() != null) {
@@ -204,6 +205,7 @@ public class TripService {
         trip.setEndDate(request.getEndDate());
         trip.setNumberOfTravelers(request.getNumberOfTravelers());
         trip.setBudget(request.getBudget());
+        trip.setCoverImageUrl(request.getCoverImageUrl());
 
         if (request.getStatus() != null) {
             trip.setStatus(TripStatus.valueOf(request.getStatus()));
@@ -385,6 +387,7 @@ public class TripService {
         response.setNumberOfTravelers(trip.getNumberOfTravelers());
         response.setBudget(trip.getBudget());
         response.setStatus(trip.getStatus().name());
+        response.setCoverImageUrl(trip.getCoverImageUrl());
         response.setUserId(trip.getUser().getId());
         response.setUsername(trip.getUser().getUsername());
         response.setCreatedAt(trip.getCreatedAt());

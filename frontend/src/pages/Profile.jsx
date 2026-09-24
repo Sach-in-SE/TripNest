@@ -27,7 +27,7 @@ const SocialIcon = ({ name, hasLink, link, icon }) => {
 };
 
 const Profile = () => {
-  const { updateUser } = useAuth();
+  const { updateUser, switchRole: authSwitchRole } = useAuth();
   const [profile, setProfile] = useState(null);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -86,7 +86,9 @@ const Profile = () => {
     setRoleMessage("");
     setRoleError("");
     try {
-      const response = await AuthService.switchRole(newRole);
+      const response = authSwitchRole
+        ? await authSwitchRole(newRole)
+        : await AuthService.switchRole(newRole);
       updateUser(response);
       setRoleMessage(`Successfully switched role to ${newRole === "ROLE_GROUP_ADMIN" ? "Group Admin" : "Traveler"}!`);
       const res = await api.get("/user/profile");
@@ -630,7 +632,7 @@ const Profile = () => {
                   <button
                     type="button"
                     className="btn-aurora"
-                    onClick={() => handleSwitchRole("ROLE_USER")}
+                    onClick={() => handleSwitchRole("ROLE_TRAVELER")}
                     disabled={switchingRole}
                     style={{ alignSelf: "flex-start", padding: "8px 18px", fontSize: "13px" }}
                   >

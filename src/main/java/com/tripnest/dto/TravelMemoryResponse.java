@@ -24,4 +24,22 @@ public class TravelMemoryResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean isOwner;
+    private Boolean isPublic;
+
+    public Boolean getIsPublic() {
+        if (isPublic != null) {
+            return isPublic;
+        }
+        return "PUBLIC".equalsIgnoreCase(visibility);
+    }
+
+    public String getAuthorName() {
+        return userName;
+    }
+
+    public void setAuthorName(String authorName) {
+        if (this.userName == null || this.userName.isEmpty()) {
+            this.userName = authorName;
+        }
+    }
 }

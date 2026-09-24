@@ -21,6 +21,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -199,7 +200,8 @@ public class UserController {
         }
     }
 
-    @PutMapping("/role")
+    @RequestMapping(value = "/role", method = {RequestMethod.PUT, RequestMethod.POST})
+    @Transactional
     public ResponseEntity<?> switchRole(@Valid @RequestBody SwitchRoleRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetailsImpl)) {
@@ -208,12 +210,18 @@ public class UserController {
         }
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-        User user = userService.getUserById(userDetails.getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByIdWithRoles(userDetails.getId())
+                .orElseGet(() -> userService.getUserById(userDetails.getId())
+                        .orElseThrow(() -> new RuntimeException("User not found")));
+
+        // Ensure roles collection is initialized to prevent NullPointerException or LazyInitializationException
+        if (user.getRoles() == null) {
+            user.setRoles(new HashSet<>());
+        }
 
         // Check if the current user has ROLE_ADMIN. Admin role cannot be modified via self-service.
         boolean isCurrentAdmin = user.getRoles().stream()
-                .anyMatch(r -> r.getName() == ERole.ROLE_ADMIN);
+                .anyMatch(r -> r != null && r.getName() == ERole.ROLE_ADMIN);
         if (isCurrentAdmin) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Administrator role cannot be changed via self-service"));
@@ -221,11 +229,12 @@ public class UserController {
 
         String targetRoleStr = request.getRole() != null ? request.getRole().trim().toUpperCase() : "";
         ERole targetERole;
-        if ("ROLE_USER".equals(targetRoleStr) || "USER".equals(targetRoleStr)
-                || "ROLE_TRAVELER".equals(targetRoleStr) || "TRAVELER".equals(targetRoleStr)) {
-            targetERole = ERole.ROLE_USER;
-        } else if ("ROLE_GROUP_ADMIN".equals(targetRoleStr) || "GROUP_ADMIN".equals(targetRoleStr)) {
+        if (targetRoleStr.contains("GROUP") || (targetRoleStr.contains("ADMIN") && !targetRoleStr.equals("ADMIN") && !targetRoleStr.equals("ROLE_ADMIN"))) {
             targetERole = ERole.ROLE_GROUP_ADMIN;
+        } else if (targetRoleStr.contains("TRAVEL")) {
+            targetERole = ERole.ROLE_TRAVELER;
+        } else if ("ROLE_USER".equals(targetRoleStr) || "USER".equals(targetRoleStr)) {
+            targetERole = ERole.ROLE_USER;
         } else if ("ROLE_ADMIN".equals(targetRoleStr) || "ADMIN".equals(targetRoleStr)) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Cannot switch to Administrator role"));
@@ -241,10 +250,10 @@ public class UserController {
                     return roleRepository.save(r);
                 });
 
-        Set<Role> updatedRoles = new HashSet<>();
-        updatedRoles.add(newRole);
-        user.setRoles(updatedRoles);
-        userRepository.save(user);
+        // Safely mutate existing persistent collection to avoid LazyInitializationException or orphan issues
+        user.getRoles().clear();
+        user.getRoles().add(newRole);
+        user = userRepository.saveAndFlush(user);
 
         // Update current Spring Security context with newly loaded authorities
         UserDetailsImpl updatedUserDetails = UserDetailsImpl.build(user);
@@ -261,13 +270,17 @@ public class UserController {
                 .map(r -> r.getName().name())
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(new JwtResponse(
+        JwtResponse response = new JwtResponse(
                 newToken,
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
                 rolesList,
                 user.isPasswordChangeRequired()
-        ));
+        );
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+
+        return ResponseEntity.ok(response);
     }
 }

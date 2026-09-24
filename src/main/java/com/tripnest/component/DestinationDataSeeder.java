@@ -24,26 +24,17 @@ public class DestinationDataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        logger.info("Synchronizing TripNest canonical 35-destination dataset...");
+        long currentCount = destinationRepository.count();
+        if (currentCount > 0) {
+            logger.info("Destinations table already contains {} records. Skipping seeding to preserve administrator additions, edits, and deletions.", currentCount);
+            return;
+        }
+
+        logger.info("Destinations table is completely empty. Seeding canonical 35-destination dataset...");
         List<DestinationSeedDto> seeds = getSeedDataset();
 
-        int seededCount = 0;
-        int updatedCount = 0;
-
         for (DestinationSeedDto dto : seeds) {
-            Optional<Destination> existingOpt = destinationRepository
-                    .findByNameIgnoreCaseAndStateIgnoreCaseAndCountryIgnoreCase(dto.name.trim(), dto.state.trim(), dto.country.trim())
-                    .or(() -> destinationRepository.findByNameIgnoreCase(dto.name.trim()));
-
-            Destination dest;
-            if (existingOpt.isPresent()) {
-                dest = existingOpt.get();
-                updatedCount++;
-            } else {
-                dest = new Destination();
-                seededCount++;
-            }
-
+            Destination dest = new Destination();
             dest.setName(dto.name);
             dest.setState(dto.state);
             dest.setCountry(dto.country);
@@ -56,15 +47,12 @@ public class DestinationDataSeeder implements CommandLineRunner {
             dest.setLatitude(dto.latitude);
             dest.setLongitude(dto.longitude);
             dest.setRating(dto.rating);
-            if (dest.getPopular() == null) {
-                dest.setPopular(false);
-            }
+            dest.setPopular(false);
 
             destinationRepository.save(dest);
         }
 
-        logger.info("Destination dataset synchronization complete. Seeded: {}, Updated/Preserved: {}, Total DB: {}",
-                seededCount, updatedCount, destinationRepository.count());
+        logger.info("Destination dataset initialization complete. Seeded: {} canonical destinations.", seeds.size());
     }
 
     private List<DestinationSeedDto> getSeedDataset() {

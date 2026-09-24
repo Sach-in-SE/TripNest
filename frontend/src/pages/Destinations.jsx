@@ -435,7 +435,7 @@ const Destinations = () => {
         ) : error ? (
           <div style={styles.errorState} className="glass-card">
             <span style={{ fontSize: "48px" }}>⚠️</span>
-            <h3 style={{ color: "#f1f5f9" }}>{error}</h3>
+            <h3 style={{ color: "var(--text-primary, #ffffff)" }}>{error}</h3>
             <button className="btn-aurora" onClick={fetchDestinations} style={{ marginTop: "16px" }}>
               Try Again
             </button>
@@ -443,10 +443,10 @@ const Destinations = () => {
         ) : destinations.length === 0 ? (
           <div style={styles.emptyState} className="glass-card">
             <span style={{ fontSize: "48px" }}>🌍</span>
-            <h3 style={{ color: "#f1f5f9" }}>
+            <h3 style={{ color: "var(--text-primary, #ffffff)" }}>
               {!searchQuery && !selectedCategory ? "No destinations available yet" : "No destinations found"}
             </h3>
-            <p style={{ color: "#94a3b8" }}>
+            <p style={{ color: "var(--text-secondary, #cbd5e1)" }}>
               {!searchQuery && !selectedCategory
                 ? "Check back soon or ask an administrator to add new travel destinations."
                 : "Try adjusting your search or category filters"}
@@ -583,7 +583,7 @@ const Destinations = () => {
     <div style={styles.modalBackdrop}>
       <div style={styles.modalContent} className="glass-card">
         <div style={styles.modalHeader}>
-          <h2 style={{ fontSize: "20px", color: "#f1f5f9" }}>
+          <h2 style={{ fontSize: "20px", color: "var(--text-primary, #ffffff)" }}>
             {editingDest ? `Edit Destination: ${editingDest.name}` : "Add New Destination"}
           </h2>
           <button
@@ -772,20 +772,20 @@ const Destinations = () => {
 const styles = {
   contentWrapper: { maxWidth: "1280px", margin: "0 auto", padding: "32px 24px", width: "100%", boxSizing: "border-box" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" },
-  title: { fontSize: "28px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif" },
-  subtitle: { color: "#94a3b8", fontSize: "14px", marginTop: "4px" },
+  title: { fontSize: "28px", fontWeight: "700", color: "var(--text-primary, #ffffff)", fontFamily: "'Space Grotesk', sans-serif" },
+  subtitle: { color: "var(--text-secondary, #cbd5e1)", fontSize: "14px", marginTop: "4px" },
   adminAddBtn: { fontSize: "13px", padding: "10px 18px" },
   searchRow: { display: "flex", gap: "12px", alignItems: "center", marginBottom: "20px", flexWrap: "wrap" },
   searchInput: { flex: 1, minWidth: "240px", maxWidth: "380px" },
   sortWrapper: { display: "flex", alignItems: "center", gap: "8px" },
-  sortLabel: { color: "#94a3b8", fontSize: "13px", fontWeight: "600" },
-  sortSelect: { padding: "8px 12px", background: "rgba(15, 23, 42, 0.8)", color: "#f1f5f9", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", cursor: "pointer", fontSize: "13px" },
+  sortLabel: { color: "var(--text-secondary, #cbd5e1)", fontSize: "13px", fontWeight: "600" },
+  sortSelect: { padding: "8px 12px", background: "var(--tn-surface-2, #1e293b)", color: "var(--text-primary, #ffffff)", border: "1px solid var(--tn-border-medium, rgba(255,255,255,0.15))", borderRadius: "8px", cursor: "pointer", fontSize: "13px" },
   filterSection: { marginBottom: "24px" },
-  filterLabel: { color: "#94a3b8", fontSize: "13px", fontWeight: "600", marginRight: "12px" },
+  filterLabel: { color: "var(--text-secondary, #cbd5e1)", fontSize: "13px", fontWeight: "600", marginRight: "12px" },
   filterButtons: { display: "flex", flexWrap: "wrap", gap: "8px" },
   filterButton: { fontSize: "13px", padding: "6px 14px" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: "24px" },
-  card: { overflow: "hidden", display: "flex", flexDirection: "column", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.08)", transition: "transform 0.2s ease" },
+  card: { overflow: "hidden", display: "flex", flexDirection: "column", borderRadius: "14px", border: "1px solid var(--tn-border, rgba(255,255,255,0.08))", background: "var(--tn-surface-card, rgba(255, 255, 255, 0.04))", transition: "transform 0.2s ease" },
   imageContainer: { position: "relative", width: "100%", height: "190px", overflow: "hidden" },
   cardImage: { width: "100%", height: "100%", objectFit: "cover" },
   cardImagePlaceholder: { width: "100%", height: "100%", background: "linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(6,182,212,0.15) 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" },
@@ -794,11 +794,11 @@ const styles = {
   favoriteBtn: { position: "absolute", top: "10px", right: "10px", width: "34px", height: "34px", borderRadius: "50%", background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", border: "1px solid rgba(255, 255, 255, 0.2)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5, padding: 0, outline: "none" },
   favoriteBtnActive: { background: "rgba(239, 68, 68, 0.22)", borderColor: "rgba(239, 68, 68, 0.6)" },
   cardContent: { padding: "18px", flex: 1, display: "flex", flexDirection: "column" },
-  destName: { fontSize: "18px", fontWeight: "700", color: "#f1f5f9", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
-  destLocation: { color: "#94a3b8", fontSize: "13px", marginBottom: "10px" },
-  destDesc: { color: "#cbd5e1", fontSize: "13px", lineHeight: "1.5", marginBottom: "14px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
+  destName: { fontSize: "18px", fontWeight: "700", color: "var(--text-primary, #ffffff)", fontFamily: "'Space Grotesk', sans-serif", marginBottom: "4px" },
+  destLocation: { color: "var(--text-secondary, #cbd5e1)", fontSize: "13px", marginBottom: "10px" },
+  destDesc: { color: "var(--text-secondary, #cbd5e1)", fontSize: "13px", lineHeight: "1.5", marginBottom: "14px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
   destMetaRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" },
-  budgetValue: { color: "#38bdf8", fontSize: "14px", fontWeight: "600" },
+  budgetValue: { color: "var(--tn-brand-primary, #10b981)", fontSize: "14px", fontWeight: "700" },
   seasonTag: { color: "#a78bfa", fontSize: "11px", background: "rgba(124,58,237,0.12)", padding: "3px 8px", borderRadius: "6px" },
   cardActions: { display: "flex", gap: "8px", marginTop: "auto" },
   exploreButton: { flex: 1, fontSize: "13px", padding: "8px" },
@@ -817,7 +817,7 @@ const styles = {
   adminForm: { display: "flex", flexDirection: "column", gap: "16px" },
   formGrid: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" },
   formGroup: { display: "flex", flexDirection: "column", gap: "6px" },
-  formLabel: { color: "#94a3b8", fontSize: "12px", fontWeight: "600" },
+  formLabel: { color: "var(--text-secondary, #cbd5e1)", fontSize: "12px", fontWeight: "600" },
   modalActions: { display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "12px" },
 };
 

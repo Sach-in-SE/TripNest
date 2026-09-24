@@ -370,11 +370,26 @@
 /* 5. Footer */
 .tn-footer {
   margin-top: auto;
-  border-top: 1px solid var(--tn-border-subtle);
+  border-top: 1px solid var(--tn-border-medium);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25);
+  background: var(--tn-surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   padding: var(--tn-space-12) var(--tn-space-6) var(--tn-space-8);
-  background: var(--tn-surface-1);
   color: var(--tn-text-muted);
   font-size: var(--tn-text-sm);
+  position: relative;
+}
+
+.tn-footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 5%;
+  right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--tn-brand-primary), var(--tn-brand-accent), transparent);
+  opacity: 0.5;
 }
 
 .tn-footer-container {
@@ -502,6 +517,7 @@
   background: var(--tn-success-text, #34d399);
   box-shadow: 0 0 6px rgba(52, 211, 153, 0.6);
 }
+
 
 /* ==========================================================================
    6. Traveler Responsive Layout System

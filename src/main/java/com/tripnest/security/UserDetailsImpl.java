@@ -40,18 +40,30 @@ public class UserDetailsImpl implements UserDetails {
     }
 
     public static UserDetailsImpl build(User user) {
+        if (user == null) {
+            return null;
+        }
         java.util.Set<GrantedAuthority> authorities = new java.util.LinkedHashSet<>();
-        if (user.getRoles() != null) {
-            for (com.tripnest.entity.Role role : user.getRoles()) {
-                if (role != null && role.getName() != null) {
-                    authorities.add(new SimpleGrantedAuthority(role.getName().name()));
-                    if (role.getName() == com.tripnest.entity.ERole.ROLE_USER) {
-                        authorities.add(new SimpleGrantedAuthority(com.tripnest.entity.ERole.ROLE_TRAVELER.name()));
-                    } else if (role.getName() == com.tripnest.entity.ERole.ROLE_TRAVELER) {
-                        authorities.add(new SimpleGrantedAuthority(com.tripnest.entity.ERole.ROLE_USER.name()));
+        try {
+            if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+                for (com.tripnest.entity.Role role : user.getRoles()) {
+                    if (role != null && role.getName() != null) {
+                        authorities.add(new SimpleGrantedAuthority(role.getName().name()));
+                        if (role.getName() == com.tripnest.entity.ERole.ROLE_USER) {
+                            authorities.add(new SimpleGrantedAuthority(com.tripnest.entity.ERole.ROLE_TRAVELER.name()));
+                        } else if (role.getName() == com.tripnest.entity.ERole.ROLE_TRAVELER) {
+                            authorities.add(new SimpleGrantedAuthority(com.tripnest.entity.ERole.ROLE_USER.name()));
+                        }
                     }
                 }
             }
+        } catch (Exception ignored) {
+            // Guard against uninitialized collections or closed sessions
+        }
+
+        if (authorities.isEmpty()) {
+            authorities.add(new SimpleGrantedAuthority(com.tripnest.entity.ERole.ROLE_USER.name()));
+            authorities.add(new SimpleGrantedAuthority(com.tripnest.entity.ERole.ROLE_TRAVELER.name()));
         }
 
         return new UserDetailsImpl(

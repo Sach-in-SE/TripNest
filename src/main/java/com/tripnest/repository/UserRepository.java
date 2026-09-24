@@ -16,6 +16,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsernameIgnoreCase(String username);
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles WHERE LOWER(u.username) = LOWER(:username)")
     Optional<User> findByUsernameWithRoles(@Param("username") String username);
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles WHERE LOWER(u.username) = LOWER(:identifier) OR LOWER(u.email) = LOWER(:identifier)")
+    Optional<User> findByUsernameOrEmailWithRoles(@Param("identifier") String identifier);
     Optional<User> findByEmail(String email);
     Optional<User> findByEmailIgnoreCase(String email);
     Boolean existsByUsername(String username);

@@ -5,6 +5,7 @@ import api from "../services/api";
 
 const NotificationPreferences = () => {
   const [preferences, setPreferences] = useState({
+    emailNotifications: true,
     tripReminders: true,
     activityReminders: true,
     budgetAlerts: true,
@@ -23,7 +24,11 @@ const NotificationPreferences = () => {
     try {
       const response = await api.get("/notification-preferences");
       if (response.data && Object.keys(response.data).length > 0) {
-        setPreferences(response.data);
+        setPreferences((prev) => ({
+          ...prev,
+          ...response.data,
+          emailNotifications: response.data.emailNotifications ?? response.data.email ?? prev.emailNotifications,
+        }));
       }
     } catch (err) {
       console.error("Failed to fetch preferences:", err);
@@ -55,6 +60,7 @@ const NotificationPreferences = () => {
   };
 
   const prefConfig = [
+    { key: "emailNotifications", label: "Email Notifications", description: "Receive trip alerts and updates via email", icon: "✉️" },
     { key: "tripReminders", label: "Trip Reminders", description: "Get notified before your trips start", icon: "✈️" },
     { key: "activityReminders", label: "Activity Reminders", description: "Get reminded about scheduled activities", icon: "📅" },
     { key: "budgetAlerts", label: "Budget Alerts", description: "Notifications about budget updates", icon: "💰" },

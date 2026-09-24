@@ -12,6 +12,8 @@ vi.mock('../services/authService', () => ({
     adminSignin: vi.fn(),
     signup: vi.fn(),
     signout: vi.fn(),
+    updateStoredUser: vi.fn(),
+    switchRole: vi.fn(),
   },
 }));
 

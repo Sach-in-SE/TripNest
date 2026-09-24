@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 import TripService from "../services/tripService";
 import CollaboratorModal from "../components/CollaboratorModal";
 import api from "../services/api";
+import { getDestinationCoverImage, DEFAULT_INDIAN_COVER } from "../utils/tripCoverImage";
 
 const TripDetail = () => {
   const [showShareModal, setShowShareModal] = useState(false);
@@ -148,6 +149,20 @@ const TripDetail = () => {
 
         {/* Trip Info Card */}
         <div style={styles.card}>
+          {trip && (
+            <div style={{ position: "relative", width: "100%", height: "200px", borderRadius: "12px", overflow: "hidden", marginBottom: "20px" }}>
+              <img
+                src={getDestinationCoverImage(trip.destination, trip.coverImageUrl)}
+                alt={trip.title}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => { e.target.src = DEFAULT_INDIAN_COVER; }}
+              />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, rgba(15,23,42,0.85) 100%)" }} />
+              <div style={{ position: "absolute", bottom: "12px", left: "16px", color: "#fff", fontWeight: "600", fontSize: "14px", textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>
+                📍 {trip.destination}
+              </div>
+            </div>
+          )}
           <div style={styles.tripHeader}>
             <div style={styles.tripHeaderLeft}>
               <h2 style={styles.tripTitle}>{trip?.title}</h2>

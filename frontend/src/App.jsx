@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import ScrollToTop from "./components/layout/ScrollToTop";
 
 // Eagerly loaded critical entry routes
 import LandingPage from "./pages/LandingPage";
@@ -80,6 +81,7 @@ function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <ErrorBoundary>
             <Suspense fallback={<LoadingSpinner fullScreen message="Loading TripNest..." />}>

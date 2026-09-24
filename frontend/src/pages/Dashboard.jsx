@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/Sidebar";
 import api from "../services/api";
+import { getDestinationCoverImage, DEFAULT_INDIAN_COVER } from "../utils/tripCoverImage";
 import { Doughnut, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -529,26 +530,38 @@ const Dashboard = () => {
                         to={`/itineraries/${trip.id}`}
                         className="tn-dashboard-trip-card"
                         aria-label={`Trip to ${trip.destination}: ${trip.title}, Status ${trip.status}`}
+                        style={{ overflow: 'hidden', padding: 0 }}
                       >
-                        <div className="tn-dashboard-trip-header">
-                          <span style={{ fontSize: "20px" }}>✈️</span>
-                          <span className={`badge badge-${(trip.status || "planning").toLowerCase()}`}>
+                        <div style={{ position: 'relative', width: '100%', height: '110px', backgroundColor: '#0d1529' }}>
+                          <img
+                            src={getDestinationCoverImage(trip.destination, trip.coverImageUrl)}
+                            alt={trip.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => { e.target.src = DEFAULT_INDIAN_COVER; }}
+                          />
+                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 100%)' }} />
+                          <span
+                            className={`badge badge-${(trip.status || "planning").toLowerCase()}`}
+                            style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '11px', backdropFilter: 'blur(4px)' }}
+                          >
                             {trip.status || "PLANNING"}
                           </span>
                         </div>
 
-                        <div>
-                          <h3 className="tn-dashboard-trip-title">{trip.title}</h3>
-                          <p className="tn-dashboard-trip-dest">📍 {trip.destination}</p>
-                        </div>
+                        <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                          <div>
+                            <h3 className="tn-dashboard-trip-title">{trip.title}</h3>
+                            <p className="tn-dashboard-trip-dest">📍 {trip.destination}</p>
+                          </div>
 
-                        <div className="tn-dashboard-trip-footer">
-                          <span>
-                            📅 {trip.startDate ? new Date(trip.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}
-                          </span>
-                          <span>
-                            {trip.budget ? `₹${Number(trip.budget).toLocaleString()}` : "No budget"}
-                          </span>
+                          <div className="tn-dashboard-trip-footer" style={{ marginTop: 'auto' }}>
+                            <span>
+                              📅 {trip.startDate ? new Date(trip.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}
+                            </span>
+                            <span>
+                              {trip.budget ? `₹${Number(trip.budget).toLocaleString()}` : "No budget"}
+                            </span>
+                          </div>
                         </div>
                       </Link>
                     ))}

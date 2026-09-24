@@ -43,7 +43,16 @@ public class JwtUtils {
     }
 
     private Key key() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        byte[] keyBytes = (jwtSecret != null && !jwtSecret.trim().isEmpty())
+                ? jwtSecret.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                : "tripnest-development-only-change-me-secret-key-12345678901234567890".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        if (keyBytes.length < 32) {
+            byte[] padded = new byte[32];
+            System.arraycopy(keyBytes, 0, padded, 0, keyBytes.length);
+            keyBytes = padded;
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String getUserNameFromJwtToken(String token) {

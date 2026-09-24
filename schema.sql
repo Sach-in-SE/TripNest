@@ -303,6 +303,7 @@ CREATE TABLE `notification_preferences` (
   `group_notifications` bit(1) NOT NULL,
   `trip_reminders` bit(1) NOT NULL,
   `trip_share_notifications` bit(1) NOT NULL,
+  `email_notifications` bit(1) NOT NULL DEFAULT 1,
   `updated_at` datetime(6) DEFAULT NULL,
   `user_id` bigint DEFAULT NULL,
   PRIMARY KEY (`id`),

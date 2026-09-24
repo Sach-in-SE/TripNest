@@ -15,6 +15,7 @@ public class TripResponse {
     private Integer numberOfTravelers;
     private Double budget;
     private String status;
+    private String coverImageUrl;
     private Long userId;
     private String username;
     private String permission;

@@ -452,6 +452,7 @@ CREATE TABLE notification_preferences (
   budget_alerts boolean NOT NULL DEFAULT TRUE,
   group_notifications boolean NOT NULL DEFAULT TRUE,
   trip_share_notifications boolean NOT NULL DEFAULT TRUE,
+  email_notifications boolean NOT NULL DEFAULT TRUE,
   created_at timestamp(6) DEFAULT NULL,
   updated_at timestamp(6) DEFAULT NULL,
   CONSTRAINT uk_notification_preferences_user UNIQUE (user_id),

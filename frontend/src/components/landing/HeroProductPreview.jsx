@@ -2,11 +2,11 @@ import React, { useState, useRef } from 'react';
 import Badge from '../ui/Badge';
 
 const TRIP_DEMO_DATA = {
-  title: 'Swiss Alps Escape',
-  subtitle: 'Zurich • Interlaken • Jungfraujoch • 6 Days',
+  title: 'Kashmir Valley & Ladakh Odyssey 🏔️',
+  subtitle: 'Srinagar • Gulmarg • Pangong Tso • 6 Days',
   dates: '12–17 Sep 2026',
   status: 'Upcoming',
-  weather: '18°C Sunny • Zurich',
+  weather: '22°C Clear • Srinagar',
   collaborators: [
     { initials: 'SK', name: 'Suresh K' },
     { initials: 'AM', name: 'Ananya M' },
@@ -17,29 +17,29 @@ const TRIP_DEMO_DATA = {
     {
       id: 'day-1',
       dayNumber: 'Day 1',
-      tagline: 'Arrival & Zurich',
+      tagline: 'Arrival & Dal Lake',
       activities: [
         {
           time: '09:00 AM',
-          icon: '✈️',
-          title: 'Zurich Airport Arrival',
-          location: 'Airport → Hotel Transfer',
+          icon: '🛶',
+          title: 'Shikara Ride on Dal Lake',
+          location: 'Dal Lake & Floating Market, Srinagar',
           category: 'Transport',
           categoryVariant: 'neutral',
         },
         {
           time: '02:00 PM',
-          icon: '🏛️',
-          title: 'Old Town Walking Tour',
-          location: 'Zurich Old Town & Grossmünster',
+          icon: '🌸',
+          title: 'Mughal Gardens Walk',
+          location: 'Nishat & Shalimar Bagh',
           category: 'Sightseeing',
           categoryVariant: 'primary',
         },
         {
           time: '07:30 PM',
-          icon: '🍷',
-          title: 'Lake Sunset Dinner',
-          location: 'Lake Zurich Waterfront',
+          icon: '🍲',
+          title: 'Traditional Kashmiri Wazwan',
+          location: 'Ahdoos Heritage Restaurant, Srinagar',
           category: 'Dining',
           categoryVariant: 'warning',
         },
@@ -48,62 +48,62 @@ const TRIP_DEMO_DATA = {
     {
       id: 'day-2',
       dayNumber: 'Day 2',
-      tagline: 'Alps Peak Experience',
+      tagline: 'Gulmarg Alpine Heights',
       activities: [
         {
           time: '09:30 AM',
           icon: '🚠',
-          title: 'Jungfraujoch Top of Europe',
-          location: 'Lauterbrunnen Valley Departure',
+          title: 'Gulmarg Gondola Phase 2 Cable Car',
+          location: 'Kongdoori to Apharwat Peak (14,400 ft)',
           category: 'Sightseeing',
           categoryVariant: 'primary',
         },
         {
           time: '01:30 PM',
-          icon: '🧀',
-          title: 'Swiss Fondue Experience',
-          location: 'Panorama Restaurant, Kleine Scheidegg',
+          icon: '☕',
+          title: 'Kahwa & Himalayan High Tea',
+          location: 'Apharwat Alpine Lounge',
           category: 'Dining',
           categoryVariant: 'warning',
         },
         {
           time: '05:00 PM',
-          icon: '🚂',
-          title: 'Scenic Cogwheel Railway',
-          location: 'Railway to Interlaken',
-          category: 'Transport',
-          categoryVariant: 'neutral',
+          icon: '🌲',
+          title: 'Pine Forest Trail & Biosphere',
+          location: 'Gulmarg Wildlife Sanctuary',
+          category: 'Adventure',
+          categoryVariant: 'info',
         },
       ],
     },
     {
       id: 'day-3',
       dayNumber: 'Day 3',
-      tagline: 'Interlaken Adventure',
+      tagline: 'Ladakh & Pangong Tso',
       activities: [
         {
           time: '08:30 AM',
-          icon: '🪂',
-          title: 'Paragliding Experience',
-          location: 'Interlaken Adventure Center',
-          category: 'Adventure',
-          categoryVariant: 'info',
+          icon: '🏔️',
+          title: 'Chang La Mountain Pass',
+          location: 'Leh-Pangong Highway (17,688 ft)',
+          category: 'Transport',
+          categoryVariant: 'neutral',
         },
         {
           time: '01:00 PM',
-          icon: '⛴️',
-          title: 'Lake Brienz Cruise',
-          location: 'Lake Brienz Turquoise Waters',
+          icon: '🌊',
+          title: 'Pangong Tso Lake Arrival',
+          location: 'Spangmik Lakeshore Camp',
           category: 'Sightseeing',
           categoryVariant: 'primary',
         },
         {
           time: '06:30 PM',
-          icon: '🌄',
-          title: 'Harder Kulm Sunset',
-          location: 'Harder Kulm Panorama Viewpoint',
-          category: 'Sightseeing',
-          categoryVariant: 'primary',
+          icon: '🌌',
+          title: 'Pangong Tso Sunset Stargazing',
+          location: 'Pangong Tso High-Altitude Camp',
+          category: 'Adventure',
+          categoryVariant: 'info',
         },
       ],
     },
@@ -114,14 +114,14 @@ const TRIP_DEMO_DATA = {
     percentage: 70,
   },
   document: {
-    title: 'Swiss Travel Pass',
+    title: 'Ladakh Inner Line Permit',
     status: 'Magic-Byte Verified ✓',
-    subtext: 'PDF Voucher Ready',
+    subtext: 'PDF Permit Ready',
   },
 };
 
 export const HeroProductPreview = () => {
-  // Default to Day 2 (Alps Peak) per production design specifications
+  // Default to Day 2 (Gulmarg Alpine) per production design specifications
   const [activeDayIndex, setActiveDayIndex] = useState(1);
   const tabRefs = useRef([]);
 
@@ -164,7 +164,7 @@ export const HeroProductPreview = () => {
           <div className="tn-preview-header-main">
             <div>
               <h3 className="tn-preview-title">
-                {TRIP_DEMO_DATA.title} 🏔️
+                {TRIP_DEMO_DATA.title}
               </h3>
               <p className="tn-preview-subtitle">
                 {TRIP_DEMO_DATA.subtitle}

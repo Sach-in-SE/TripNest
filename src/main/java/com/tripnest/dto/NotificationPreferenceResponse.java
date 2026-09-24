@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 @Data
 public class NotificationPreferenceResponse {
     private Long id;
+    private Boolean emailNotifications;
+    private Boolean email;
     private Boolean tripReminders;
     private Boolean activityReminders;
     private Boolean budgetAlerts;

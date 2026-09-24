@@ -1,15 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "../services/api";
+import { getDestinationCoverImage, INDIAN_LANDSCAPE_PRESETS, DEFAULT_INDIAN_COVER } from "../utils/tripCoverImage";
 
 const TripForm = ({ isEdit = false, initialData = null, onSuccess }) => {
   const [formData, setFormData] = useState({
-    title: "", description: "", destination: "",
-    startDate: "", endDate: "", numberOfTravelers: 1,
-    budget: "", status: "PLANNING",
+    title: "",
+    description: "",
+    destination: "",
+    startDate: "",
+    endDate: "",
+    numberOfTravelers: 1,
+    budget: "",
+    status: "PLANNING",
+    coverImageUrl: "",
   });
   const [prefilledDestination, setPrefilledDestination] = useState(null);
   const [error, setError] = useState(null);
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,6 +32,7 @@ const TripForm = ({ isEdit = false, initialData = null, onSuccess }) => {
         numberOfTravelers: initialData.numberOfTravelers || 1,
         budget: initialData.budget || "",
         status: initialData.status || "PLANNING",
+        coverImageUrl: initialData.coverImageUrl || "",
       });
     }
   }, [initialData]);
@@ -35,10 +44,48 @@ const TripForm = ({ isEdit = false, initialData = null, onSuccess }) => {
       setFormData(prev => ({
         ...prev,
         destination: dest.name || dest,
-        budget: dest.estimatedBudget || ""
+        budget: dest.estimatedBudget || "",
+        coverImageUrl: prev.coverImageUrl || dest.imageUrl || "",
       }));
     }
   }, [location.state, isEdit]);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file (JPEG, PNG, WebP, SVG).");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image size exceeds 2MB limit. Please choose an image smaller than 2MB.");
+      return;
+    }
+
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData(prev => ({ ...prev, coverImageUrl: reader.result }));
+    };
+    reader.onerror = () => {
+      setError("Failed to read image file. Please try again.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSelectPreset = (presetUrl) => {
+    setError(null);
+    setFormData(prev => ({ ...prev, coverImageUrl: presetUrl }));
+  };
+
+  const handleClearImage = () => {
+    setFormData(prev => ({ ...prev, coverImageUrl: "" }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async () => {
     try {
@@ -60,12 +107,12 @@ const TripForm = ({ isEdit = false, initialData = null, onSuccess }) => {
   };
 
   const handleCancel = () => {
-    if (isEdit) {
-      navigate("/trips");
-    } else {
-      navigate("/trips");
-    }
+    navigate("/trips");
   };
+
+  // Live preview image resolution
+  const resolvedCoverImage = getDestinationCoverImage(formData.destination, formData.coverImageUrl);
+  const hasCustomCover = Boolean(formData.coverImageUrl && formData.coverImageUrl.trim().length > 0);
 
   return (
     <div style={styles.container}>
@@ -84,7 +131,7 @@ const TripForm = ({ isEdit = false, initialData = null, onSuccess }) => {
             <label style={styles.label}>Trip Title</label>
             <input 
               className="aurora-input" 
-              placeholder="e.g. Goa Adventure"
+              placeholder="e.g. Goa Adventure, Kashmir Odyssey"
               value={formData.title} 
               onChange={(e) => setFormData({ ...formData, title: e.target.value })} 
             />
@@ -97,12 +144,12 @@ const TripForm = ({ isEdit = false, initialData = null, onSuccess }) => {
                 className="aurora-input"
                 value={formData.destination}
                 readOnly
-                style={{ background: "#1a2332", cursor: "not-allowed" }}
+                style={{ cursor: "not-allowed", opacity: 0.85 }}
               />
             ) : (
               <input
                 className="aurora-input"
-                placeholder="Enter destination"
+                placeholder="Enter destination (e.g. Srinagar, Goa, Jaipur)"
                 value={formData.destination}
                 onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
               />
@@ -142,34 +189,110 @@ const TripForm = ({ isEdit = false, initialData = null, onSuccess }) => {
           </div>
           
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Budget (₹)</label>
+            <label style={styles.label}>Budget (₹ INR)</label>
             <input 
               className="aurora-input" 
               type="number" 
-              placeholder="e.g. 25000" 
+              placeholder="e.g. 45000" 
               value={formData.budget}
               onChange={(e) => setFormData({ ...formData, budget: e.target.value })} 
             />
           </div>
           
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Status</label>
+            <label style={styles.label}>Trip Status</label>
             <select 
               className="aurora-input" 
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
             >
               {["PLANNING", "UPCOMING", "ONGOING", "COMPLETED", "CANCELLED"].map(s => (
-                <option key={s} value={s} style={{ background: "#0d1529" }}>{s}</option>
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
+          </div>
+
+          {/* 🖼️ Custom Cover Image Upload & Indian Landscape Fallback */}
+          <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+            <label style={styles.label}>🖼️ Custom Cover Image (Upload or Indian Landscape Preset)</label>
+            
+            <div style={styles.coverUploadRow}>
+              {/* File upload button */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{ display: "none" }}
+                id="trip-cover-file-input"
+              />
+              <label htmlFor="trip-cover-file-input" className="btn-compact" style={styles.uploadBtn}>
+                📁 Choose File...
+              </label>
+
+              {/* URL input */}
+              <input
+                className="aurora-input"
+                style={{ flex: 1 }}
+                placeholder="Or paste direct image URL (https://...)"
+                value={formData.coverImageUrl}
+                onChange={(e) => setFormData({ ...formData, coverImageUrl: e.target.value })}
+              />
+
+              {hasCustomCover && (
+                <button
+                  type="button"
+                  className="btn-compact danger"
+                  onClick={handleClearImage}
+                  title="Clear custom cover image and use auto-assigned landscape"
+                >
+                  ✕ Reset to Auto
+                </button>
+              )}
+            </div>
+
+            {/* Quick Presets for Indian Landscapes */}
+            <div style={styles.presetsContainer}>
+              <span style={styles.presetsLabel}>Popular Indian Landscapes:</span>
+              <div style={styles.presetsPills}>
+                {INDIAN_LANDSCAPE_PRESETS.slice(0, 6).map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="btn-compact"
+                    style={{
+                      fontSize: "11px",
+                      padding: "4px 8px",
+                      background: formData.coverImageUrl === preset.url ? "var(--tn-brand-primary)" : undefined,
+                      color: formData.coverImageUrl === preset.url ? "#ffffff" : undefined,
+                    }}
+                    onClick={() => handleSelectPreset(preset.url)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Cover Image Preview Box */}
+            <div style={styles.previewBox}>
+              <img
+                src={resolvedCoverImage}
+                alt="Trip Cover Preview"
+                style={styles.previewImg}
+                onError={(e) => { e.target.src = DEFAULT_INDIAN_COVER; }}
+              />
+              <div style={styles.previewBadge}>
+                {hasCustomCover ? "✨ Custom Cover Selected" : "🇮🇳 Auto-Assigned Indian Landscape"}
+              </div>
+            </div>
           </div>
           
           <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
             <label style={styles.label}>Description</label>
             <textarea 
               className="aurora-input" 
-              placeholder="Trip description..." 
+              placeholder="Trip highlights, notes, and goals..." 
               rows={3}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -205,8 +328,8 @@ const styles = {
   formTitle: {
     fontSize: "24px",
     fontWeight: "700",
-    color: "#f1f5f9",
-    fontFamily: "'Space Grotesk', sans-serif",
+    color: "var(--tn-text-primary)",
+    fontFamily: "var(--tn-font-display)",
     marginBottom: "24px",
   },
   errorBanner: {
@@ -229,9 +352,65 @@ const styles = {
   },
   inputGroup: { display: "flex", flexDirection: "column", gap: "8px" },
   label: {
-    color: "#94a3b8",
+    color: "var(--tn-text-secondary)",
     fontSize: "13px",
     fontWeight: "600",
+  },
+  coverUploadRow: {
+    display: "flex",
+    gap: "10px",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  uploadBtn: {
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    margin: 0,
+    whiteSpace: "nowrap",
+  },
+  presetsContainer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    marginTop: "4px",
+  },
+  presetsLabel: {
+    fontSize: "11px",
+    color: "var(--tn-text-muted)",
+  },
+  presetsPills: {
+    display: "flex",
+    gap: "6px",
+    flexWrap: "wrap",
+  },
+  previewBox: {
+    position: "relative",
+    width: "100%",
+    height: "140px",
+    borderRadius: "10px",
+    overflow: "hidden",
+    marginTop: "8px",
+    border: "1px solid var(--tn-border-subtle)",
+    backgroundColor: "#0d1529",
+  },
+  previewImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  previewBadge: {
+    position: "absolute",
+    bottom: "8px",
+    right: "8px",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    fontSize: "11px",
+    fontWeight: "600",
+    background: "rgba(15, 23, 42, 0.8)",
+    backdropFilter: "blur(6px)",
+    color: "#f8fafc",
+    border: "1px solid rgba(255, 255, 255, 0.15)",
   },
   formActions: {
     display: "flex",

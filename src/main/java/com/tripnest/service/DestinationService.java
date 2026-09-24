@@ -211,18 +211,19 @@ public class DestinationService {
         final List<TravelMemoryResponse> finalTravelerExperiences = travelerExperiences;
 
         // Asynchronous cache self-healing: when background enrichments finish, update cache automatically
-        CompletableFuture.allOf(weatherFuture, wikiFuture, guideFuture).thenAcceptAsync(v -> {
+        CompletableFuture.allOf(weatherFuture, wikiFuture, guideFuture, memoriesFuture).thenAcceptAsync(v -> {
             try {
                 WeatherResponse w = weatherFuture.getNow(weatherFallback);
                 WikipediaResponse wk = wikiFuture.getNow(wikiFallback);
                 TravelGuideResponse tg = guideFuture.getNow(guideFallback);
-                if ((w != null && w.isAvailable()) || (tg != null && tg.isAvailable()) || (wk != null && wk.isAvailable())) {
+                List<TravelMemoryResponse> mems = memoriesFuture.getNow(finalTravelerExperiences);
+                if ((w != null && w.isAvailable()) || (tg != null && tg.isAvailable()) || (wk != null && wk.isAvailable()) || (mems != null && !mems.isEmpty())) {
                     DestinationDetailsResponse enriched = DestinationDetailsResponse.builder()
                             .destination(destResponse)
                             .weather(w != null ? w : weatherFallback)
                             .wikipedia(wk != null ? wk : wikiFallback)
                             .travelGuide(tg != null ? tg : guideFallback)
-                            .travelerExperiences(finalTravelerExperiences != null ? finalTravelerExperiences : Collections.emptyList())
+                            .travelerExperiences(mems != null ? mems : Collections.emptyList())
                             .build();
                     if (cacheManager != null && cacheManager.getCache("destinations") != null) {
                         cacheManager.getCache("destinations").put(id, enriched);

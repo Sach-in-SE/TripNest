@@ -415,18 +415,18 @@ export const AdminLayout = ({ children, pageTitle = "Admin Portal" }) => {
                 </div>
               </div>
 
-              <div className="admin-modal-footer">
+              <div className="admin-modal-actions admin-modal-footer">
                 <button
                   type="button"
                   onClick={closeChangePasswordModal}
-                  className="admin-modal-btn cancel"
+                  className="admin-btn-secondary btn-secondary"
                   disabled={pwdLoading}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="admin-modal-btn save"
+                  className="admin-btn-primary btn-primary"
                   disabled={pwdLoading}
                 >
                   {pwdLoading ? "Updating..." : "Update Password"}

@@ -1,18 +1,21 @@
 /* ==========================================================================
-   TripNest Design System — Tokens & Dual Theme Architecture
+   TripNest Design System — Tokens & Dual High-Contrast Dark Themes
    Themes:
-     1. Classic Aurora [data-theme="classic"] (Default)
-        Midnight / Navy Foundation + Purple / Blue / Cyan Accents
-     2. Premium Travel [data-theme="premium"]
-        Obsidian / Charcoal Foundation + Emerald / Teal / Amber Accents
+     1. Aurora Dark [data-theme="aurora" | "classic"] (Default)
+        Rich Deep Space Indigo (#090d16) + Neon Violet & Cyan Glow Accents
+     2. Emerald Dark [data-theme="emerald" | "obsidian" | "premium"]
+        Sleek Dark Slate (#0f172a) + Card (#1e293b) + Emerald (#10b981) + Pure White Text (#ffffff)
    ========================================================================== */
 
 /* ------------------------------------------------------------------------
-   1. Theme-Specific Tokens: Classic Aurora (Default)
+   1. Theme-Specific Tokens: Aurora Dark (Default)
    ------------------------------------------------------------------------ */
 :root,
+[data-theme="aurora"],
 [data-theme="classic"] {
-  /* Brand Tokens */
+  color-scheme: dark;
+
+  /* Brand Tokens: Deep Space Indigo + Neon Violet & Cyan */
   --tn-brand-primary: #7c3aed;
   --tn-brand-primary-hover: #6d28d9;
   --tn-brand-secondary: #2563eb;
@@ -21,16 +24,16 @@
   --tn-brand-accent-hover: #0891b2;
   --tn-brand-gradient: linear-gradient(135deg, #7c3aed, #2563eb, #06b6d4);
   --tn-brand-gradient-hover: linear-gradient(135deg, #6d28d9, #1d4ed8, #0891b2);
-  --tn-brand-glow: 0 0 25px rgba(124, 58, 237, 0.25);
+  --tn-brand-glow: 0 0 25px rgba(124, 58, 237, 0.35);
 
-  /* Surface / Background Tokens */
-  --tn-surface-base: #0a0f1e;
+  /* Surface / Background Tokens (Deep Space Indigo) */
+  --tn-surface-base: #090d16;
   --tn-surface-1: #0d1529;
   --tn-surface-2: #131d35;
   --tn-surface-3: #1a2642;
-  --tn-surface-glass: rgba(13, 21, 41, 0.75);
+  --tn-surface-glass: rgba(13, 21, 41, 0.85);
   --tn-surface-card: rgba(255, 255, 255, 0.04);
-  --tn-surface-card-hover: rgba(255, 255, 255, 0.07);
+  --tn-surface-card-hover: rgba(255, 255, 255, 0.08);
 
   /* Typography Colors */
   --tn-text-primary: #f8fafc;
@@ -46,13 +49,13 @@
   --tn-border-accent: rgba(6, 182, 212, 0.4);
 
   /* Shadows & Elevation */
-  --tn-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  --tn-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
-  --tn-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
-  --tn-shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --tn-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --tn-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --tn-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --tn-shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
   --tn-shadow-glow: var(--tn-brand-glow);
 
-  /* Backward Compatibility Aliases for Classic Theme */
+  /* Backward Compatibility Aliases */
   --tn-bg-midnight: var(--tn-surface-base);
   --tn-bg-surface-1: var(--tn-surface-1);
   --tn-bg-surface-2: var(--tn-surface-2);
@@ -71,52 +74,59 @@
 
   --tn-gradient-primary: var(--tn-brand-gradient);
   --tn-gradient-primary-hover: var(--tn-brand-gradient-hover);
-  --tn-gradient-subtle: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(6, 182, 212, 0.06));
+  --tn-gradient-subtle: linear-gradient(135deg, rgba(124, 58, 237, 0.14), rgba(6, 182, 212, 0.08));
 }
 
 /* ------------------------------------------------------------------------
-   2. Theme-Specific Tokens: Premium Travel
-   Obsidian / Charcoal Base + Emerald Primary + Teal Secondary + Amber Accent
+   2. Theme-Specific Tokens: Emerald / Obsidian Dark
+   Sleek Dark Slate (#0f172a) + Card (#1e293b) + Emerald (#10b981)
+   + High-Contrast Pure White Text (#ffffff)
    ------------------------------------------------------------------------ */
-[data-theme="premium"] {
-  /* Brand Tokens */
+[data-theme="emerald"],
+[data-theme="obsidian"],
+[data-theme="premium"],
+[data-theme="light"],
+[data-theme="sol"] {
+  color-scheme: dark;
+
+  /* Brand Tokens: Emerald Primary + Teal Secondary + Mint Accent */
   --tn-brand-primary: #10b981;
   --tn-brand-primary-hover: #059669;
   --tn-brand-secondary: #0d9488;
   --tn-brand-secondary-hover: #0f766e;
-  --tn-brand-accent: #f59e0b;
-  --tn-brand-accent-hover: #d97706;
-  --tn-brand-gradient: linear-gradient(135deg, #10b981, #0d9488, #d97706);
-  --tn-brand-gradient-hover: linear-gradient(135deg, #059669, #0f766e, #b45309);
-  --tn-brand-glow: 0 0 25px rgba(16, 185, 129, 0.22);
+  --tn-brand-accent: #10b981;
+  --tn-brand-accent-hover: #34d399;
+  --tn-brand-gradient: linear-gradient(135deg, #10b981, #0d9488, #34d399);
+  --tn-brand-gradient-hover: linear-gradient(135deg, #059669, #0f766e, #10b981);
+  --tn-brand-glow: 0 0 25px rgba(16, 185, 129, 0.35);
 
-  /* Surface / Background Tokens (Obsidian / Charcoal Foundation) */
-  --tn-surface-base: #0b0f12;
-  --tn-surface-1: #11171c;
-  --tn-surface-2: #162026;
-  --tn-surface-3: #1e2b34;
-  --tn-surface-glass: rgba(17, 23, 28, 0.82);
-  --tn-surface-card: rgba(255, 255, 255, 0.035);
-  --tn-surface-card-hover: rgba(255, 255, 255, 0.065);
+  /* Surface / Background Tokens (Sleek Dark Slate #0f172a, Card #1e293b) */
+  --tn-surface-base: #0f172a;
+  --tn-surface-1: #141f33;
+  --tn-surface-2: #1e293b;
+  --tn-surface-3: #27354a;
+  --tn-surface-glass: rgba(15, 23, 42, 0.9);
+  --tn-surface-card: #1e293b;
+  --tn-surface-card-hover: #243247;
 
-  /* Typography Colors */
-  --tn-text-primary: #f8fafc;
-  --tn-text-secondary: #cbd5e1;
+  /* Typography Colors: Crisp High-Contrast Pure White & Slate */
+  --tn-text-primary: #ffffff;
+  --tn-text-secondary: #e2e8f0;
   --tn-text-muted: #94a3b8;
   --tn-text-dim: #64748b;
 
   /* Borders & Dividers */
-  --tn-border: rgba(255, 255, 255, 0.08);
+  --tn-border: rgba(255, 255, 255, 0.1);
   --tn-border-subtle: rgba(255, 255, 255, 0.08);
-  --tn-border-medium: rgba(255, 255, 255, 0.14);
+  --tn-border-medium: rgba(255, 255, 255, 0.16);
   --tn-border-focus: rgba(16, 185, 129, 0.6);
-  --tn-border-accent: rgba(245, 158, 11, 0.4);
+  --tn-border-accent: rgba(16, 185, 129, 0.4);
 
   /* Shadows & Elevation */
-  --tn-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --tn-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-  --tn-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --tn-shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --tn-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --tn-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.35);
+  --tn-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --tn-shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.7);
   --tn-shadow-glow: var(--tn-brand-glow);
 
   /* Aliases for Seamless Theme Adaptation */
@@ -133,12 +143,12 @@
   --tn-purple-400: #34d399;
   --tn-blue-600: #0d9488;
   --tn-blue-500: #14b8a6;
-  --tn-cyan-500: #0d9488;
-  --tn-cyan-400: #fbbf24;
+  --tn-cyan-500: #10b981;
+  --tn-cyan-400: #34d399;
 
   --tn-gradient-primary: var(--tn-brand-gradient);
   --tn-gradient-primary-hover: var(--tn-brand-gradient-hover);
-  --tn-gradient-subtle: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(245, 158, 11, 0.06));
+  --tn-gradient-subtle: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(13, 148, 136, 0.08));
 }
 
 /* ------------------------------------------------------------------------

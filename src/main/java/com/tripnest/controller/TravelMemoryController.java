@@ -97,8 +97,19 @@ public class TravelMemoryController {
 
     @GetMapping
     public ResponseEntity<?> getUserMemories(
+            @RequestParam(value = "destinationId", required = false) Long destinationId,
+            @RequestParam(value = "isPublic", required = false) Boolean isPublic,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
+        if (Boolean.TRUE.equals(isPublic) && destinationId != null) {
+            if (page != null && size != null) {
+                int boundedSize = Math.max(1, Math.min(size, 50));
+                int boundedPage = Math.max(0, page);
+                Pageable pageable = PageRequest.of(boundedPage, boundedSize);
+                return ResponseEntity.ok(travelMemoryService.getPublicMemoriesByDestination(destinationId, pageable));
+            }
+            return ResponseEntity.ok(travelMemoryService.getPublicMemoriesByDestination(destinationId));
+        }
         Long userId = getCurrentUserId();
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -117,6 +128,7 @@ public class TravelMemoryController {
     @GetMapping("/public")
     public ResponseEntity<?> getPublicMemories(
             @RequestParam(value = "destinationId", required = false) Long destinationId,
+            @RequestParam(value = "isPublic", required = false) Boolean isPublic,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
         Long userId = getCurrentUserId();
@@ -139,6 +151,21 @@ public class TravelMemoryController {
             List<TravelMemoryResponse> list = travelMemoryService.getPublicMemories(userId);
             return ResponseEntity.ok(list);
         }
+    }
+
+    @GetMapping("/destination/{destinationId}")
+    public ResponseEntity<?> getDestinationMemories(
+            @PathVariable Long destinationId,
+            @RequestParam(value = "isPublic", required = false) Boolean isPublic,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        if (page != null && size != null) {
+            int boundedSize = Math.max(1, Math.min(size, 50));
+            int boundedPage = Math.max(0, page);
+            Pageable pageable = PageRequest.of(boundedPage, boundedSize);
+            return ResponseEntity.ok(travelMemoryService.getPublicMemoriesByDestination(destinationId, pageable));
+        }
+        return ResponseEntity.ok(travelMemoryService.getPublicMemoriesByDestination(destinationId));
     }
 
     @GetMapping("/{id}")

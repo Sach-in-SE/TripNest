@@ -26,6 +26,31 @@ public class NotificationService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired(required = false)
+    private com.tripnest.repository.NotificationPreferenceRepository notificationPreferenceRepository;
+
+    public com.tripnest.entity.NotificationPreference createDefaultPreferences(User user) {
+        if (user == null || notificationPreferenceRepository == null) {
+            return null;
+        }
+        return notificationPreferenceRepository.findByUserId(user.getId())
+                .orElseGet(() -> {
+                    com.tripnest.entity.NotificationPreference pref = new com.tripnest.entity.NotificationPreference();
+                    pref.setUser(user);
+                    pref.setEmailNotifications(true);
+                    pref.setTripReminders(true);
+                    pref.setActivityReminders(true);
+                    pref.setBudgetAlerts(true);
+                    pref.setGroupNotifications(true);
+                    pref.setTripShareNotifications(true);
+                    return notificationPreferenceRepository.save(pref);
+                });
+    }
+
+    public com.tripnest.entity.NotificationPreference createDefaultNotificationPreferences(User user) {
+        return createDefaultPreferences(user);
+    }
+
     public NotificationResponse createNotification(NotificationRequest request) {
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));

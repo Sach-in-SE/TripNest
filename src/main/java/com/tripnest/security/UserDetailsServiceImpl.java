@@ -19,10 +19,15 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username)
             throws UsernameNotFoundException {
-        User user = userRepository.findByUsernameIgnoreCase(username)
-                .orElseGet(() -> userRepository.findByEmailIgnoreCase(username)
-                        .orElseThrow(() -> new UsernameNotFoundException(
-                                "User Not Found with username or email: " + username)));
+        if (username == null || username.trim().isEmpty()) {
+            throw new UsernameNotFoundException("User Not Found with empty username or email");
+        }
+        String identifier = username.trim();
+        User user = userRepository.findByUsernameOrEmailWithRoles(identifier)
+                .orElseGet(() -> userRepository.findByUsernameIgnoreCase(identifier)
+                        .orElseGet(() -> userRepository.findByEmailIgnoreCase(identifier)
+                                .orElseThrow(() -> new UsernameNotFoundException(
+                                        "User Not Found with username or email: " + identifier))));
 
         return UserDetailsImpl.build(user);
     }

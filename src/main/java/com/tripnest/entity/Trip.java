@@ -37,6 +37,10 @@ public class Trip {
 
     private Integer numberOfTravelers;
     private Double budget;
+
+    @Size(max = 1000)
+    @Column(name = "cover_image_url", length = 1000)
+    private String coverImageUrl;
     
     // Individual reminder flags for duplicate prevention
     private Boolean reminder7DaySent = false;

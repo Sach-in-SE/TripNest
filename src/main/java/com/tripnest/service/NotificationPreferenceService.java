@@ -24,7 +24,23 @@ public class NotificationPreferenceService {
         if (preferenceOpt.isPresent()) {
             return mapToResponse(preferenceOpt.get());
         }
-        return new NotificationPreferenceResponse();
+
+        // Initialize default preferences with all flags ON (true)
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null) {
+            NotificationPreference pref = new NotificationPreference();
+            pref.setUser(user);
+            pref.setEmailNotifications(true);
+            pref.setTripReminders(true);
+            pref.setActivityReminders(true);
+            pref.setBudgetAlerts(true);
+            pref.setGroupNotifications(true);
+            pref.setTripShareNotifications(true);
+            return mapToResponse(notificationPreferenceRepository.save(pref));
+        }
+
+        NotificationPreference defaultPref = new NotificationPreference();
+        return mapToResponse(defaultPref);
     }
 
     public NotificationPreferenceResponse createOrUpdatePreferences(NotificationPreferenceRequest request, Long userId) {
@@ -36,6 +52,9 @@ public class NotificationPreferenceService {
 
         preference.setUser(user);
 
+        if (request.getEffectiveEmailNotifications() != null) {
+            preference.setEmailNotifications(request.getEffectiveEmailNotifications());
+        }
         if (request.getTripReminders() != null) {
             preference.setTripReminders(request.getTripReminders());
         }
@@ -59,6 +78,8 @@ public class NotificationPreferenceService {
     private NotificationPreferenceResponse mapToResponse(NotificationPreference preference) {
         NotificationPreferenceResponse response = new NotificationPreferenceResponse();
         response.setId(preference.getId());
+        response.setEmailNotifications(preference.isEmailNotifications());
+        response.setEmail(preference.isEmailNotifications());
         response.setTripReminders(preference.isTripReminders());
         response.setActivityReminders(preference.isActivityReminders());
         response.setBudgetAlerts(preference.isBudgetAlerts());

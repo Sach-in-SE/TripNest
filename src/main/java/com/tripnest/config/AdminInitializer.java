@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 
 @Component
+@org.springframework.core.annotation.Order(2)
 public class AdminInitializer implements CommandLineRunner {
 
     @Autowired

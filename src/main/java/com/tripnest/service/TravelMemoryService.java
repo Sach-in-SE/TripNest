@@ -385,6 +385,7 @@ public class TravelMemoryService {
         res.setCaption(memory.getCaption());
         res.setLocationName(memory.getLocationName());
         res.setVisibility(memory.getVisibility().name());
+        res.setIsPublic(memory.getVisibility() == MemoryVisibility.PUBLIC);
 
         if (memory.getTrip() != null) {
             res.setTripId(memory.getTrip().getId());
@@ -398,10 +399,16 @@ public class TravelMemoryService {
 
         User user = memory.getUser();
         res.setUserId(user.getId());
-        String name = user.getFirstName() != null && user.getLastName() != null
-                ? user.getFirstName() + " " + user.getLastName()
-                : user.getUsername();
+        String name;
+        if (user.getFirstName() != null && !user.getFirstName().isBlank()) {
+            name = (user.getLastName() != null && !user.getLastName().isBlank())
+                    ? user.getFirstName().trim() + " " + user.getLastName().trim()
+                    : user.getFirstName().trim();
+        } else {
+            name = user.getUsername();
+        }
         res.setUserName(name);
+        res.setAuthorName(name);
         res.setUserAvatarInitial(name != null && !name.isEmpty() ? name.substring(0, 1).toUpperCase() : "T");
 
         res.setCreatedAt(memory.getCreatedAt());

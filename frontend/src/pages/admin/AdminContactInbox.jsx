@@ -241,16 +241,16 @@ const AdminContactInbox = () => {
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="admin-filters-card" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div className="admin-filter-bar">
           {/* Search Box */}
-          <div style={{ flex: '1 1 280px', position: 'relative' }}>
+          <div className="admin-search-wrapper">
+            <span className="admin-search-icon">🔍</span>
             <input
               type="text"
               placeholder="Search by sender name, email, subject, or message..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="admin-filter-input"
-              style={{ width: '100%', boxSizing: 'border-box' }}
+              className="admin-search-input tn-input"
             />
           </div>
 
@@ -259,7 +259,7 @@ const AdminContactInbox = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="admin-filter-select"
+              className="admin-select tn-select"
               style={{ width: '100%' }}
             >
               {STATUS_FILTERS.map((f) => (

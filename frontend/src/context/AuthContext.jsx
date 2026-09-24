@@ -34,7 +34,16 @@ export const AuthProvider = ({ children }) => {
     };
 
     const updateUser = (userData) => {
+        if (userData && typeof AuthService.updateStoredUser === 'function') {
+            AuthService.updateStoredUser(userData);
+        }
         setUser(userData);
+    };
+
+    const switchRole = async (role) => {
+        const data = await AuthService.switchRole(role);
+        setUser(data);
+        return data;
     };
 
     const login = async (credentials) => {
@@ -60,7 +69,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, adminLogin, signup, logout, loading, refreshUser, updateUser }}>
+        <AuthContext.Provider value={{ user, login, adminLogin, signup, logout, loading, refreshUser, updateUser, switchRole }}>
             {children}
         </AuthContext.Provider>
     );

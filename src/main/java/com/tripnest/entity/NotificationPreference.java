@@ -17,11 +17,22 @@ public class NotificationPreference {
     @JoinColumn(name = "user_id", unique = true)
     private User user;
 
+    @Column(name = "email_notifications")
+    private boolean emailNotifications = true;
+
     private boolean tripReminders = true;
     private boolean activityReminders = true;
     private boolean budgetAlerts = true;
     private boolean groupNotifications = true;
     private boolean tripShareNotifications = true;
+
+    public boolean isEmail() {
+        return emailNotifications;
+    }
+
+    public void setEmail(boolean email) {
+        this.emailNotifications = email;
+    }
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
