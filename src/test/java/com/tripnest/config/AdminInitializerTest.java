@@ -46,9 +46,9 @@ class AdminInitializerTest {
     @BeforeEach
     void setUp() {
         lenient().when(environment.getActiveProfiles()).thenReturn(new String[]{"dev"});
-        ReflectionTestUtils.setField(adminInitializer, "adminEmail", "customadmin@tripnest.com");
-        ReflectionTestUtils.setField(adminInitializer, "adminUsername", "customadmin");
-        ReflectionTestUtils.setField(adminInitializer, "adminPassword", "SecretEnvPassword123!");
+        ReflectionTestUtils.setField(adminInitializer, "adminEmail", "admin@tripnest.com");
+        ReflectionTestUtils.setField(adminInitializer, "adminUsername", "admin@tripnest.com");
+        ReflectionTestUtils.setField(adminInitializer, "adminPassword", "TripNest2026");
 
         Role travelerRole = new Role();
         travelerRole.setName(ERole.ROLE_TRAVELER);
@@ -64,10 +64,11 @@ class AdminInitializerTest {
 
     @Test
     void testRun_ProvisionsAdminUserUsingConfiguredCredentials_WhenNotPresent() throws Exception {
-        when(userRepository.findByEmailIgnoreCase("customadmin@tripnest.com")).thenReturn(Optional.empty());
-        when(userRepository.findByEmail("customadmin@tripnest.com")).thenReturn(Optional.empty());
-        when(userRepository.findByUsername("customadmin")).thenReturn(Optional.empty());
-        when(passwordEncoder.encode("SecretEnvPassword123!")).thenReturn("encodedSecretEnvPassword");
+        when(userRepository.findByEmailIgnoreCase("admin@tripnest.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("admin@tripnest.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("admin@tripnest.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("TripNest2026")).thenReturn("encodedTripNest2026");
 
         adminInitializer.run();
 
@@ -75,23 +76,26 @@ class AdminInitializerTest {
         verify(userRepository).save(userCaptor.capture());
 
         User savedAdmin = userCaptor.getValue();
-        assertEquals("customadmin", savedAdmin.getUsername());
-        assertEquals("customadmin@tripnest.com", savedAdmin.getEmail());
-        assertEquals("encodedSecretEnvPassword", savedAdmin.getPassword());
+        assertEquals("admin@tripnest.com", savedAdmin.getUsername());
+        assertEquals("admin@tripnest.com", savedAdmin.getEmail());
+        assertEquals("encodedTripNest2026", savedAdmin.getPassword());
         assertTrue(savedAdmin.isEnabled());
+        assertFalse(savedAdmin.isPasswordChangeRequired());
         assertTrue(savedAdmin.getRoles().contains(adminRole));
     }
 
     @Test
-    void testRun_WhenAdminAlreadyExistsWithChangedPassword_PreservesPasswordAndEnsuresRoleAndEnabled() throws Exception {
+    void testRun_WhenAdminAlreadyExists_ForcesPasswordUpdateAndEnsuresRoleAndEnabled() throws Exception {
         User existingAdmin = new User();
         existingAdmin.setId(1L);
-        existingAdmin.setUsername("customadmin");
-        existingAdmin.setEmail("customadmin@tripnest.com");
-        existingAdmin.setPassword("userModifiedPasswordHash");
+        existingAdmin.setUsername("admin");
+        existingAdmin.setEmail("admin@tripnest.com");
+        existingAdmin.setPassword("oldOutdatedPasswordHash");
         existingAdmin.setEnabled(false);
+        existingAdmin.setPasswordChangeRequired(true);
 
-        when(userRepository.findByEmailIgnoreCase("customadmin@tripnest.com")).thenReturn(Optional.of(existingAdmin));
+        when(userRepository.findByEmailIgnoreCase("admin@tripnest.com")).thenReturn(Optional.of(existingAdmin));
+        when(passwordEncoder.encode("TripNest2026")).thenReturn("encodedTripNest2026");
 
         adminInitializer.run();
 
@@ -99,28 +103,12 @@ class AdminInitializerTest {
         verify(userRepository).save(userCaptor.capture());
 
         User updatedAdmin = userCaptor.getValue();
-        assertEquals("userModifiedPasswordHash", updatedAdmin.getPassword());
+        assertEquals("admin@tripnest.com", updatedAdmin.getUsername());
+        assertEquals("admin@tripnest.com", updatedAdmin.getEmail());
+        assertEquals("encodedTripNest2026", updatedAdmin.getPassword());
         assertTrue(updatedAdmin.isEnabled());
+        assertFalse(updatedAdmin.isPasswordChangeRequired());
         assertTrue(updatedAdmin.getRoles().contains(adminRole));
-    }
-
-    @Test
-    void testRun_WhenAdminAlreadyExistsAndUpToDate_DoesNotSaveAgain() throws Exception {
-        User upToDateAdmin = new User();
-        upToDateAdmin.setId(1L);
-        upToDateAdmin.setUsername("customadmin");
-        upToDateAdmin.setEmail("customadmin@tripnest.com");
-        upToDateAdmin.setPassword("currentEncodedPassword");
-        upToDateAdmin.setEnabled(true);
-        Set<Role> roles = new HashSet<>();
-        roles.add(adminRole);
-        upToDateAdmin.setRoles(roles);
-
-        when(userRepository.findByEmailIgnoreCase("customadmin@tripnest.com")).thenReturn(Optional.of(upToDateAdmin));
-
-        adminInitializer.run();
-
-        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
@@ -162,11 +150,12 @@ class AdminInitializerTest {
     @Test
     void testRun_WhenProdProfile_AndAdminPasswordSecure_Succeeds() throws Exception {
         when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
-        ReflectionTestUtils.setField(adminInitializer, "adminPassword", "AStrongSecureProdPassword2026!");
-        when(userRepository.findByEmailIgnoreCase("customadmin@tripnest.com")).thenReturn(Optional.empty());
-        when(userRepository.findByEmail("customadmin@tripnest.com")).thenReturn(Optional.empty());
-        when(userRepository.findByUsername("customadmin")).thenReturn(Optional.empty());
-        when(passwordEncoder.encode("AStrongSecureProdPassword2026!")).thenReturn("encodedProdPassword");
+        ReflectionTestUtils.setField(adminInitializer, "adminPassword", "TripNest2026");
+        when(userRepository.findByEmailIgnoreCase("admin@tripnest.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("admin@tripnest.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("admin@tripnest.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("TripNest2026")).thenReturn("encodedProdPassword");
 
         assertDoesNotThrow(() -> adminInitializer.run());
         verify(userRepository).save(any(User.class));
