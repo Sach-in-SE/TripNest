@@ -140,6 +140,7 @@ public class PostgresSchemaParityTest {
         trip.setEndDate(LocalDate.now().plusDays(17));
         trip.setNumberOfTravelers(4);
         trip.setBudget(75000.0);
+        trip.setCoverImageUrl("https://images.unsplash.com/photo-test");
         trip.setStatus(TripStatus.PLANNING);
         trip.setUser(user);
         trip.setReminder7DaySent(false);
@@ -175,6 +176,7 @@ public class PostgresSchemaParityTest {
 
         List<Trip> userTrips = tripRepository.findByUserId(user.getId());
         assertEquals(1, userTrips.size());
+        assertEquals("https://images.unsplash.com/photo-test", userTrips.get(0).getCoverImageUrl());
     }
 
     @Test

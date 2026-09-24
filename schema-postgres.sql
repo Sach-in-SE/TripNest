@@ -130,6 +130,7 @@ CREATE TABLE trips (
   end_date date DEFAULT NULL,
   number_of_travelers integer DEFAULT NULL,
   budget double precision DEFAULT NULL,
+  cover_image_url varchar(1000) DEFAULT NULL,
   status varchar(50) DEFAULT 'PLANNING',
   reminder_sent boolean DEFAULT FALSE,
   reminder7day_sent boolean DEFAULT FALSE,

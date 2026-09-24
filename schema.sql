@@ -541,6 +541,7 @@ DROP TABLE IF EXISTS `trips`;
 CREATE TABLE `trips` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `budget` double DEFAULT NULL,
+  `cover_image_url` varchar(1000) DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `description` varchar(500) DEFAULT NULL,
   `destination` varchar(100) NOT NULL,
