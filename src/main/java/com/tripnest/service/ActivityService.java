@@ -12,6 +12,7 @@ import com.tripnest.entity.Trip;
 import com.tripnest.entity.User;
 import com.tripnest.repository.ActivityRepository;
 import com.tripnest.repository.ExpenseRepository;
+import com.tripnest.repository.ExpenseSplitRepository;
 import com.tripnest.repository.ItineraryRepository;
 import com.tripnest.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,9 @@ public class ActivityService {
 
     @Autowired
     private ExpenseRepository expenseRepository;
+
+    @Autowired(required = false)
+    private ExpenseSplitRepository expenseSplitRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -165,26 +169,51 @@ public class ActivityService {
 
         Activity updated = activityRepository.save(activity);
 
-        if (request.getCost() != null && request.getCost() > 0) {
-            if (activity.getLinkedExpenseId() != null) {
-                expenseRepository.findById(activity.getLinkedExpenseId()).ifPresent(expense -> {
-                    expense.setAmount(request.getCost());
+        Double newCost = request.getCost();
+        if (updated.getLinkedExpenseId() != null) {
+            if (newCost == null || newCost <= 0) {
+                deleteLinkedExpense(updated.getLinkedExpenseId());
+                updated.setLinkedExpenseId(null);
+                updated = activityRepository.save(updated);
+            } else {
+                Long linkedId = updated.getLinkedExpenseId();
+                var expenseOpt = expenseRepository.findById(linkedId);
+                if (expenseOpt.isPresent()) {
+                    var expense = expenseOpt.get();
+                    expense.setAmount(newCost);
+                    expense.setTitle(updated.getTitle());
+                    if (updated.getType() != null) {
+                        expense.setCategory(mapActivityTypeToExpenseCategory(updated.getType()));
+                    }
                     expenseRepository.save(expense);
-                });
-            } else if (oldCost == null || oldCost == 0) {
-                ExpenseCategory expenseCategory = mapActivityTypeToExpenseCategory(activity.getType());
-                ExpenseRequest expenseRequest = new ExpenseRequest();
-                expenseRequest.setTitle(activity.getTitle());
-                expenseRequest.setAmount(activity.getCost());
-                expenseRequest.setCategory(expenseCategory.name());
-                expenseRequest.setDescription("Auto-added from activity: " + activity.getTitle());
-                expenseRequest.setDate(activity.getItinerary().getDate());
-                expenseRequest.setTripId(activity.getItinerary().getTrip().getId());
+                } else {
+                    ExpenseCategory expenseCategory = mapActivityTypeToExpenseCategory(updated.getType());
+                    ExpenseRequest expenseRequest = new ExpenseRequest();
+                    expenseRequest.setTitle(updated.getTitle());
+                    expenseRequest.setAmount(newCost);
+                    expenseRequest.setCategory(expenseCategory.name());
+                    expenseRequest.setDescription("Auto-added from activity: " + updated.getTitle());
+                    expenseRequest.setDate(updated.getItinerary().getDate());
+                    expenseRequest.setTripId(updated.getItinerary().getTrip().getId());
 
-                var expenseResponse = expenseService.createExpense(expenseRequest, userId);
-                updated.setLinkedExpenseId(expenseResponse.getId());
-                activityRepository.save(updated);
+                    var expenseResponse = expenseService.createExpense(expenseRequest, userId);
+                    updated.setLinkedExpenseId(expenseResponse.getId());
+                    updated = activityRepository.save(updated);
+                }
             }
+        } else if (newCost != null && newCost > 0) {
+            ExpenseCategory expenseCategory = mapActivityTypeToExpenseCategory(updated.getType());
+            ExpenseRequest expenseRequest = new ExpenseRequest();
+            expenseRequest.setTitle(updated.getTitle());
+            expenseRequest.setAmount(newCost);
+            expenseRequest.setCategory(expenseCategory.name());
+            expenseRequest.setDescription("Auto-added from activity: " + updated.getTitle());
+            expenseRequest.setDate(updated.getItinerary().getDate());
+            expenseRequest.setTripId(updated.getItinerary().getTrip().getId());
+
+            var expenseResponse = expenseService.createExpense(expenseRequest, userId);
+            updated.setLinkedExpenseId(expenseResponse.getId());
+            updated = activityRepository.save(updated);
         }
 
         // Notify trip members about activity update
@@ -208,15 +237,32 @@ public class ActivityService {
         String activityTitle = activity.getTitle();
 
         if (activity.getLinkedExpenseId() != null) {
-            expenseRepository.findById(activity.getLinkedExpenseId()).ifPresent(expense -> {
-                expenseRepository.delete(expense);
-            });
+            deleteLinkedExpense(activity.getLinkedExpenseId());
+            activity.setLinkedExpenseId(null);
         }
 
         activityRepository.delete(activity);
 
         // Notify trip members about activity deletion
         travelUpdateNotificationService.notifyActivityDeleted(trip.getId(), activityTitle, userId);
+    }
+
+    private void deleteLinkedExpense(Long linkedExpenseId) {
+        if (linkedExpenseId == null) {
+            return;
+        }
+        try {
+            expenseRepository.findById(linkedExpenseId).ifPresent(expense -> {
+                if (expenseSplitRepository != null) {
+                    try {
+                        expenseSplitRepository.deleteByExpenseId(expense.getId());
+                    } catch (Exception ignored) {
+                    }
+                }
+                expenseRepository.delete(expense);
+            });
+        } catch (Exception ignored) {
+        }
     }
 
     private ActivityResponse mapToResponse(Activity activity) {

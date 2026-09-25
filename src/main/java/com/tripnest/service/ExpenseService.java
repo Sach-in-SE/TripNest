@@ -21,7 +21,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.tripnest.exception.BadRequestException;
 import com.tripnest.exception.ResourceNotFoundException;
 import com.tripnest.exception.UnauthorizedAccessException;
+import com.tripnest.entity.ERole;
+import com.tripnest.entity.GroupMember;
+import com.tripnest.entity.GroupRole;
+import com.tripnest.entity.TravelGroup;
+import com.tripnest.repository.GroupMemberRepository;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,6 +51,9 @@ public class ExpenseService {
 
     @Autowired
     private GroupRepository groupRepository;
+
+    @Autowired
+    private GroupMemberRepository groupMemberRepository;
 
     @Autowired
     private NotificationService notificationService;
@@ -123,14 +132,47 @@ public class ExpenseService {
     }
 
     @Transactional
+    public ExpenseResponse updateExpense(Long tripId, Long expenseId, ExpenseRequest request, Long userId) {
+        Expense expense = expenseRepository.findById(expenseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense", "id", expenseId));
+
+        if (tripId != null && !expense.getTrip().getId().equals(tripId)) {
+            throw new BadRequestException("Expense does not belong to the specified trip");
+        }
+
+        return updateExpenseInternal(expense, request, userId);
+    }
+
+    @Transactional
     public ExpenseResponse updateExpense(Long id, ExpenseRequest request, Long userId) {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense", "id", id));
+        return updateExpenseInternal(expense, request, userId);
+    }
 
+    @Transactional
+    public ExpenseResponse updateExpense(Long tripId, Long expenseId, ExpenseRequest request, User currentUser) {
+        return updateExpense(tripId, expenseId, request, currentUser != null ? currentUser.getId() : null);
+    }
+
+    private ExpenseResponse updateExpenseInternal(Expense expense, ExpenseRequest request, Long userId) {
         Trip trip = expense.getTrip();
+        Long tripId = trip.getId();
         boolean isOwner = trip.getUser().getId().equals(userId);
-        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
-        if (!isOwner && !hasEditAccess) {
+        boolean hasEditAccess = tripShareService.hasEditAccess(tripId, userId);
+        boolean isGroupMember = groupRepository.existsByTripIdAndMemberId(tripId, userId);
+
+        boolean hasPermission = isOwner || hasEditAccess;
+        if (!hasPermission && isGroupMember) {
+            boolean isCreator = (expense.getPaidBy() != null && expense.getPaidBy().getId().equals(userId))
+                    || (expense.getUser() != null && expense.getUser().getId().equals(userId));
+            boolean isGroupAdmin = isGroupAdmin(tripId, userId);
+            if (isCreator || isGroupAdmin) {
+                hasPermission = true;
+            }
+        }
+
+        if (!hasPermission) {
             throw new UnauthorizedAccessException("Unauthorized");
         }
 
@@ -160,19 +202,85 @@ public class ExpenseService {
     }
 
     @Transactional
+    public void deleteExpense(Long tripId, Long expenseId, Long userId) {
+        Expense expense = expenseRepository.findById(expenseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense", "id", expenseId));
+
+        if (tripId != null && !expense.getTrip().getId().equals(tripId)) {
+            throw new BadRequestException("Expense does not belong to the specified trip");
+        }
+
+        deleteExpenseInternal(expense, userId);
+    }
+
+    @Transactional
     public void deleteExpense(Long id, Long userId) {
         Expense expense = expenseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense", "id", id));
+        deleteExpenseInternal(expense, userId);
+    }
 
+    @Transactional
+    public void deleteExpense(Long tripId, Long expenseId, User currentUser) {
+        deleteExpense(tripId, expenseId, currentUser != null ? currentUser.getId() : null);
+    }
+
+    private void deleteExpenseInternal(Expense expense, Long userId) {
         Trip trip = expense.getTrip();
+        Long tripId = trip.getId();
         boolean isOwner = trip.getUser().getId().equals(userId);
-        boolean hasEditAccess = tripShareService.hasEditAccess(trip.getId(), userId);
-        if (!isOwner && !hasEditAccess) {
+        boolean hasEditAccess = tripShareService.hasEditAccess(tripId, userId);
+        boolean isGroupMember = groupRepository.existsByTripIdAndMemberId(tripId, userId);
+
+        boolean hasPermission = isOwner || hasEditAccess;
+        if (!hasPermission && isGroupMember) {
+            boolean isCreator = (expense.getPaidBy() != null && expense.getPaidBy().getId().equals(userId))
+                    || (expense.getUser() != null && expense.getUser().getId().equals(userId));
+            boolean isGroupAdmin = isGroupAdmin(tripId, userId);
+            if (isCreator || isGroupAdmin) {
+                hasPermission = true;
+            }
+        }
+
+        if (!hasPermission) {
             throw new UnauthorizedAccessException("Unauthorized");
         }
 
-        expenseSplitRepository.deleteByExpenseId(id);
+        expenseSplitRepository.deleteByExpenseId(expense.getId());
         expenseRepository.delete(expense);
+    }
+
+    private boolean isGroupAdmin(Long tripId, Long userId) {
+        if (tripId == null || userId == null) {
+            return false;
+        }
+        try {
+            List<TravelGroup> groups = groupRepository.findByTripId(tripId);
+            if (groups != null) {
+                for (TravelGroup group : groups) {
+                    if (group.getCreatedBy() != null && group.getCreatedBy().getId().equals(userId)) {
+                        return true;
+                    }
+                    if (groupMemberRepository != null) {
+                        Optional<GroupMember> memberOpt = groupMemberRepository.findByTravelGroupIdAndUserId(group.getId(), userId);
+                        if (memberOpt.isPresent()) {
+                            GroupMember member = memberOpt.get();
+                            if (member.getRole() != null) {
+                                String roleName = member.getRole().name();
+                                if ("ADMIN".equalsIgnoreCase(roleName) || "OWNER".equalsIgnoreCase(roleName)) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return userRepository.findById(userId)
+                .map(u -> u.getRoles() != null && u.getRoles().stream()
+                        .anyMatch(r -> r.getName() == ERole.ROLE_ADMIN || r.getName() == ERole.ROLE_GROUP_ADMIN))
+                .orElse(false);
     }
 
     public Double getTotalExpenses(Long tripId, Long userId) {

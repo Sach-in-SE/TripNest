@@ -41,6 +41,10 @@ const TripService = {
         const res = await api.post('/activities', data);
         return res.data;
     },
+    updateActivity: async (id, data) => {
+        const res = await api.put(`/activities/${id}`, data);
+        return res.data;
+    },
     getItineraryActivities: async (itineraryId) => {
         const res = await api.get(`/activities/itinerary/${itineraryId}`);
         return res.data;

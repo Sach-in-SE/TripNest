@@ -9,6 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.UUID;
 
 @Service
@@ -28,6 +31,10 @@ public class PasswordResetService {
     private EmailService emailService;
 
     public void createResetToken(String email) {
+        initiatePasswordReset(email);
+    }
+
+    public void initiatePasswordReset(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("No account found with this email"));
 
@@ -41,8 +48,17 @@ public class PasswordResetService {
         resetToken.setUser(user);
         tokenRepository.save(resetToken);
 
-        // Send password reset email
-        emailService.sendPasswordResetEmail(email, token);
+        // Send password reset email asynchronously (after transaction commit if in transaction)
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    emailService.sendPasswordResetEmail(email, token);
+                }
+            });
+        } else {
+            emailService.sendPasswordResetEmail(email, token);
+        }
     }
 
     public void resetPassword(String token, String newPassword) {

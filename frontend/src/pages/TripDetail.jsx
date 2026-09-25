@@ -5,6 +5,7 @@ import TripService from "../services/tripService";
 import CollaboratorModal from "../components/CollaboratorModal";
 import api from "../services/api";
 import { getDestinationCoverImage, DEFAULT_INDIAN_COVER } from "../utils/tripCoverImage";
+import { websocketService } from "../services/websocketService";
 
 const TripDetail = () => {
   const [showShareModal, setShowShareModal] = useState(false);
@@ -24,6 +25,120 @@ const TripDetail = () => {
   });
 
   useEffect(() => { fetchTripData(); }, [id]);
+
+  // Real-time WebSocket subscriptions with functional state updates to prevent stale closures
+  useEffect(() => {
+    if (!id) return;
+
+    const handleIncomingTripMessage = (message) => {
+      try {
+        const payload = typeof message === "string" ? JSON.parse(message) : message;
+        if (!payload) return;
+
+        // Ensure all incoming WebSocket messages (itinerary updates, activities, expense events)
+        // update component state using functional updater syntax: setTrip(prevTrip => { ... })
+        // instead of closing over the stale trip instance, preventing rapid concurrent updates from overwriting each other.
+        if (payload.type === "ITINERARY_UPDATE" || payload.type === "ITINERARY_CREATED" || payload.type === "ITINERARY_DELETED") {
+          setTrip((prevTrip) => {
+            if (!prevTrip) return prevTrip;
+            return {
+              ...prevTrip,
+              ...(payload.trip || {}),
+              updatedAt: payload.timestamp || new Date().toISOString(),
+            };
+          });
+
+          if (payload.itineraries) {
+            setItineraries(payload.itineraries);
+          } else if (payload.itinerary) {
+            setItineraries((prevItineraries) => {
+              if (payload.type === "ITINERARY_DELETED") {
+                return prevItineraries.filter((itin) => itin.id !== payload.itinerary.id);
+              }
+              const exists = prevItineraries.some((itin) => itin.id === payload.itinerary.id);
+              return exists
+                ? prevItineraries.map((itin) => itin.id === payload.itinerary.id ? { ...itin, ...payload.itinerary } : itin)
+                : [...prevItineraries, payload.itinerary];
+            });
+          }
+        } else if (payload.type === "ACTIVITY_UPDATE" || payload.type === "ACTIVITY_CREATED" || payload.type === "ACTIVITY_DELETED") {
+          setTrip((prevTrip) => {
+            if (!prevTrip) return prevTrip;
+            return {
+              ...prevTrip,
+              ...(payload.trip || {}),
+              updatedAt: payload.timestamp || new Date().toISOString(),
+            };
+          });
+
+          if (payload.activity) {
+            setItineraries((prevItineraries) =>
+              prevItineraries.map((itin) => {
+                if (itin.id === payload.activity.itineraryId) {
+                  const activities = itin.activities || [];
+                  if (payload.type === "ACTIVITY_DELETED") {
+                    return {
+                      ...itin,
+                      activities: activities.filter((act) => act.id !== payload.activity.id),
+                    };
+                  }
+                  const exists = activities.some((act) => act.id === payload.activity.id);
+                  const updatedActs = exists
+                    ? activities.map((act) => act.id === payload.activity.id ? { ...act, ...payload.activity } : act)
+                    : [...activities, payload.activity];
+                  return { ...itin, activities: updatedActs };
+                }
+                return itin;
+              })
+            );
+          }
+        } else if (payload.type === "EXPENSE_UPDATE" || payload.type === "EXPENSE_CREATED" || payload.type === "EXPENSE_DELETED") {
+          setTrip((prevTrip) => {
+            if (!prevTrip) return prevTrip;
+            return {
+              ...prevTrip,
+              ...(payload.trip || {}),
+              updatedAt: payload.timestamp || new Date().toISOString(),
+            };
+          });
+
+          if (payload.expenses) {
+            setExpenses(payload.expenses);
+          } else if (payload.expense) {
+            setExpenses((prevExpenses) => {
+              if (payload.type === "EXPENSE_DELETED") {
+                return prevExpenses.filter((exp) => exp.id !== payload.expense.id);
+              }
+              const exists = prevExpenses.some((exp) => exp.id === payload.expense.id);
+              return exists
+                ? prevExpenses.map((exp) => exp.id === payload.expense.id ? { ...exp, ...payload.expense } : exp)
+                : [...prevExpenses, payload.expense];
+            });
+          }
+        } else {
+          // General trip update event
+          setTrip((prevTrip) => {
+            if (!prevTrip) return prevTrip;
+            return {
+              ...prevTrip,
+              ...(payload.trip || payload),
+              updatedAt: payload.timestamp || new Date().toISOString(),
+            };
+          });
+        }
+      } catch (err) {
+        console.error("Failed to process WebSocket trip update:", err);
+      }
+    };
+
+    const unsubscribe = websocketService.subscribeToTrip(id, handleIncomingTripMessage);
+
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [id]);
 
   const fetchTripData = async () => {
     try {

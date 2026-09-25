@@ -4,31 +4,7 @@
 -- Fully compatible with Hibernate 6 / Spring Boot 3 ddl-auto=validate
 -- ==============================================================================
 
--- Drop tables in reverse foreign-key dependency order
-DROP TABLE IF EXISTS user_roles CASCADE;
-DROP TABLE IF EXISTS group_members CASCADE;
-DROP TABLE IF EXISTS group_messages CASCADE;
-DROP TABLE IF EXISTS group_memberships CASCADE;
-DROP TABLE IF EXISTS travel_groups CASCADE;
-DROP TABLE IF EXISTS activities CASCADE;
-DROP TABLE IF EXISTS itineraries CASCADE;
-DROP TABLE IF EXISTS budgets CASCADE;
-DROP TABLE IF EXISTS expenses CASCADE;
-DROP TABLE IF EXISTS favorite_destinations CASCADE;
-DROP TABLE IF EXISTS travel_documents CASCADE;
-DROP TABLE IF EXISTS travel_memory_images CASCADE;
-DROP TABLE IF EXISTS travel_memories CASCADE;
-DROP TABLE IF EXISTS destinations CASCADE;
-DROP TABLE IF EXISTS notification_preferences CASCADE;
-DROP TABLE IF EXISTS notifications CASCADE;
-DROP TABLE IF EXISTS password_reset_tokens CASCADE;
-DROP TABLE IF EXISTS preference_trip_types CASCADE;
-DROP TABLE IF EXISTS travel_preferences CASCADE;
-DROP TABLE IF EXISTS trip_shares CASCADE;
-DROP TABLE IF EXISTS trips CASCADE;
-DROP TABLE IF EXISTS contact_messages CASCADE;
-DROP TABLE IF EXISTS roles CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
+
 
 -- ------------------------------------------------------------------------------
 -- 1. Roles

@@ -160,4 +160,11 @@ class AdminInitializerTest {
         assertDoesNotThrow(() -> adminInitializer.run());
         verify(userRepository).save(any(User.class));
     }
+
+    @Test
+    void testRun_WhenExceptionDuringPasswordSynchronization_HandlesGracefullyWithoutThrowing() throws Exception {
+        when(userRepository.findByEmailIgnoreCase("admin@tripnest.com")).thenThrow(new RuntimeException("Database error during admin lookup"));
+
+        assertDoesNotThrow(() -> adminInitializer.run());
+    }
 }

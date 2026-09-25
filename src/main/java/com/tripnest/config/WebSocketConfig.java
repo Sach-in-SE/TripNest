@@ -27,14 +27,28 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        String[] origins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toArray(String[]::new);
-
-        if (origins.length == 0) {
-            origins = new String[]{"http://localhost:5173", "http://localhost:5174"};
+        java.util.Set<String> originSet = new java.util.LinkedHashSet<>();
+        if (allowedOrigins != null && !allowedOrigins.trim().isEmpty()) {
+            Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .map(s -> s.replaceAll("/+$", ""))
+                    .filter(s -> !s.isEmpty())
+                    .forEach(originSet::add);
         }
+
+        boolean hasLocalOrigin = originSet.isEmpty() || originSet.stream().anyMatch(o -> o.contains("localhost") || o.contains("127.0.0.1"));
+        if (hasLocalOrigin) {
+            originSet.add("http://localhost:5173");
+            originSet.add("http://localhost:5174");
+            originSet.add("http://localhost:3000");
+            originSet.add("http://127.0.0.1:5173");
+            originSet.add("http://127.0.0.1:5174");
+            originSet.add("http://127.0.0.1:3000");
+            originSet.add("http://localhost");
+            originSet.add("http://127.0.0.1");
+        }
+
+        String[] origins = originSet.toArray(new String[0]);
 
         // Native WebSocket STOMP endpoint
         registry.addEndpoint("/ws")

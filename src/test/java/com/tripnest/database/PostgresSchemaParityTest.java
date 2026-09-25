@@ -26,10 +26,9 @@ import static org.junit.jupiter.api.Assertions.*;
     "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect",
     "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
     "spring.jpa.hibernate.ddl-auto=validate",
-    "spring.sql.init.mode=always",
-    "spring.sql.init.schema-locations=file:schema-postgres.sql",
-    "spring.sql.init.data-locations=",
-    "spring.flyway.enabled=false"
+    "spring.flyway.enabled=true",
+    "spring.flyway.locations=classpath:db/migration",
+    "spring.flyway.baseline-on-migrate=true"
 })
 public class PostgresSchemaParityTest {
 
@@ -95,7 +94,7 @@ public class PostgresSchemaParityTest {
     void testSchemaValidationAndRoles() {
         assertNotNull(dataSource, "DataSource should be initialized");
         List<Role> roles = roleRepository.findAll();
-        assertFalse(roles.isEmpty(), "Roles should be seeded by schema-postgres.sql");
+        assertFalse(roles.isEmpty(), "Roles should be seeded by Flyway migration");
         assertTrue(roles.stream().anyMatch(r -> r.getName() == ERole.ROLE_ADMIN));
         assertTrue(roles.stream().anyMatch(r -> r.getName() == ERole.ROLE_TRAVELER));
     }

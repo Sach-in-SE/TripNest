@@ -4,8 +4,10 @@ import com.tripnest.dto.BudgetRequest;
 import com.tripnest.dto.BudgetResponse;
 import com.tripnest.entity.Budget;
 import com.tripnest.entity.Trip;
+import com.tripnest.entity.User;
 import com.tripnest.repository.BudgetRepository;
 import com.tripnest.repository.ExpenseRepository;
+import com.tripnest.repository.GroupRepository;
 import com.tripnest.repository.TripRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
@@ -29,6 +31,9 @@ public class BudgetService {
     @Autowired
     private TripShareService tripShareService;
 
+    @Autowired
+    private GroupRepository groupRepository;
+
     @Transactional
     public BudgetResponse createOrUpdateBudget(BudgetRequest request, Long userId) {
         Trip trip = tripRepository.findById(request.getTripId())
@@ -45,7 +50,7 @@ public class BudgetService {
 
         Double oldTotalAmount = budget.getTotalAmount();
         budget.setTotalAmount(request.getTotalAmount());
-        budget.setCurrency(request.getCurrency() != null ? request.getCurrency() : "INR");
+        budget.setCurrency("INR");
         budget.setTrip(trip);
 
         if (oldTotalAmount != null && request.getTotalAmount() > oldTotalAmount) {
@@ -67,13 +72,19 @@ public class BudgetService {
     }
 
     @Transactional(readOnly = true)
+    public BudgetResponse getBudgetByTripId(Long tripId, User currentUser) {
+        return getBudgetByTripId(tripId, currentUser != null ? currentUser.getId() : null);
+    }
+
+    @Transactional(readOnly = true)
     public BudgetResponse getBudgetByTripId(Long tripId, Long userId) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip not found"));
 
         boolean isOwner = trip.getUser().getId().equals(userId);
         boolean hasAccess = tripShareService.hasAccess(tripId, userId);
-        if (!isOwner && !hasAccess) {
+        boolean isGroupMember = groupRepository.existsByTripIdAndMemberId(tripId, userId);
+        if (!isOwner && !hasAccess && !isGroupMember) {
             throw new AccessDeniedException("Unauthorized");
         }
 

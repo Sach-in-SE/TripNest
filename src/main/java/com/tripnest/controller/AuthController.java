@@ -210,11 +210,11 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         try {
             passwordResetService.createResetToken(request.getEmail());
-            return ResponseEntity.ok(new MessageResponse("If this email exists, a reset token has been generated. Check server logs for now."));
+            return ResponseEntity.ok(new MessageResponse("If this email is registered, a password reset link has been sent to your email address."));
         } catch (RuntimeException e) {
             logger.error("Failed to process password reset request: {}", e.getMessage(), e);
-            // Security best practice: same generic message chahe email exist kare ya na kare
-            return ResponseEntity.ok(new MessageResponse("If this email exists, a reset token has been generated. Check server logs for now."));
+            // Security best practice: same generic message regardless of email existence
+            return ResponseEntity.ok(new MessageResponse("If this email is registered, a password reset link has been sent to your email address."));
         }
     }
 

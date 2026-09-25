@@ -71,12 +71,30 @@ public class WebSecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration corsConfig = new CorsConfiguration();
 
-        java.util.List<String> origins = java.util.Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(java.util.stream.Collectors.toList());
+        java.util.Set<String> originSet = new java.util.LinkedHashSet<>();
+        if (allowedOrigins != null && !allowedOrigins.trim().isEmpty()) {
+            java.util.Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .map(s -> s.replaceAll("/+$", ""))
+                    .filter(s -> !s.isEmpty())
+                    .forEach(originSet::add);
+        }
 
-        corsConfig.setAllowedOrigins(origins.isEmpty() ? java.util.List.of("http://localhost:5173", "http://localhost:5174") : origins);
+        // When allowed origins are unconfigured or include local/loopback origins,
+        // automatically include all common local development origins (Vite 5173/5174, CRA 3000, loopback)
+        boolean hasLocalOrigin = originSet.isEmpty() || originSet.stream().anyMatch(o -> o.contains("localhost") || o.contains("127.0.0.1"));
+        if (hasLocalOrigin) {
+            originSet.add("http://localhost:5173");
+            originSet.add("http://localhost:5174");
+            originSet.add("http://localhost:3000");
+            originSet.add("http://127.0.0.1:5173");
+            originSet.add("http://127.0.0.1:5174");
+            originSet.add("http://127.0.0.1:3000");
+            originSet.add("http://localhost");
+            originSet.add("http://127.0.0.1");
+        }
+
+        corsConfig.setAllowedOrigins(new java.util.ArrayList<>(originSet));
         corsConfig.setAllowedMethods(java.util.List.of(
                 "GET",
                 "POST",

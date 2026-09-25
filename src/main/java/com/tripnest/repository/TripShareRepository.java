@@ -14,6 +14,7 @@ import java.util.Optional;
 @Repository
 public interface TripShareRepository extends JpaRepository<TripShare, Long> {
     List<TripShare> findByTripId(Long tripId);
+    List<TripShare> findByTripIdAndStatus(Long tripId, ShareStatus status);
     List<TripShare> findBySharedWithUserId(Long userId);
     List<TripShare> findBySharedWithUserIdAndStatus(Long userId, ShareStatus status);
 

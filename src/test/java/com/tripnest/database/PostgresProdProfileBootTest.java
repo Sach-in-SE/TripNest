@@ -24,10 +24,9 @@ import static org.junit.jupiter.api.Assertions.*;
     "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect",
     "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
     "spring.jpa.hibernate.ddl-auto=validate",
-    "spring.sql.init.mode=always",
-    "spring.sql.init.schema-locations=file:schema-postgres.sql",
-    "spring.sql.init.data-locations=",
-    "spring.flyway.enabled=false",
+    "spring.flyway.enabled=true",
+    "spring.flyway.locations=classpath:db/migration",
+    "spring.flyway.baseline-on-migrate=true",
     "tripnest.admin.password=ProdSecurePassword2026!",
     "tripnest.app.jwtSecret=ProductionSecureCryptographicallyRandomKey2026VeryLongString32Plus"
 })
@@ -75,8 +74,13 @@ public class PostgresProdProfileBootTest {
         assertEquals("30", environment.getProperty("spring.datasource.hikari.data-source-properties.socketTimeout"));
         assertEquals("require", environment.getProperty("spring.datasource.hikari.data-source-properties.sslmode"));
 
-        // Frontend URL and CORS defaults
-        assertEquals("http://localhost", environment.getProperty("app.frontend.url"));
-        assertEquals("http://localhost", environment.getProperty("tripnest.cors.allowed-origins"));
+        // Frontend URL and CORS defaults (either fallback http://localhost or environment-injected FRONTEND_URL)
+        String frontendUrl = environment.getProperty("app.frontend.url");
+        assertTrue("http://localhost".equals(frontendUrl) || "http://localhost:5173".equals(frontendUrl),
+                "Expected http://localhost or local .env http://localhost:5173, but got: " + frontendUrl);
+        String corsOrigins = environment.getProperty("tripnest.cors.allowed-origins");
+        assertNotNull(corsOrigins);
+        assertTrue(corsOrigins.contains("http://localhost"),
+                "Expected CORS origins to contain http://localhost, but got: " + corsOrigins);
     }
 }

@@ -98,6 +98,7 @@ const Budget = () => {
     try {
       await api.post("/budget", {
         ...budgetForm,
+        currency: "INR",
         totalAmount: parseFloat(budgetForm.totalAmount),
         tripId: selectedTrip.id,
       });
@@ -151,7 +152,29 @@ const Budget = () => {
     }
   };
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+  // Safe currency arithmetic helper avoiding IEEE 754 floating point artifacts
+  const safeRound = (val) => Math.round((Number(val) || 0) * 100) / 100;
+  const safeAdd = (acc, curr) => Math.round(((Number(acc) || 0) + (Number(curr) || 0)) * 100) / 100;
+  const formatAmount = (val) => {
+    const num = safeRound(val);
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  // Safe category expense summation and total calculations avoiding IEEE 754 precision drift
+  const totalExpenses = safeRound(
+    expenses.reduce((acc, curr) => safeAdd(acc, curr?.amount), 0)
+  );
+
+  const categoryExpenses = expenses.reduce((acc, curr) => {
+    const category = curr?.category || "MISCELLANEOUS";
+    acc[category] = safeAdd(acc[category] || 0, curr?.amount);
+    return acc;
+  }, {});
+
+  const remainingBudget = budget
+    ? Math.max(0, safeRound((budget.totalAmount || 0) - totalExpenses))
+    : 0;
+
   const categoryIcons = {
     TRANSPORTATION: "🚗",
     HOTEL: "🏨",
@@ -231,24 +254,36 @@ const Budget = () => {
                     <h2 style={styles.budgetTitle}>Budget Overview</h2>
                     <p style={styles.budgetTrip}>✈️ {selectedTrip.title}</p>
                     {budget ? (
-                      <div style={styles.budgetStats}>
-                        <div style={styles.budgetStat}>
-                          <p style={styles.statLabel}>Total Budget</p>
-                          <p style={styles.statValue}>₹{budget.totalAmount?.toLocaleString()}</p>
+                      <>
+                        <div style={styles.budgetStats}>
+                          <div style={styles.budgetStat}>
+                            <p style={styles.statLabel}>Total Budget</p>
+                            <p style={styles.statValue}>₹{formatAmount(budget.totalAmount)}</p>
+                          </div>
+                          <div style={styles.budgetStat}>
+                            <p style={styles.statLabel}>Spent</p>
+                            <p style={{ ...styles.statValue, color: "#ef4444" }}>
+                              ₹{formatAmount(totalExpenses)}
+                            </p>
+                          </div>
+                          <div style={styles.budgetStat}>
+                            <p style={styles.statLabel}>Remaining</p>
+                            <p style={{ ...styles.statValue, color: "#10b981" }}>
+                              ₹{formatAmount(remainingBudget)}
+                            </p>
+                          </div>
                         </div>
-                        <div style={styles.budgetStat}>
-                          <p style={styles.statLabel}>Spent</p>
-                          <p style={{ ...styles.statValue, color: "#ef4444" }}>
-                            ₹{totalExpenses.toLocaleString()}
-                          </p>
-                        </div>
-                        <div style={styles.budgetStat}>
-                          <p style={styles.statLabel}>Remaining</p>
-                          <p style={{ ...styles.statValue, color: "#10b981" }}>
-                            ₹{Math.max(0, (budget.totalAmount || 0) - totalExpenses).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
+                        {Object.keys(categoryExpenses).length > 0 && (
+                          <div style={styles.categorySummaryRow}>
+                            {Object.entries(categoryExpenses).map(([cat, amt]) => (
+                              <div key={cat} style={styles.categoryPill} className="glass-card">
+                                <span>{categoryIcons[cat] || "📦"} {cat}:</span>
+                                <span style={{ fontWeight: "600", color: "#a78bfa" }}>₹{Number(amt).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <p style={{ color: "#94a3b8", marginTop: "8px" }}>No budget set for this trip</p>
                     )}
@@ -281,7 +316,7 @@ const Budget = () => {
                         onClick={() => {
                           setBudgetForm(
                             budget
-                              ? { totalAmount: budget.totalAmount, currency: budget.currency || "INR" }
+                              ? { totalAmount: budget.totalAmount, currency: "INR" }
                               : { totalAmount: "", currency: "INR" }
                           );
                           setShowBudgetForm(true);
@@ -361,7 +396,7 @@ const Budget = () => {
                             </div>
                           </div>
                           <div style={styles.expenseRight}>
-                            <p style={styles.expenseAmount}>₹{expense.amount?.toLocaleString()}</p>
+                            <p style={styles.expenseAmount}>₹{formatAmount(expense.amount)}</p>
                             <div style={styles.expenseActions}>
                               <button
                                 onClick={() => handleEditExpense(expense)}
@@ -383,7 +418,7 @@ const Budget = () => {
                       ))}
                       <div style={styles.totalRow}>
                         <span style={styles.totalLabel}>Total Spent</span>
-                        <span style={styles.totalAmount}>₹{totalExpenses.toLocaleString()}</span>
+                        <span style={styles.totalAmount}>₹{formatAmount(totalExpenses)}</span>
                       </div>
                     </div>
                   )}
@@ -692,14 +727,13 @@ const Budget = () => {
                     <label style={styles.label}>Currency</label>
                     <select
                       className="aurora-input"
-                      value={budgetForm.currency}
-                      onChange={(e) => setBudgetForm({ ...budgetForm, currency: e.target.value })}
+                      value="INR"
+                      disabled
+                      aria-label="Currency"
                     >
-                      {["INR", "USD", "EUR", "GBP"].map((c) => (
-                        <option key={c} value={c} style={{ background: "#0d1529" }}>
-                          {c}
-                        </option>
-                      ))}
+                      <option value="INR" style={{ background: "#0d1529" }}>
+                        INR (₹)
+                      </option>
                     </select>
                   </div>
                   <div style={styles.modalActions}>
@@ -837,6 +871,8 @@ const styles = {
   totalRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", background: "rgba(124,58,237,0.1)", borderRadius: "12px", border: "1px solid rgba(124,58,237,0.3)", marginTop: "4px" },
   totalLabel: { color: "#a78bfa", fontSize: "15px", fontWeight: "600" },
   totalAmount: { color: "#a78bfa", fontSize: "22px", fontWeight: "700", fontFamily: "'Space Grotesk', sans-serif" },
+  categorySummaryRow: { display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "16px" },
+  categoryPill: { display: "flex", alignItems: "center", gap: "6px", padding: "6px 12px", borderRadius: "20px", fontSize: "12px", background: "rgba(255, 255, 255, 0.04)", border: "1px solid rgba(255, 255, 255, 0.08)" },
 
   // Balances Tab
   balancesContainer: { display: "flex", flexDirection: "column", gap: "24px" },

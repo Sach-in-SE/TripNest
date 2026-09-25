@@ -327,7 +327,8 @@ const Memories = () => {
           api.get("/destinations").catch(() => ({ data: [] })),
         ]);
         setUserTrips(tripsRes.data || []);
-        setDestinations(destsRes.data || []);
+        const dests = Array.isArray(destsRes.data) ? destsRes.data : (destsRes.data?.content || []);
+        setDestinations(dests);
       } catch {
         // Non-blocking metadata fetch
       }

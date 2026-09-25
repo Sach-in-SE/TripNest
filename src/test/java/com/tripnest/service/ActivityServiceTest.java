@@ -128,4 +128,113 @@ class ActivityServiceTest {
 
         assertEquals("Unauthorized", ex.getMessage());
     }
+
+    @Test
+    void testUpdateActivity_ZeroCostRemovesLinkedExpense() {
+        Activity act = new Activity();
+        act.setId(500L);
+        act.setTitle("Museum Visit");
+        act.setCost(50.0);
+        act.setLinkedExpenseId(999L);
+        act.setItinerary(itinerary);
+        act.setUser(owner);
+
+        when(activityRepository.findById(500L)).thenReturn(Optional.of(act));
+        when(activityRepository.save(any(Activity.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tripnest.entity.Expense exp = new com.tripnest.entity.Expense();
+        exp.setId(999L);
+        exp.setAmount(50.0);
+        when(expenseRepository.findById(999L)).thenReturn(Optional.of(exp));
+
+        ActivityRequest req = new ActivityRequest();
+        req.setTitle("Museum Visit Free");
+        req.setCost(0.0);
+
+        ActivityResponse resp = activityService.updateActivity(500L, req, 1L);
+
+        assertNotNull(resp);
+        verify(expenseRepository).delete(exp);
+        assertNull(act.getLinkedExpenseId());
+    }
+
+    @Test
+    void testUpdateActivity_UpdatesExistingLinkedExpenseTitleAndAmount() {
+        Activity act = new Activity();
+        act.setId(500L);
+        act.setTitle("Museum Visit");
+        act.setCost(50.0);
+        act.setLinkedExpenseId(999L);
+        act.setItinerary(itinerary);
+        act.setUser(owner);
+
+        when(activityRepository.findById(500L)).thenReturn(Optional.of(act));
+        when(activityRepository.save(any(Activity.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tripnest.entity.Expense exp = new com.tripnest.entity.Expense();
+        exp.setId(999L);
+        exp.setTitle("Museum Visit");
+        exp.setAmount(50.0);
+        when(expenseRepository.findById(999L)).thenReturn(Optional.of(exp));
+
+        ActivityRequest req = new ActivityRequest();
+        req.setTitle("Museum Visit Premium");
+        req.setCost(120.0);
+
+        ActivityResponse resp = activityService.updateActivity(500L, req, 1L);
+
+        assertNotNull(resp);
+        assertEquals(120.0, exp.getAmount());
+        assertEquals("Museum Visit Premium", exp.getTitle());
+        verify(expenseRepository).save(exp);
+    }
+
+    @Test
+    void testUpdateActivity_CreatesLinkedExpenseWhenNoneExistedAndCostPositive() {
+        Activity act = new Activity();
+        act.setId(500L);
+        act.setTitle("Museum Visit");
+        act.setCost(0.0);
+        act.setLinkedExpenseId(null);
+        act.setItinerary(itinerary);
+        act.setUser(owner);
+
+        when(activityRepository.findById(500L)).thenReturn(Optional.of(act));
+        when(activityRepository.save(any(Activity.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tripnest.dto.ExpenseResponse expResp = new com.tripnest.dto.ExpenseResponse();
+        expResp.setId(888L);
+        when(expenseService.createExpense(any(), eq(1L))).thenReturn(expResp);
+
+        ActivityRequest req = new ActivityRequest();
+        req.setTitle("Museum Visit Paid");
+        req.setCost(75.0);
+
+        ActivityResponse resp = activityService.updateActivity(500L, req, 1L);
+
+        assertNotNull(resp);
+        assertEquals(888L, act.getLinkedExpenseId());
+        verify(expenseService).createExpense(any(), eq(1L));
+    }
+
+    @Test
+    void testDeleteActivity_RemovesLinkedExpense() {
+        Activity act = new Activity();
+        act.setId(500L);
+        act.setTitle("Museum Visit");
+        act.setLinkedExpenseId(999L);
+        act.setItinerary(itinerary);
+        act.setUser(owner);
+
+        when(activityRepository.findById(500L)).thenReturn(Optional.of(act));
+
+        com.tripnest.entity.Expense exp = new com.tripnest.entity.Expense();
+        exp.setId(999L);
+        when(expenseRepository.findById(999L)).thenReturn(Optional.of(exp));
+
+        activityService.deleteActivity(500L, 1L);
+
+        verify(expenseRepository).delete(exp);
+        verify(activityRepository).delete(act);
+    }
 }

@@ -21,7 +21,6 @@ services:
 
     volumes:
       - tripnest-mysql-data:/var/lib/mysql
-      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
     ports:
       - "3306:3306"

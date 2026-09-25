@@ -54,94 +54,121 @@ public class AdminInitializer implements CommandLineRunner {
             }
         }
 
-        // Initialize Roles if missing
-        roleRepository.findByName(ERole.ROLE_USER)
-                .orElseGet(() -> {
-                    Role role = new Role();
-                    role.setName(ERole.ROLE_USER);
-                    return roleRepository.save(role);
-                });
+        try {
+            // Initialize Roles if missing
+            Role adminRole = null;
+            if (roleRepository != null) {
+                try {
+                    roleRepository.findByName(ERole.ROLE_USER)
+                            .orElseGet(() -> {
+                                Role role = new Role();
+                                role.setName(ERole.ROLE_USER);
+                                return roleRepository.save(role);
+                            });
 
-        Role travelerRole = roleRepository.findByName(ERole.ROLE_TRAVELER)
-                .orElseGet(() -> {
-                    Role role = new Role();
-                    role.setName(ERole.ROLE_TRAVELER);
-                    return roleRepository.save(role);
-                });
+                    roleRepository.findByName(ERole.ROLE_TRAVELER)
+                            .orElseGet(() -> {
+                                Role role = new Role();
+                                role.setName(ERole.ROLE_TRAVELER);
+                                return roleRepository.save(role);
+                            });
 
-        roleRepository.findByName(ERole.ROLE_GROUP_ADMIN)
-                .orElseGet(() -> {
-                    Role role = new Role();
-                    role.setName(ERole.ROLE_GROUP_ADMIN);
-                    return roleRepository.save(role);
-                });
+                    roleRepository.findByName(ERole.ROLE_GROUP_ADMIN)
+                            .orElseGet(() -> {
+                                Role role = new Role();
+                                role.setName(ERole.ROLE_GROUP_ADMIN);
+                                return roleRepository.save(role);
+                            });
 
-        Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
-                .orElseGet(() -> {
-                    Role role = new Role();
-                    role.setName(ERole.ROLE_ADMIN);
-                    return roleRepository.save(role);
-                });
+                    adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
+                            .orElseGet(() -> {
+                                Role role = new Role();
+                                role.setName(ERole.ROLE_ADMIN);
+                                return roleRepository.save(role);
+                            });
+                } catch (Exception e) {
+                    System.err.println(">>> [TripNest AdminInitializer] Warning: Role initialization encountered an error: " + e.getMessage());
+                }
+            }
 
-        // Find existing default admin user by email or username
-        Optional<User> adminOpt = userRepository.findByEmailIgnoreCase(ADMIN_EMAIL);
-        if (adminOpt.isEmpty()) {
-            adminOpt = userRepository.findByEmail(ADMIN_EMAIL);
-        }
-        if (adminOpt.isEmpty()) {
-            adminOpt = userRepository.findByUsername(ADMIN_USERNAME);
-        }
-        if (adminOpt.isEmpty()) {
-            adminOpt = userRepository.findByUsername("admin");
-        }
-        if (adminOpt.isEmpty() && adminEmail != null && !adminEmail.trim().isEmpty()) {
-            adminOpt = userRepository.findByEmailIgnoreCase(adminEmail.trim());
-        }
-        if (adminOpt.isEmpty() && adminUsername != null && !adminUsername.trim().isEmpty()) {
-            adminOpt = userRepository.findByUsername(adminUsername.trim());
-        }
+            if (userRepository == null) {
+                System.err.println(">>> [TripNest AdminInitializer] Warning: UserRepository is null, skipping admin initialization.");
+                return;
+            }
 
-        User admin;
-        if (adminOpt.isEmpty()) {
-            admin = new User();
-            admin.setFirstName("System");
-            admin.setLastName("Admin");
-        } else {
-            admin = adminOpt.get();
-        }
+            // Find existing default admin user by email or username
+            Optional<User> adminOpt = userRepository.findByEmailIgnoreCase(ADMIN_EMAIL);
+            if (adminOpt.isEmpty()) {
+                adminOpt = userRepository.findByEmail(ADMIN_EMAIL);
+            }
+            if (adminOpt.isEmpty()) {
+                adminOpt = userRepository.findByUsername(ADMIN_USERNAME);
+            }
+            if (adminOpt.isEmpty()) {
+                adminOpt = userRepository.findByUsername("admin");
+            }
+            if (adminOpt.isEmpty() && adminEmail != null && !adminEmail.trim().isEmpty()) {
+                adminOpt = userRepository.findByEmailIgnoreCase(adminEmail.trim());
+            }
+            if (adminOpt.isEmpty() && adminUsername != null && !adminUsername.trim().isEmpty()) {
+                adminOpt = userRepository.findByUsername(adminUsername.trim());
+            }
 
-        // Clean up any collision if another user record holds the target username
-        Optional<User> conflictingUsernameUser = userRepository.findByUsername(ADMIN_USERNAME);
-        if (conflictingUsernameUser.isPresent() && admin.getId() != null && !conflictingUsernameUser.get().getId().equals(admin.getId())) {
-            userRepository.delete(conflictingUsernameUser.get());
-            userRepository.flush();
-        }
+            User admin;
+            if (adminOpt.isEmpty()) {
+                admin = new User();
+                admin.setFirstName("System");
+                admin.setLastName("Admin");
+            } else {
+                admin = adminOpt.get();
+            }
 
-        // Clean up any collision if another user record holds the target email
-        Optional<User> conflictingEmailUser = userRepository.findByEmailIgnoreCase(ADMIN_EMAIL);
-        if (conflictingEmailUser.isPresent() && admin.getId() != null && !conflictingEmailUser.get().getId().equals(admin.getId())) {
-            userRepository.delete(conflictingEmailUser.get());
-            userRepository.flush();
-        }
+            // Clean up any collision if another user record holds the target username
+            Optional<User> conflictingUsernameUser = userRepository.findByUsername(ADMIN_USERNAME);
+            if (conflictingUsernameUser.isPresent() && admin.getId() != null && !conflictingUsernameUser.get().getId().equals(admin.getId())) {
+                userRepository.delete(conflictingUsernameUser.get());
+                userRepository.flush();
+            }
 
-        // Force update admin credentials and status
-        admin.setUsername(ADMIN_USERNAME);
-        admin.setEmail(ADMIN_EMAIL);
-        admin.setPassword(passwordEncoder.encode(ENFORCED_ADMIN_PASSWORD));
-        admin.setEnabled(true);
-        admin.setPasswordChangeRequired(false);
-        admin.setTemporaryPasswordExpiry(null);
+            // Clean up any collision if another user record holds the target email
+            Optional<User> conflictingEmailUser = userRepository.findByEmailIgnoreCase(ADMIN_EMAIL);
+            if (conflictingEmailUser.isPresent() && admin.getId() != null && !conflictingEmailUser.get().getId().equals(admin.getId())) {
+                userRepository.delete(conflictingEmailUser.get());
+                userRepository.flush();
+            }
 
-        // Ensure roles set is initialized and contains ROLE_ADMIN
-        if (admin.getRoles() == null) {
-            admin.setRoles(new HashSet<>());
-        }
-        if (!admin.getRoles().contains(adminRole)) {
-            admin.getRoles().add(adminRole);
-        }
+            // Force update admin credentials and status
+            admin.setUsername(ADMIN_USERNAME);
+            admin.setEmail(ADMIN_EMAIL);
 
-        userRepository.save(admin);
-        System.out.println(">>> [TripNest AdminInitializer] Enforced & synchronized admin credentials for " + ADMIN_EMAIL);
+            String passwordToSet = (ENFORCED_ADMIN_PASSWORD != null && !ENFORCED_ADMIN_PASSWORD.trim().isEmpty())
+                    ? ENFORCED_ADMIN_PASSWORD
+                    : (adminPassword != null && !adminPassword.trim().isEmpty() ? adminPassword : "TripNest2026");
+
+            if (passwordEncoder != null && passwordToSet != null) {
+                try {
+                    admin.setPassword(passwordEncoder.encode(passwordToSet));
+                } catch (Exception ex) {
+                    System.err.println(">>> [TripNest AdminInitializer] Warning: Password encoding failed: " + ex.getMessage());
+                }
+            }
+            admin.setEnabled(true);
+            admin.setPasswordChangeRequired(false);
+            admin.setTemporaryPasswordExpiry(null);
+
+            // Ensure roles set is initialized and contains ROLE_ADMIN
+            if (admin.getRoles() == null) {
+                admin.setRoles(new HashSet<>());
+            }
+            if (adminRole != null && !admin.getRoles().contains(adminRole)) {
+                admin.getRoles().add(adminRole);
+            }
+
+            userRepository.save(admin);
+            System.out.println(">>> [TripNest AdminInitializer] Enforced & synchronized admin credentials for " + ADMIN_EMAIL);
+        } catch (Exception e) {
+            System.err.println(">>> [TripNest AdminInitializer] Warning: Exception during admin synchronization: " + e.getMessage());
+        }
     }
 }
 

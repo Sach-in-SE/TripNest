@@ -29,7 +29,8 @@ function AdminReports() {
 
       setStats(statsRes.data);
       setUsers(usersRes.data || []);
-      setDestinations(destsRes.data || []);
+      const dests = Array.isArray(destsRes.data) ? destsRes.data : (destsRes.data?.content || []);
+      setDestinations(dests);
     } catch (err) {
       console.error("Failed to fetch report datasets:", err);
       setError(

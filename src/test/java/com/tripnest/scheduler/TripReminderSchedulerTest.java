@@ -6,9 +6,14 @@ import com.tripnest.entity.NotificationType;
 import com.tripnest.entity.Trip;
 import com.tripnest.entity.TripStatus;
 import com.tripnest.entity.User;
+import com.tripnest.entity.ShareStatus;
+import com.tripnest.entity.TravelGroup;
+import com.tripnest.entity.TripShare;
+import com.tripnest.repository.GroupRepository;
 import com.tripnest.repository.NotificationPreferenceRepository;
 import com.tripnest.repository.NotificationRepository;
 import com.tripnest.repository.TripRepository;
+import com.tripnest.repository.TripShareRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +48,12 @@ class TripReminderSchedulerTest {
     @Mock
     private NotificationRepository notificationRepository;
 
+    @Mock
+    private TripShareRepository tripShareRepository;
+
+    @Mock
+    private GroupRepository groupRepository;
+
     @InjectMocks
     private TripReminderScheduler tripReminderScheduler;
 
@@ -64,7 +75,7 @@ class TripReminderSchedulerTest {
         testTrip.setStatus(TripStatus.PLANNING);
 
         // Default: no notification preferences set (reminders enabled by default)
-        when(notificationPreferenceRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(notificationPreferenceRepository.findByUserId(anyLong())).thenReturn(Optional.empty());
         // Default: no duplicate notifications exist
         when(notificationRepository.existsByUserIdAndTypeAndTitleAndReferenceId(any(), any(), any(), any())).thenReturn(false);
     }
@@ -254,5 +265,60 @@ class TripReminderSchedulerTest {
 
         verify(notificationService, never()).createNotification(any(NotificationRequest.class));
         verify(tripRepository, never()).save(testTrip);
+    }
+
+    @Test
+    void testSend7DayReminder_SendsNotificationToCollaboratorsAndGroupMembers() {
+        LocalDate today = LocalDate.now();
+        LocalDate sevenDaysFromNow = today.plusDays(7);
+        testTrip.setStartDate(sevenDaysFromNow);
+        testTrip.setReminder7DaySent(false);
+
+        User collaborator = new User();
+        collaborator.setId(2L);
+        TripShare share = new TripShare();
+        share.setSharedWithUser(collaborator);
+        share.setStatus(ShareStatus.ACCEPTED);
+
+        User member = new User();
+        member.setId(3L);
+        TravelGroup group = new TravelGroup();
+        group.setMembers(Collections.singleton(member));
+
+        when(tripRepository.findByStartDate(sevenDaysFromNow)).thenReturn(Arrays.asList(testTrip));
+        when(tripShareRepository.findByTripIdAndStatus(1L, ShareStatus.ACCEPTED)).thenReturn(Arrays.asList(share));
+        when(groupRepository.findByTripIdWithDetails(1L)).thenReturn(Arrays.asList(group));
+
+        tripReminderScheduler.send7DayReminder(today);
+
+        // Should notify owner (1L), collaborator (2L), and group member (3L)
+        verify(notificationService, times(3)).createNotification(any(NotificationRequest.class));
+        verify(tripRepository).save(testTrip);
+        assertTrue(testTrip.getReminder7DaySent());
+    }
+
+    @Test
+    void testSend7DayReminder_FallbackToFindByTripIdWhenWithDetailsEmpty() {
+        LocalDate today = LocalDate.now();
+        LocalDate sevenDaysFromNow = today.plusDays(7);
+        testTrip.setStartDate(sevenDaysFromNow);
+        testTrip.setReminder7DaySent(false);
+
+        User member = new User();
+        member.setId(4L);
+        TravelGroup group = new TravelGroup();
+        group.setMembers(Collections.singleton(member));
+
+        when(tripRepository.findByStartDate(sevenDaysFromNow)).thenReturn(Arrays.asList(testTrip));
+        when(tripShareRepository.findByTripIdAndStatus(1L, ShareStatus.ACCEPTED)).thenReturn(Collections.emptyList());
+        when(groupRepository.findByTripIdWithDetails(1L)).thenReturn(Collections.emptyList());
+        when(groupRepository.findByTripId(1L)).thenReturn(Arrays.asList(group));
+
+        tripReminderScheduler.send7DayReminder(today);
+
+        // Should notify owner (1L) and group member (4L)
+        verify(notificationService, times(2)).createNotification(any(NotificationRequest.class));
+        verify(tripRepository).save(testTrip);
+        assertTrue(testTrip.getReminder7DaySent());
     }
 }

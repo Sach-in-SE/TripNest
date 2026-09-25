@@ -7,6 +7,7 @@ import com.tripnest.entity.User;
 import com.tripnest.repository.BudgetRepository;
 import com.tripnest.repository.ExpenseRepository;
 import com.tripnest.repository.TripRepository;
+import com.tripnest.repository.GroupRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,9 @@ public class BudgetServiceTest {
 
     @Mock
     private TripShareService tripShareService;
+
+    @Mock
+    private GroupRepository groupRepository;
 
     @InjectMocks
     private BudgetService budgetService;
@@ -80,5 +84,34 @@ public class BudgetServiceTest {
 
         // CRITICAL: verify that budgetRepository.save() is NEVER called on GET
         verify(budgetRepository, never()).save(any(Budget.class));
+    }
+
+    @Test
+    @DisplayName("getBudgetByTripId grants view access to group member")
+    void getBudgetByTripId_GroupMember_GrantsAccess() {
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(tripShareService.hasAccess(10L, 2L)).thenReturn(false);
+        when(groupRepository.existsByTripIdAndMemberId(10L, 2L)).thenReturn(true);
+        when(budgetRepository.findByTripId(10L)).thenReturn(Optional.of(budget));
+        when(expenseRepository.getTotalExpenseByTripId(10L)).thenReturn(5000.0);
+
+        BudgetResponse response = budgetService.getBudgetByTripId(10L, 2L);
+
+        assertNotNull(response);
+        assertEquals(50000.0, response.getTotalAmount());
+        assertEquals(5000.0, response.getSpentAmount());
+        verify(groupRepository).existsByTripIdAndMemberId(10L, 2L);
+    }
+
+    @Test
+    @DisplayName("getBudgetByTripId throws AccessDeniedException when user is not owner, shared, or group member")
+    void getBudgetByTripId_Unauthorized_ThrowsAccessDenied() {
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(tripShareService.hasAccess(10L, 99L)).thenReturn(false);
+        when(groupRepository.existsByTripIdAndMemberId(10L, 99L)).thenReturn(false);
+
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> {
+            budgetService.getBudgetByTripId(10L, 99L);
+        });
     }
 }

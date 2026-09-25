@@ -21,6 +21,9 @@ public interface GroupRepository extends JpaRepository<TravelGroup, Long> {
 
     boolean existsByTripIdAndMembersId(Long tripId, Long userId);
 
+    @Query("SELECT CASE WHEN COUNT(g) > 0 THEN TRUE ELSE FALSE END FROM TravelGroup g JOIN g.members m WHERE g.trip.id = :tripId AND m.id = :userId")
+    boolean existsByTripIdAndMemberId(@Param("tripId") Long tripId, @Param("userId") Long userId);
+
     @Query("SELECT DISTINCT g FROM TravelGroup g " +
            "JOIN FETCH g.trip t " +
            "JOIN FETCH g.createdBy u " +

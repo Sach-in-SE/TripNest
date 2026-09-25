@@ -43,6 +43,17 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String base = (frontendUrl != null && !frontendUrl.trim().isEmpty())
                 ? frontendUrl.trim().replaceAll("/+$", "")
                 : "http://localhost:5173";
+
+        // In local development, if base is configured as localhost without an explicit port,
+        // probe port 80; if no server is listening on port 80, fallback to Vite dev server on port 5173
+        if ("http://localhost".equalsIgnoreCase(base) || "http://127.0.0.1".equalsIgnoreCase(base)) {
+            try (java.net.Socket socket = new java.net.Socket()) {
+                socket.connect(new java.net.InetSocketAddress("localhost", 80), 80);
+            } catch (Exception e) {
+                base = "http://localhost:5173";
+            }
+        }
+
         String targetUrl = base + "/oauth2/redirect?code=" + exchangeCode;
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }

@@ -18,6 +18,9 @@ const Itineraries = () => {
   const [error, setError] = useState(null);
   const [showItineraryForm, setShowItineraryForm] = useState(false);
   const [showActivityForm, setShowActivityForm] = useState(false);
+  const [showEditActivityModal, setShowEditActivityModal] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
+  const [activityActionError, setActivityActionError] = useState(null);
   const [selectedItineraryId, setSelectedItineraryId] = useState(null);
   const [itineraryForm, setItineraryForm] = useState({ date: "", notes: "" });
   const [activityForm, setActivityForm] = useState({
@@ -93,16 +96,72 @@ const Itineraries = () => {
   };
 
   const handleCreateActivity = async () => {
+    if (!activityForm.title?.trim()) {
+      setActivityActionError("Activity title is required.");
+      return;
+    }
     try {
+      setActivityActionError(null);
       await TripService.createActivity({
         ...activityForm,
+        title: activityForm.title.trim(),
         itineraryId: selectedItineraryId,
-        cost: activityForm.cost ? parseFloat(activityForm.cost) : null,
+        cost: activityForm.cost !== "" && activityForm.cost != null ? parseFloat(activityForm.cost) : null,
+        startTime: activityForm.startTime || null,
+        endTime: activityForm.endTime || null,
+        reminder: activityForm.reminder || "NONE",
       });
       setShowActivityForm(false);
-      setActivityForm({ title: "", description: "", startTime: "", endTime: "", location: "", type: "SIGHTSEEING", cost: "" });
+      setActivityForm({ title: "", description: "", startTime: "", endTime: "", location: "", type: "SIGHTSEEING", cost: "", reminder: "THIRTY_MINUTES" });
       fetchTripData();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error("Failed to create activity:", err);
+      const msg = err.response?.data?.message || err.message || "Failed to create activity. Please check input values.";
+      setActivityActionError(msg);
+    }
+  };
+
+  const handleOpenEditActivity = (activity, itineraryId) => {
+    setActivityActionError(null);
+    setEditingActivity({
+      id: activity.id,
+      itineraryId: activity.itineraryId || itineraryId,
+      title: activity.title || "",
+      description: activity.description || "",
+      startTime: activity.startTime ? String(activity.startTime).slice(0, 5) : "",
+      endTime: activity.endTime ? String(activity.endTime).slice(0, 5) : "",
+      location: activity.location || "",
+      type: activity.type || "SIGHTSEEING",
+      cost: activity.cost != null ? String(activity.cost) : "",
+      reminder: activity.reminder || "NONE",
+    });
+    setShowEditActivityModal(true);
+  };
+
+  const handleUpdateActivity = async () => {
+    if (!editingActivity?.title?.trim()) {
+      setActivityActionError("Activity title is required.");
+      return;
+    }
+    try {
+      setActivityActionError(null);
+      await TripService.updateActivity(editingActivity.id, {
+        ...editingActivity,
+        title: editingActivity.title.trim(),
+        itineraryId: editingActivity.itineraryId,
+        cost: editingActivity.cost !== "" && editingActivity.cost != null ? parseFloat(editingActivity.cost) : null,
+        startTime: editingActivity.startTime || null,
+        endTime: editingActivity.endTime || null,
+        reminder: editingActivity.reminder || "NONE",
+      });
+      setShowEditActivityModal(false);
+      setEditingActivity(null);
+      fetchTripData();
+    } catch (err) {
+      console.error("Failed to update activity:", err);
+      const msg = err.response?.data?.message || err.message || "Failed to update activity. Please check input values.";
+      setActivityActionError(msg);
+    }
   };
 
   const handleDeleteActivity = async (activityId) => {
@@ -236,6 +295,9 @@ const Itineraries = () => {
             <div style={styles.modal}>
               <div style={styles.modalCard} className="glass-card">
                 <h3 style={styles.formTitle}>Add Activity</h3>
+                {activityActionError && (
+                  <div style={styles.errorBanner}>{activityActionError}</div>
+                )}
                 <div style={styles.activityFormGrid}>
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Title</label>
@@ -294,8 +356,85 @@ const Itineraries = () => {
                   </div>
                 </div>
                 <div style={styles.formActions}>
-                  <button className="btn-ghost" onClick={() => setShowActivityForm(false)}>Cancel</button>
+                  <button className="btn-ghost" onClick={() => { setShowActivityForm(false); setActivityActionError(null); }}>Cancel</button>
                   <button className="btn-aurora" onClick={handleCreateActivity}>Add Activity</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Activity Modal */}
+          {showEditActivityModal && editingActivity && (
+            <div style={styles.modal}>
+              <div style={styles.modalCard} className="glass-card">
+                <h3 style={styles.formTitle}>Edit Activity</h3>
+                {activityActionError && (
+                  <div style={styles.errorBanner}>{activityActionError}</div>
+                )}
+                <div style={styles.activityFormGrid}>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Title</label>
+                    <input className="aurora-input" placeholder="Activity title"
+                      value={editingActivity.title}
+                      onChange={(e) => setEditingActivity({ ...editingActivity, title: e.target.value })} />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Type</label>
+                    <select className="aurora-input" value={editingActivity.type}
+                      onChange={(e) => setEditingActivity({ ...editingActivity, type: e.target.value })}>
+                      {["SIGHTSEEING", "TRANSPORTATION", "ACCOMMODATION", "DINING", "ADVENTURE", "SHOPPING", "OTHER"].map(t => (
+                        <option key={t} value={t} style={{ background: "#0d1529" }}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Start Time</label>
+                    <input className="aurora-input" type="time" value={editingActivity.startTime}
+                      onChange={(e) => setEditingActivity({ ...editingActivity, startTime: e.target.value })} />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>End Time</label>
+                    <input className="aurora-input" type="time" value={editingActivity.endTime}
+                      onChange={(e) => setEditingActivity({ ...editingActivity, endTime: e.target.value })} />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Location</label>
+                    <input className="aurora-input" placeholder="Location"
+                      value={editingActivity.location}
+                      onChange={(e) => setEditingActivity({ ...editingActivity, location: e.target.value })} />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Cost (₹)</label>
+                    <input className="aurora-input" type="number" placeholder="Optional"
+                      value={editingActivity.cost}
+                      onChange={(e) => setEditingActivity({ ...editingActivity, cost: e.target.value })} />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <label style={styles.label}>Reminder</label>
+                    <select className="aurora-input" value={editingActivity.reminder}
+                      onChange={(e) => setEditingActivity({ ...editingActivity, reminder: e.target.value })}>
+                      <option value="NONE" style={{ background: "#0d1529" }}>No reminder</option>
+                      <option value="THIRTY_MINUTES" style={{ background: "#0d1529" }}>30 minutes before</option>
+                      <option value="ONE_HOUR" style={{ background: "#0d1529" }}>1 hour before</option>
+                      <option value="TWO_HOURS" style={{ background: "#0d1529" }}>2 hours before</option>
+                      <option value="ONE_DAY" style={{ background: "#0d1529" }}>1 day before</option>
+                    </select>
+                  </div>
+                  <div style={{ ...styles.inputGroup, gridColumn: "1 / -1" }}>
+                    <label style={styles.label}>Notes / Description</label>
+                    <textarea className="aurora-input" placeholder="Activity notes or description..." rows={3}
+                      value={editingActivity.description}
+                      onChange={(e) => setEditingActivity({ ...editingActivity, description: e.target.value })}
+                      style={{ resize: "vertical" }} />
+                  </div>
+                </div>
+                <div style={styles.formActions}>
+                  <button className="btn-ghost" onClick={() => {
+                    setShowEditActivityModal(false);
+                    setEditingActivity(null);
+                    setActivityActionError(null);
+                  }}>Cancel</button>
+                  <button className="btn-aurora" onClick={handleUpdateActivity}>Save Changes</button>
                 </div>
               </div>
             </div>
@@ -326,6 +465,7 @@ const Itineraries = () => {
                       <div style={styles.itineraryActions}>
                         <button className="btn-aurora" onClick={() => {
                           setSelectedItineraryId(itinerary.id);
+                          setActivityActionError(null);
                           setShowActivityForm(true);
                         }} style={{ fontSize: "12px", padding: "6px 12px" }}>
                           + Activity
@@ -370,10 +510,16 @@ const Itineraries = () => {
                             )}
                           </div>
                           {(!trip?.permission || trip?.permission !== "VIEW") && (
-                            <button className="btn-ghost" onClick={() => handleDeleteActivity(activity.id)}
-                              style={{ fontSize: "11px", padding: "4px 8px", alignSelf: "flex-start", color: "#ef4444" }}>
-                              Delete
-                            </button>
+                            <div style={{ display: "flex", gap: "8px", alignSelf: "flex-start" }}>
+                              <button className="btn-ghost" onClick={() => handleOpenEditActivity(activity, itinerary.id)}
+                                style={{ fontSize: "11px", padding: "4px 8px", color: "#93c5fd" }}>
+                                ✏️ Edit
+                              </button>
+                              <button className="btn-ghost" onClick={() => handleDeleteActivity(activity.id)}
+                                style={{ fontSize: "11px", padding: "4px 8px", color: "#ef4444" }}>
+                                🗑️ Delete
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -423,6 +569,7 @@ const styles = {
   label: { color: "#94a3b8", fontSize: "13px", fontWeight: "500" },
   hint: { color: "#64748b", fontSize: "11px", marginTop: "2px" },
   formActions: { display: "flex", gap: "12px", justifyContent: "flex-end" },
+  errorBanner: { padding: "10px 14px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#fca5a5", borderRadius: "8px", fontSize: "13px" },
   modal: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
   modalCard: { width: "500px", maxWidth: "90vw", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" },
   activityFormGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },

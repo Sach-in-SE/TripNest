@@ -13,7 +13,7 @@ public class BudgetRequest {
     private Double totalAmount;
 
     @Size(max = 10, message = "Currency code cannot exceed 10 characters")
-    private String currency;
+    private String currency = "INR";
 
     @NotNull(message = "Trip ID is required")
     private Long tripId;

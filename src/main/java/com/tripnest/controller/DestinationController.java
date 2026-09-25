@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -37,8 +38,9 @@ public class DestinationController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getAllDestinations() {
-        List<DestinationResponse> destinations = destinationService.getAllDestinations();
+    public ResponseEntity<?> getAllDestinations(
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
+        Page<DestinationResponse> destinations = destinationService.getAllDestinations(pageable);
         return ResponseEntity.ok(destinations);
     }
 

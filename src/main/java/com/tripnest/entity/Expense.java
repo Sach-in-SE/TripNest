@@ -38,6 +38,14 @@ public class Expense {
     @JoinColumn(name = "user_id")
     private User user;
 
+    public User getPaidBy() {
+        return this.user;
+    }
+
+    public void setPaidBy(User user) {
+        this.user = user;
+    }
+
     @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
     private java.util.List<com.tripnest.model.ExpenseSplit> splits = new java.util.ArrayList<>();
 

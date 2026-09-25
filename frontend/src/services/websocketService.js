@@ -141,6 +141,50 @@ class WebSocketService {
     };
   }
 
+  /**
+   * Subscribes to /topic/trips/{tripId}.
+   * Automatically connects the STOMP client if not already active.
+   *
+   * @param {number|string} tripId
+   * @param {function(object): void} onMessageReceived
+   * @returns {function(): void} Unsubscribe function
+   */
+  subscribeToTrip(tripId, onMessageReceived) {
+    const key = `trip_${tripId}`;
+
+    if (!this.subscriptions.has(key)) {
+      this.subscriptions.set(key, new Set());
+    }
+    this.subscriptions.get(key).add(onMessageReceived);
+
+    if (this.connected && this.client && this.client.connected) {
+      this.ensureStompSubscription(key);
+    } else {
+      this.connect().catch((err) => {
+        console.warn('WebSocket connect deferred:', err.message);
+      });
+    }
+
+    return () => {
+      const handlers = this.subscriptions.get(key);
+      if (handlers) {
+        handlers.delete(onMessageReceived);
+        if (handlers.size === 0) {
+          this.subscriptions.delete(key);
+          const sub = this.activeStompSubs.get(key);
+          if (sub) {
+            try {
+              sub.unsubscribe();
+            } catch (err) {
+              console.warn('Error unsubscribing from trip topic:', err);
+            }
+            this.activeStompSubs.delete(key);
+          }
+        }
+      }
+    };
+  }
+
   ensureStompSubscription(groupIdKey) {
     if (this.activeStompSubs.has(groupIdKey)) {
       return;
@@ -150,7 +194,9 @@ class WebSocketService {
       return;
     }
 
-    const destination = `/topic/groups/${groupIdKey}`;
+    const destination = groupIdKey.startsWith('trip_')
+      ? `/topic/trips/${groupIdKey.replace('trip_', '')}`
+      : `/topic/groups/${groupIdKey}`;
     try {
       const stompSub = this.client.subscribe(destination, (frame) => {
         try {

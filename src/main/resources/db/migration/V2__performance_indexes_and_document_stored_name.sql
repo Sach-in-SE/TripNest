@@ -9,7 +9,7 @@ ALTER TABLE travel_documents ADD COLUMN IF NOT EXISTS stored_file_name varchar(2
 
 -- Backfill existing rows by extracting file name after the last slash of file_url
 UPDATE travel_documents
-SET stored_file_name = SUBSTRING(file_url FROM '/([^/]+)$')
+SET stored_file_name = REGEXP_REPLACE(file_url, '^.*/', '')
 WHERE stored_file_name IS NULL AND file_url IS NOT NULL;
 
 -- Unique constraint / index for fast O(1) B-tree lookups during file downloads

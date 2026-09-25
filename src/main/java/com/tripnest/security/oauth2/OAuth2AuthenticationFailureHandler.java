@@ -33,6 +33,14 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
                 ? frontendUrl.trim().replaceAll("/+$", "")
                 : "http://localhost:5173";
 
+        if ("http://localhost".equalsIgnoreCase(base) || "http://127.0.0.1".equalsIgnoreCase(base)) {
+            try (java.net.Socket socket = new java.net.Socket()) {
+                socket.connect(new java.net.InetSocketAddress("localhost", 80), 80);
+            } catch (Exception e) {
+                base = "http://localhost:5173";
+            }
+        }
+
         String targetUrl = base + "/login?oauth_error=true";
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }

@@ -60,7 +60,7 @@ function AdminDestinationManagement() {
       } else {
         res = await api.get("/destinations");
       }
-      setDestinations(res.data);
+      setDestinations(Array.isArray(res.data) ? res.data : (res.data?.content || []));
     } catch (err) {
       console.error("Failed to fetch destinations:", err);
       setError(err.response?.data?.message || "Failed to load destinations catalog.");

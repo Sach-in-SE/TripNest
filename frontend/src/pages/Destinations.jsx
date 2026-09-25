@@ -96,7 +96,8 @@ const Destinations = () => {
       } else {
         res = await api.get("/destinations");
       }
-      setDestinations(applySort(res.data, sortBy));
+      const data = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+      setDestinations(applySort(data, sortBy));
       setError(null);
     } catch (err) {
       setError("Failed to load destinations");
@@ -107,8 +108,9 @@ const Destinations = () => {
   };
 
   const applySort = (list, sortKey) => {
-    if (!list) return [];
-    const copy = [...list];
+    const arr = Array.isArray(list) ? list : (list?.content || []);
+    if (!arr || !Array.isArray(arr)) return [];
+    const copy = [...arr];
     if (sortKey === "name") {
       return copy.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }
@@ -129,7 +131,8 @@ const Destinations = () => {
     setLoading(true);
     try {
       const res = await api.get(`/destinations/search?query=${encodeURIComponent(searchQuery)}`);
-      setDestinations(applySort(res.data, sortBy));
+      const data = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+      setDestinations(applySort(data, sortBy));
       setError(null);
     } catch (err) {
       setError("Search failed");
@@ -145,7 +148,8 @@ const Destinations = () => {
       setSelectedCategory("");
       try {
         const res = await api.get("/destinations");
-        setDestinations(applySort(res.data, sortBy));
+        const data = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+        setDestinations(applySort(data, sortBy));
         setError(null);
       } catch {
         setError("Failed to reset filter");
@@ -156,7 +160,8 @@ const Destinations = () => {
       setSelectedCategory(category);
       try {
         const res = await api.get(`/destinations/filter?category=${encodeURIComponent(category)}`);
-        setDestinations(applySort(res.data, sortBy));
+        const data = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+        setDestinations(applySort(data, sortBy));
         setError(null);
       } catch (err) {
         setError("Filter failed");
@@ -176,7 +181,8 @@ const Destinations = () => {
         setLoading(true);
         try {
           const res = await api.get(`/destinations/sort?sortBy=${encodeURIComponent(newSort)}`);
-          setDestinations(res.data);
+          const data = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+          setDestinations(data);
           setError(null);
         } catch (err) {
           setError("Sort failed");

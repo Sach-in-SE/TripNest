@@ -63,8 +63,9 @@ export const DestinationCatalog = () => {
     const fetchFeaturedDestinations = async () => {
       try {
         const response = await api.get('/destinations');
-        if (isMounted && Array.isArray(response.data)) {
-          setDestinations(response.data);
+        const items = Array.isArray(response.data) ? response.data : (response.data?.content || []);
+        if (isMounted && Array.isArray(items)) {
+          setDestinations(items);
         }
       } catch (err) {
         console.warn('Failed to load landing page featured destinations:', err);
