@@ -133,7 +133,7 @@ flowchart TD
 | **Chart.js & react-chartjs-2** | `4.5.1` / `5.3.1` | Interactive analytics charts in Admin Dashboard |
 | **Leaflet & react-leaflet** | `1.9.4` / `5.0.0` | OpenStreetMap geospatial map visualization |
 | **jsPDF & jspdf-autotable** | `4.2.1` / `5.0.8` | Client-side multi-page PDF itinerary & expense export |
-| **Vitest & Testing Library** | `4.1.11` / `16.3.2` | Comprehensive automated unit test suite (73 tests) |
+| **Vitest & Testing Library** | `4.1.11` / `16.3.2` | Comprehensive automated unit test suite (77 tests) |
 
 ### Backend Architecture
 | Technology | Version | Purpose |
@@ -152,8 +152,7 @@ flowchart TD
 |---|---|---|
 | **Azure Container Apps** | Production | Serverless container hosting with automated revision rollout |
 | **Azure Container Registry** | Production | Secure private container registry (`tripnestacr2988`) |
-| **PostgreSQL** | `16` (Production) | Managed relational database engine |
-| **MySQL** | `8.0` (Dev Profile) | Local development database option |
+| **PostgreSQL** | `16` (Local Dev & Production) | Relational database engine for Docker development and Azure Flexible Server with Flyway V1–V5 migrations |
 | **Nginx** | `1.27 Alpine` | Production reverse proxy, static caching, and SPA router |
 | **Docker & Docker Compose** | Multi-Platform | Containerized builds and local orchestration |
 
@@ -204,42 +203,27 @@ flowchart TD
    ```
 
 2. **Configure environment variables:**
-   Create a `.env` file in the repository root:
-   ```env
-   # Database Configuration
-   POSTGRES_DB=tripnest_db
-   POSTGRES_USER=tripnest_user
-   POSTGRES_PASSWORD=your_secure_password
-   SPRING_DATASOURCE_PASSWORD=your_secure_password
-
-   # Security & Authentication
-   JWT_SECRET=your_minimum_32_characters_random_secret_key_here!
-   JWT_EXPIRATION_MS=86400000
-
-   # Administrator Seed Credentials
-   ADMIN_EMAIL=admin@tripnest.com
-   ADMIN_USERNAME=admin
-   ADMIN_PASSWORD=AdminSecure2026!
-
-   # Frontend URLs
-   FRONTEND_URL=http://localhost
-   CORS_ALLOWED_ORIGINS=http://localhost
+   Copy the pre-configured environment template directly:
+   ```bash
+   cp .env.example .env
    ```
+   *(The provided `.env.example` comes pre-configured with local PostgreSQL, JWT secret, and Administrator seed defaults ready for immediate local execution).*
 
 3. **Launch the container stack:**
    ```bash
-   docker compose up --build -d
+   docker compose -f docker-compose.dev.yml up --build -d
    ```
 
 4. **Verify container health:**
    ```bash
-   docker compose ps
+   docker compose -f docker-compose.dev.yml ps
    ```
 
-5. **Access the application:**
+5. **Access the application & services:**
    - **TripNest Web Application**: [http://localhost](http://localhost) (Nginx port 80)
-   - **Backend REST API**: [http://localhost/api](http://localhost/api)
-   - **Actuator Health Probe**: [http://localhost/actuator/health](http://localhost/actuator/health)
+   - **Backend API & Probes**: [http://localhost:8080](http://localhost:8080) (Direct Tomcat) / [http://localhost/api](http://localhost/api)
+   - **Actuator Health Probe**: [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
+   - **Database**: `localhost:5432` (PostgreSQL)
 
 ---
 
@@ -250,7 +234,7 @@ flowchart TD
 cd frontend
 npm test -- --run
 ```
-- **Result:** 11 test suites passing, **73 / 73 unit tests passed (100%)**.
+- **Result:** 12 test suites passing, **77 / 77 unit tests passed (100%)**.
 
 ### Frontend Production Bundle Build
 ```bash
