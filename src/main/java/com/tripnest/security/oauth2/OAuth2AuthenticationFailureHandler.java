@@ -21,7 +21,7 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
 
     private static final Logger logger = LoggerFactory.getLogger(OAuth2AuthenticationFailureHandler.class);
 
-    @Value("${app.frontend.url:http://localhost:5173}")
+    @Value("${app.frontend.url:${FRONTEND_URL:http://localhost}}")
     private String frontendUrl;
 
     @Override
@@ -31,15 +31,7 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
 
         String base = (frontendUrl != null && !frontendUrl.trim().isEmpty())
                 ? frontendUrl.trim().replaceAll("/+$", "")
-                : "http://localhost:5173";
-
-        if ("http://localhost".equalsIgnoreCase(base) || "http://127.0.0.1".equalsIgnoreCase(base)) {
-            try (java.net.Socket socket = new java.net.Socket()) {
-                socket.connect(new java.net.InetSocketAddress("localhost", 80), 80);
-            } catch (Exception e) {
-                base = "http://localhost:5173";
-            }
-        }
+                : "http://localhost";
 
         String targetUrl = base + "/login?oauth_error=true";
         getRedirectStrategy().sendRedirect(request, response, targetUrl);

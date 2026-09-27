@@ -119,8 +119,10 @@ public class OAuth2SecurityHardeningTest {
         String redirectedUrl = response.getRedirectedUrl();
         assertNotNull(redirectedUrl, "Redirect URL must not be null");
 
-        // Verify redirect URL contains ?code=tn_oec_
-        assertTrue(redirectedUrl.contains("/oauth2/redirect?code="), "URL must route to /oauth2/redirect?code=...");
+        // Verify redirect URL points to http://localhost (without port 5173)
+        assertTrue(redirectedUrl.startsWith("http://localhost/oauth2/redirect?code="),
+                "URL must route to http://localhost/oauth2/redirect?code=..., but was: " + redirectedUrl);
+        assertFalse(redirectedUrl.contains(":5173"), "Redirect URL must NEVER contain port 5173");
         assertTrue(redirectedUrl.contains("code=tn_oec_"), "Exchange code must start with tn_oec_ prefix");
 
         // Strictly verify NO JWT or token exposure in redirect URL
@@ -213,9 +215,75 @@ public class OAuth2SecurityHardeningTest {
 
         String redirectedUrl = response.getRedirectedUrl();
         assertNotNull(redirectedUrl);
-        assertTrue(redirectedUrl.contains("/login?oauth_error=true"));
+        assertTrue(redirectedUrl.startsWith("http://localhost/login?oauth_error=true"),
+                "Failure redirect must point to http://localhost without port 5173, but got: " + redirectedUrl);
+        assertFalse(redirectedUrl.contains(":5173"), "Failure redirect must not contain port 5173");
         assertFalse(redirectedUrl.contains("stackTrace"));
         assertFalse(redirectedUrl.contains("exception"));
+    }
+
+    @Test
+    @DisplayName("Full End-to-End Flow: OAuth2 redirect to http://localhost exchanges code via /api/auth/oauth2/exchange")
+    void testFullOAuthRedirectAndExchangeFlow() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("email", testOAuthUser.getEmail());
+        attributes.put("name", "OAuth Security Traveler");
+        attributes.put("sub", "google-sub-id-67890");
+
+        OAuth2User principal = new DefaultOAuth2User(
+                Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),
+                attributes,
+                "email"
+        );
+
+        Authentication auth = mock(Authentication.class);
+        when(auth.getPrincipal()).thenReturn(principal);
+
+        // 1. Success handler redirects to http://localhost/oauth2/redirect?code=tn_oec_...
+        successHandler.onAuthenticationSuccess(request, response, auth);
+        String redirectedUrl = response.getRedirectedUrl();
+
+        assertNotNull(redirectedUrl);
+        assertTrue(redirectedUrl.startsWith("http://localhost/oauth2/redirect?code="),
+                "Redirect must point strictly to http://localhost, was: " + redirectedUrl);
+        assertFalse(redirectedUrl.contains(":5173"), "Redirect must not contain port 5173");
+
+        // 2. Extract code parameter from redirect URL
+        String codeParam = redirectedUrl.substring(redirectedUrl.indexOf("code=") + 5);
+        assertNotNull(codeParam);
+        assertTrue(codeParam.startsWith("tn_oec_"));
+
+        // 3. Frontend exchanges one-time code via POST /api/auth/oauth2/exchange
+        OAuth2ExchangeRequest exchangeRequest = new OAuth2ExchangeRequest(codeParam);
+        MvcResult exchangeResult = mockMvc.perform(post("/api/auth/oauth2/exchange")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(exchangeRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token", not(emptyOrNullString())))
+                .andExpect(jsonPath("$.username", is(testOAuthUser.getUsername())))
+                .andExpect(jsonPath("$.email", is(testOAuthUser.getEmail())))
+                .andReturn();
+
+        JwtResponse jwtResponse = objectMapper.readValue(exchangeResult.getResponse().getContentAsString(), JwtResponse.class);
+        assertNotNull(jwtResponse.getToken());
+    }
+
+    @Test
+    @DisplayName("OAuth2 Success Handler honors authorized redirect URIs and parameter resolution")
+    void testRedirectHonorsAuthorizedRedirectUris() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        String targetUrl = successHandler.resolveTargetUrl(request, "tn_oec_test_sample_code");
+        assertTrue(targetUrl.startsWith("http://localhost/oauth2/redirect?code="),
+                "Default resolved URL must point to http://localhost/oauth2/redirect?code=..., got: " + targetUrl);
+        assertFalse(targetUrl.contains(":5173"), "Resolved URL must not point to port 5173");
+
+        // When valid authorized redirect_uri parameter is supplied
+        request.setParameter("redirect_uri", "http://localhost/oauth2/redirect");
+        String paramTargetUrl = successHandler.resolveTargetUrl(request, "tn_oec_test_sample_code");
+        assertTrue(paramTargetUrl.startsWith("http://localhost/oauth2/redirect?code="));
     }
 
     @Test

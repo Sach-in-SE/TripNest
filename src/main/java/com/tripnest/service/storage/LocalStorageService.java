@@ -1,5 +1,8 @@
 package com.tripnest.service.storage;
 
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -15,8 +18,23 @@ import java.nio.file.StandardCopyOption;
 @Service("localStorageService")
 public class LocalStorageService implements StorageService {
 
+    private static final Logger logger = LoggerFactory.getLogger(LocalStorageService.class);
+
     @Value("${tripnest.upload.dir:uploads}")
     private String uploadDir;
+
+    @PostConstruct
+    public void init() {
+        try {
+            Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+                logger.info("Initialized local upload directory at: {}", uploadPath);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Could not initialize local upload directory: " + uploadDir, e);
+        }
+    }
 
     private void validateFileName(String storedFileName) {
         if (storedFileName == null || storedFileName.isBlank()
